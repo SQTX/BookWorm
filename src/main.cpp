@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     app.setApplicationName(BookWorm::Config::APP_NAME);
     app.setApplicationVersion(BookWorm::Config::APP_VERSION);
     app.setOrganizationName(BookWorm::Config::APP_ORG);
-    app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/BookWorm/src/img/png/main_icon.png")));
+    app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/BookWorm/src/img/png/main_icon_radius.png")));
 
     QQuickStyle::setStyle("Material");
     qputenv("QT_QUICK_CONTROLS_MATERIAL_THEME", "Dark");

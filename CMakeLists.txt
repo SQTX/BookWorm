@@ -53,6 +53,7 @@ qt_add_qml_module(BookWorm
         qml/components/ChallengesView.qml
     RESOURCES
         src/img/png/main_icon.png
+        src/img/png/main_icon_radius.png
         src/img/icons/library-view.svg
         src/img/icons/sheet-view.svg
         src/img/icons/stat-view.svg
@@ -89,10 +90,16 @@ target_link_libraries(BookWorm PRIVATE
 )
 
 if(APPLE)
+    set(MACOSX_ICON "${CMAKE_CURRENT_SOURCE_DIR}/src/img/BookWorm.icns")
+    set_source_files_properties(${MACOSX_ICON} PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+    target_sources(BookWorm PRIVATE ${MACOSX_ICON})
+
     set_target_properties(BookWorm PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER com.sqtx.bookworm
         MACOSX_BUNDLE_BUNDLE_NAME BookWorm
+        MACOSX_BUNDLE_ICON_FILE BookWorm.icns
     )
-
 endif()
