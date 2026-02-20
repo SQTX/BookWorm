@@ -64,6 +64,7 @@ qt_add_qml_module(WormBook
         src/img/icons/challenges.svg
         src/img/icons/book-cover.svg
         src/img/icons/calendar.svg
+        src/img/icons/tags.svg
 )
 
 # Include directories so QML type registration can find headers

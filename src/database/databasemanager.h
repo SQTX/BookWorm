@@ -30,6 +30,10 @@ public:
     // Tags
     QStringList fetchTagsForBook(int bookId);
     QStringList fetchAllTags();
+    QVariantList fetchAllTagsWithColors();
+    bool addTagWithColor(const QString &name, const QString &color);
+    bool updateTag(int id, const QString &name, const QString &color);
+    bool deleteTag(int id);
     bool syncTagsForBook(int bookId, const QStringList &tags);
 
     // Quotes
@@ -65,6 +69,7 @@ public:
     QVariantList booksPerYear();
     QVariantList booksPerMonthForYear(int year);
     QVariantMap statusDistribution();
+    QVariantList getAvailableYears();
 
 private:
     DatabaseManager() = default;

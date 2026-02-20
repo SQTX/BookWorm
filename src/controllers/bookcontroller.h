@@ -13,7 +13,8 @@ class BookController : public QObject
     Q_PROPERTY(BookModel* model READ model CONSTANT)
     Q_PROPERTY(QString filterStatus READ filterStatus WRITE setFilterStatus NOTIFY filterStatusChanged)
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
-    Q_PROPERTY(QString filterEndDate READ filterEndDate WRITE setFilterEndDate NOTIFY filterEndDateChanged)
+    Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
+    Q_PROPERTY(QString filterYearMode READ filterYearMode WRITE setFilterYearMode NOTIFY filterYearModeChanged)
 
 public:
     explicit BookController(QObject *parent = nullptr);
@@ -27,6 +28,11 @@ public:
     Q_INVOKABLE QVariantMap getBookDetails(int id);
 
     Q_INVOKABLE QStringList getAllTags();
+    Q_INVOKABLE QVariantList getAllTagsWithColors();
+    Q_INVOKABLE bool addTag(const QString &name, const QString &color);
+    Q_INVOKABLE bool updateTag(int id, const QString &name, const QString &color);
+    Q_INVOKABLE bool deleteTag(int id);
+    Q_INVOKABLE QVariantList getAvailableYears();
     Q_INVOKABLE QStringList getAllGenres();
     Q_INVOKABLE QStringList getAllSeries();
     Q_INVOKABLE QStringList getAllAuthors();
@@ -61,13 +67,16 @@ public:
     void setFilterStatus(const QString &status);
     QString searchQuery() const;
     void setSearchQuery(const QString &query);
-    QString filterEndDate() const;
-    void setFilterEndDate(const QString &date);
+    int filterYear() const;
+    void setFilterYear(int year);
+    QString filterYearMode() const;
+    void setFilterYearMode(const QString &mode);
 
 signals:
     void filterStatusChanged();
     void searchQueryChanged();
-    void filterEndDateChanged();
+    void filterYearChanged();
+    void filterYearModeChanged();
     void booksChanged();
     void errorOccurred(const QString &message);
 
@@ -78,5 +87,6 @@ private:
     QVector<Book> m_allBooks;
     QString m_filterStatus;
     QString m_searchQuery;
-    QString m_filterEndDate;
+    int m_filterYear = 0;
+    QString m_filterYearMode = QStringLiteral("finish");
 };

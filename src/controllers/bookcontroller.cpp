@@ -124,6 +124,40 @@ QStringList BookController::getAllTags()
     return DatabaseManager::instance().fetchAllTags();
 }
 
+QVariantList BookController::getAllTagsWithColors()
+{
+    return DatabaseManager::instance().fetchAllTagsWithColors();
+}
+
+bool BookController::addTag(const QString &name, const QString &color)
+{
+    if (name.trimmed().isEmpty())
+        return false;
+    return DatabaseManager::instance().addTagWithColor(name.trimmed(), color);
+}
+
+bool BookController::updateTag(int id, const QString &name, const QString &color)
+{
+    if (name.trimmed().isEmpty())
+        return false;
+    return DatabaseManager::instance().updateTag(id, name.trimmed(), color);
+}
+
+bool BookController::deleteTag(int id)
+{
+    bool ok = DatabaseManager::instance().deleteTag(id);
+    if (ok) {
+        // Refresh books since tags may have changed
+        loadBooks();
+    }
+    return ok;
+}
+
+QVariantList BookController::getAvailableYears()
+{
+    return DatabaseManager::instance().getAvailableYears();
+}
+
 QStringList BookController::getAllGenres()
 {
     QStringList genres;
@@ -405,16 +439,30 @@ void BookController::setSearchQuery(const QString &query)
     }
 }
 
-QString BookController::filterEndDate() const
+int BookController::filterYear() const
 {
-    return m_filterEndDate;
+    return m_filterYear;
 }
 
-void BookController::setFilterEndDate(const QString &date)
+void BookController::setFilterYear(int year)
 {
-    if (m_filterEndDate != date) {
-        m_filterEndDate = date;
-        emit filterEndDateChanged();
+    if (m_filterYear != year) {
+        m_filterYear = year;
+        emit filterYearChanged();
+        applyFilters();
+    }
+}
+
+QString BookController::filterYearMode() const
+{
+    return m_filterYearMode;
+}
+
+void BookController::setFilterYearMode(const QString &mode)
+{
+    if (m_filterYearMode != mode) {
+        m_filterYearMode = mode;
+        emit filterYearModeChanged();
         applyFilters();
     }
 }
@@ -599,10 +647,6 @@ void BookController::applyFilters()
 {
     QVector<Book> filtered;
 
-    QDate endDateFilter;
-    if (!m_filterEndDate.isEmpty())
-        endDateFilter = QDate::fromString(m_filterEndDate, Qt::ISODate);
-
     for (const Book &book : m_allBooks) {
         // Status filter
         if (!m_filterStatus.isEmpty() && book.status != m_filterStatus)
@@ -616,12 +660,15 @@ void BookController::applyFilters()
                 continue;
         }
 
-        // End date filter (month match)
-        if (endDateFilter.isValid()) {
-            if (!book.endDate.isValid() ||
-                book.endDate.year() != endDateFilter.year() ||
-                book.endDate.month() != endDateFilter.month())
-                continue;
+        // Year filter
+        if (m_filterYear > 0) {
+            if (m_filterYearMode == QStringLiteral("start")) {
+                if (!book.startDate.isValid() || book.startDate.year() != m_filterYear)
+                    continue;
+            } else {
+                if (!book.endDate.isValid() || book.endDate.year() != m_filterYear)
+                    continue;
+            }
         }
 
         filtered.append(book);

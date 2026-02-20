@@ -154,6 +154,20 @@ ApplicationWindow {
 
                 Item { Layout.fillHeight: true }
 
+                // Tags button
+                ToolButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 48; height: 48
+                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/tags.svg"
+                    icon.width: 20; icon.height: 20
+                    icon.color: Theme.textSecondary
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.appLanguage === "pl" ? "Tagi" : "Tags"
+
+                    onClicked: tagsPopup.open()
+                }
+
                 // Export button
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
@@ -196,14 +210,7 @@ ApplicationWindow {
                     onClicked: settingsPopup.open()
                 }
 
-                // App icon at bottom
-                Image {
-                    Layout.alignment: Qt.AlignHCenter
-                    source: "qrc:/qt/qml/WormBook/src/img/png/main_icon.png"
-                    sourceSize.width: 36
-                    sourceSize.height: 36
-                    fillMode: Image.PreserveAspectFit
-                }
+                Item { Layout.preferredHeight: Theme.spacingSmall }
             }
         }
 
@@ -498,6 +505,350 @@ ApplicationWindow {
             }
 
             Item { Layout.preferredHeight: Theme.spacingSmall }
+        }
+    }
+
+    // ── Tags Popup ──
+    Popup {
+        id: tagsPopup
+        x: 80
+        y: Math.max(16, parent.height / 2 - height / 2)
+        width: 340
+        padding: 0
+        modal: true
+
+        property var tagsList: []
+        property string newTagName: ""
+        property string newTagColor: "#808080"
+
+        readonly property var presetColors: [
+            "#E57373", "#F06292", "#BA68C8", "#9575CD",
+            "#7986CB", "#64B5F6", "#4FC3F7", "#4DD0E1",
+            "#4DB6AC", "#81C784", "#AED581", "#DCE775",
+            "#FFD54F", "#FFB74D", "#FF8A65", "#A1887F"
+        ]
+
+        onOpened: {
+            tagsList = bookController.getAllTagsWithColors();
+            newTagName = "";
+            newTagColor = "#808080";
+        }
+
+        background: Rectangle {
+            radius: Theme.radiusMedium
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: 0
+
+            // Header
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 44
+                color: "transparent"
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: Theme.spacingLarge
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.appLanguage === "pl" ? "Tagi" : "Tags"
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeLarge
+                    font.bold: true
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            // Tags list
+            Flickable {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(tagsCol.implicitHeight, 300)
+                contentHeight: tagsCol.implicitHeight
+                clip: true
+                flickableDirection: Flickable.VerticalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                ColumnLayout {
+                    id: tagsCol
+                    width: parent.width
+                    spacing: 2
+
+                    Repeater {
+                        model: tagsPopup.tagsList
+
+                        Rectangle {
+                            required property var modelData
+                            required property int index
+
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 40
+                            color: tagRowMouse.containsMouse ? Theme.surfaceVariant : "transparent"
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.spacingLarge
+                                anchors.rightMargin: Theme.spacingMedium
+                                spacing: Theme.spacingMedium
+
+                                // Color dot (clickable)
+                                Rectangle {
+                                    width: 20; height: 20; radius: 10
+                                    color: modelData.color || "#808080"
+                                    border.width: 1
+                                    border.color: Qt.darker(modelData.color || "#808080", 1.3)
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            colorPickerPopup.tagId = modelData.id;
+                                            colorPickerPopup.tagName = modelData.name;
+                                            colorPickerPopup.selectedColor = modelData.color || "#808080";
+                                            colorPickerPopup.isNewTag = false;
+                                            colorPickerPopup.open();
+                                        }
+                                    }
+                                }
+
+                                // Editable name
+                                TextField {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 32
+                                    topPadding: 4; bottomPadding: 4
+                                    text: modelData.name
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    color: Theme.textOnSurface
+                                    background: Rectangle {
+                                        color: "transparent"
+                                        border.width: parent.activeFocus ? 1 : 0
+                                        border.color: Theme.primary
+                                        radius: Theme.radiusSmall
+                                    }
+                                    onEditingFinished: {
+                                        if (text.trim() !== "" && text.trim() !== modelData.name) {
+                                            bookController.updateTag(modelData.id, text.trim(), modelData.color);
+                                            tagsPopup.tagsList = bookController.getAllTagsWithColors();
+                                        }
+                                    }
+                                }
+
+                                // Delete button
+                                ToolButton {
+                                    width: 28; height: 28
+                                    contentItem: Text {
+                                        text: "\u2715"
+                                        color: Theme.error
+                                        font.pixelSize: 11
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    onClicked: {
+                                        bookController.deleteTag(modelData.id);
+                                        tagsPopup.tagsList = bookController.getAllTagsWithColors();
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: tagRowMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.NoButton
+                            }
+                        }
+                    }
+
+                    // Empty state
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.topMargin: Theme.spacingLarge
+                        Layout.bottomMargin: Theme.spacingLarge
+                        visible: tagsPopup.tagsList.length === 0
+                        text: root.appLanguage === "pl" ? "Brak tagów" : "No tags yet"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeMedium
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            // Add new tag section
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingMedium
+                spacing: Theme.spacingSmall
+
+                // Color picker for new tag
+                Rectangle {
+                    width: 24; height: 24; radius: 12
+                    color: tagsPopup.newTagColor
+                    border.width: 1
+                    border.color: Qt.darker(tagsPopup.newTagColor, 1.3)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            colorPickerPopup.tagId = -1;
+                            colorPickerPopup.tagName = "";
+                            colorPickerPopup.selectedColor = tagsPopup.newTagColor;
+                            colorPickerPopup.isNewTag = true;
+                            colorPickerPopup.open();
+                        }
+                    }
+                }
+
+                TextField {
+                    id: newTagField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    topPadding: 4; bottomPadding: 4
+                    placeholderText: root.appLanguage === "pl" ? "Nowy tag..." : "New tag..."
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                    text: tagsPopup.newTagName
+                    onTextChanged: tagsPopup.newTagName = text
+                    onAccepted: {
+                        if (text.trim() !== "") {
+                            bookController.addTag(text.trim(), tagsPopup.newTagColor);
+                            tagsPopup.tagsList = bookController.getAllTagsWithColors();
+                            text = "";
+                            tagsPopup.newTagColor = "#808080";
+                        }
+                    }
+                }
+
+                RoundButton {
+                    width: 32; height: 32
+                    text: "+"
+                    font.pixelSize: 16
+                    font.bold: true
+                    Material.background: Theme.primary
+                    Material.foreground: Theme.textOnPrimary
+                    enabled: newTagField.text.trim() !== ""
+                    onClicked: {
+                        bookController.addTag(newTagField.text.trim(), tagsPopup.newTagColor);
+                        tagsPopup.tagsList = bookController.getAllTagsWithColors();
+                        newTagField.text = "";
+                        tagsPopup.newTagColor = "#808080";
+                    }
+                }
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingSmall }
+        }
+    }
+
+    // ── Color Picker Popup ──
+    Popup {
+        id: colorPickerPopup
+        x: tagsPopup.x + tagsPopup.width + 8
+        y: tagsPopup.y
+        width: 200
+        padding: Theme.spacingMedium
+        modal: true
+
+        property int tagId: -1
+        property string tagName: ""
+        property string selectedColor: "#808080"
+        property bool isNewTag: false
+
+        background: Rectangle {
+            radius: Theme.radiusMedium
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: Theme.spacingMedium
+
+            Text {
+                text: root.appLanguage === "pl" ? "Wybierz kolor" : "Pick color"
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeMedium
+                font.bold: true
+            }
+
+            Grid {
+                columns: 4
+                spacing: 8
+
+                Repeater {
+                    model: tagsPopup.presetColors
+
+                    Rectangle {
+                        required property string modelData
+                        width: 32; height: 32; radius: 16
+                        color: modelData
+                        border.width: colorPickerPopup.selectedColor === modelData ? 3 : 1
+                        border.color: colorPickerPopup.selectedColor === modelData
+                                      ? Theme.textOnSurface : Qt.darker(modelData, 1.3)
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                colorPickerPopup.selectedColor = modelData;
+                                if (colorPickerPopup.isNewTag) {
+                                    tagsPopup.newTagColor = modelData;
+                                } else {
+                                    bookController.updateTag(colorPickerPopup.tagId,
+                                                             colorPickerPopup.tagName, modelData);
+                                    tagsPopup.tagsList = bookController.getAllTagsWithColors();
+                                }
+                                colorPickerPopup.close();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Hex input
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingSmall
+
+                TextField {
+                    id: hexInput
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    topPadding: 4; bottomPadding: 4
+                    text: colorPickerPopup.selectedColor
+                    font.pixelSize: Theme.fontSizeSmall
+                    Material.accent: Theme.primary
+                    maximumLength: 9
+                    onAccepted: {
+                        var c = text.trim();
+                        if (c.match(/^#[0-9A-Fa-f]{6}$/)) {
+                            colorPickerPopup.selectedColor = c;
+                            if (colorPickerPopup.isNewTag) {
+                                tagsPopup.newTagColor = c;
+                            } else {
+                                bookController.updateTag(colorPickerPopup.tagId,
+                                                         colorPickerPopup.tagName, c);
+                                tagsPopup.tagsList = bookController.getAllTagsWithColors();
+                            }
+                            colorPickerPopup.close();
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: 24; height: 24; radius: 4
+                    color: colorPickerPopup.selectedColor
+                    border.width: 1
+                    border.color: Theme.divider
+                }
+            }
         }
     }
 

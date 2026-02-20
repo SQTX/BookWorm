@@ -154,6 +154,9 @@ bool DatabaseManager::initializeSchema()
     q.exec("CREATE INDEX IF NOT EXISTS idx_challenges_deadline ON challenges(deadline)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_highlights_book_id ON highlights(book_id)");
 
+    // Tags: add color column
+    q.exec("ALTER TABLE tags ADD COLUMN IF NOT EXISTS color VARCHAR(9) DEFAULT '#808080'");
+
     qInfo() << "Database schema initialized";
     return true;
 }
@@ -325,6 +328,62 @@ QStringList DatabaseManager::fetchAllTags()
     while (q.next())
         tags.append(q.value(0).toString());
     return tags;
+}
+
+QVariantList DatabaseManager::fetchAllTagsWithColors()
+{
+    QVariantList result;
+    QSqlQuery q("SELECT id, name, color FROM tags ORDER BY name", m_db);
+    while (q.next()) {
+        QVariantMap entry;
+        entry["id"]    = q.value("id").toInt();
+        entry["name"]  = q.value("name").toString();
+        entry["color"] = q.value("color").toString();
+        result.append(entry);
+    }
+    return result;
+}
+
+bool DatabaseManager::addTagWithColor(const QString &name, const QString &color)
+{
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO tags (name, color) VALUES (:name, :color) ON CONFLICT (name) DO NOTHING");
+    q.bindValue(":name", name.trimmed());
+    q.bindValue(":color", color.isEmpty() ? "#808080" : color);
+
+    if (!q.exec()) {
+        qWarning() << "addTagWithColor error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::updateTag(int id, const QString &name, const QString &color)
+{
+    QSqlQuery q(m_db);
+    q.prepare("UPDATE tags SET name = :name, color = :color WHERE id = :id");
+    q.bindValue(":id", id);
+    q.bindValue(":name", name.trimmed());
+    q.bindValue(":color", color.isEmpty() ? "#808080" : color);
+
+    if (!q.exec()) {
+        qWarning() << "updateTag error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteTag(int id)
+{
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM tags WHERE id = :id");
+    q.bindValue(":id", id);
+
+    if (!q.exec()) {
+        qWarning() << "deleteTag error:" << q.lastError().text();
+        return false;
+    }
+    return true;
 }
 
 bool DatabaseManager::syncTagsForBook(int bookId, const QStringList &tags)
@@ -797,6 +856,25 @@ QVariantMap DatabaseManager::statusDistribution()
     QSqlQuery q("SELECT status, COUNT(*) AS count FROM books GROUP BY status", m_db);
     while (q.next()) {
         result[q.value("status").toString()] = q.value("count").toInt();
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::getAvailableYears()
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT DISTINCT y FROM ("
+        "  SELECT EXTRACT(YEAR FROM start_date)::INT AS y FROM books WHERE start_date IS NOT NULL "
+        "  UNION "
+        "  SELECT EXTRACT(YEAR FROM end_date)::INT AS y FROM books WHERE end_date IS NOT NULL"
+        ") sub ORDER BY y DESC"
+    );
+
+    if (q.exec()) {
+        while (q.next())
+            result.append(q.value(0).toInt());
     }
     return result;
 }

@@ -576,7 +576,9 @@ Item {
                         Text {
                             text: {
                                 var now = new Date();
-                                var deadline = new Date(now.getFullYear(), now.getMonth() + Math.round(monthsSlider.value), now.getDate());
+                                var months = Math.round(monthsSlider.value);
+                                // End of the target month: day 0 of next month = last day of target month
+                                var deadline = new Date(now.getFullYear(), now.getMonth() + months + 1, 0);
                                 return "Deadline: " + deadline.toISOString().split("T")[0];
                             }
                             color: Theme.textOnSurface
@@ -624,7 +626,8 @@ Item {
                     onClicked: {
                         var now = new Date();
                         var months = Math.round(monthsSlider.value);
-                        var deadline = new Date(now.getFullYear(), now.getMonth() + months, now.getDate());
+                        // End of the target month
+                        var deadline = new Date(now.getFullYear(), now.getMonth() + months + 1, 0);
                         var deadlineStr = deadline.toISOString().split("T")[0];
 
                         bookController.addChallenge(
