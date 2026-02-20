@@ -10,6 +10,10 @@ class StatisticsProvider : public QObject
     Q_OBJECT
     QML_ELEMENT
 
+    // Year filter
+    Q_PROPERTY(int selectedYear READ selectedYear WRITE setSelectedYear NOTIFY selectedYearChanged)
+    Q_PROPERTY(QVariantList availableYears READ availableYears NOTIFY dataChanged)
+
     // Existing
     Q_PROPERTY(int totalBooksRead READ totalBooksRead NOTIFY dataChanged)
     Q_PROPERTY(int totalPagesRead READ totalPagesRead NOTIFY dataChanged)
@@ -28,6 +32,11 @@ class StatisticsProvider : public QObject
 
 public:
     explicit StatisticsProvider(QObject *parent = nullptr);
+
+    // Year filter
+    int selectedYear() const;
+    void setSelectedYear(int year);
+    QVariantList availableYears() const;
 
     // Existing
     int totalBooksRead() const;
@@ -49,8 +58,13 @@ public:
 
 signals:
     void dataChanged();
+    void selectedYearChanged();
 
 private:
+    // Year filter
+    int m_selectedYear = 0;  // 0 = all years
+    QVariantList m_availableYears;
+
     // Existing
     int m_totalBooksRead = 0;
     int m_totalPagesRead = 0;

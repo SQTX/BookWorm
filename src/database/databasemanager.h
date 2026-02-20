@@ -55,20 +55,20 @@ public:
     // Reset
     bool resetAllData();
 
-    // Statistics
-    int totalBooksRead();
-    int totalPagesRead();
-    double averageRating();
-    QVariantList genreDistribution();
+    // Statistics (year=0 means all years)
+    int totalBooksRead(int year = 0);
+    int totalPagesRead(int year = 0);
+    double averageRating(int year = 0);
+    QVariantList genreDistribution(int year = 0);
     QVariantList booksPerMonth();
 
     // Statistics (extended)
-    int totalBooks();
-    double averagePagesPerBook();
-    double averageCompletionPercent();
+    int totalBooks(int year = 0);
+    double averagePagesPerBook(int year = 0);
+    double averageCompletionPercent(int year = 0);
     QVariantList booksPerYear();
     QVariantList booksPerMonthForYear(int year);
-    QVariantMap statusDistribution();
+    QVariantMap statusDistribution(int year = 0);
     QVariantList getAvailableYears();
 
 private:

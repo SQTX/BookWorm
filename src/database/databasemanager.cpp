@@ -668,33 +668,64 @@ bool DatabaseManager::resetAllData()
 
 // ─── Statistics ─────────────────────────────────────────────
 
-int DatabaseManager::totalBooksRead()
+int DatabaseManager::totalBooksRead(int year)
 {
-    QSqlQuery q("SELECT COUNT(*) FROM books WHERE status = 'read'", m_db);
+    QSqlQuery q(m_db);
+    if (year > 0) {
+        q.prepare("SELECT COUNT(*) FROM books WHERE status = 'read'"
+                  " AND EXTRACT(YEAR FROM end_date) = :year");
+        q.bindValue(":year", year);
+        q.exec();
+    } else {
+        q.exec("SELECT COUNT(*) FROM books WHERE status = 'read'");
+    }
     return q.next() ? q.value(0).toInt() : 0;
 }
 
-int DatabaseManager::totalPagesRead()
+int DatabaseManager::totalPagesRead(int year)
 {
-    QSqlQuery q("SELECT COALESCE(SUM(page_count), 0) FROM books WHERE status = 'read'", m_db);
+    QSqlQuery q(m_db);
+    if (year > 0) {
+        q.prepare("SELECT COALESCE(SUM(page_count), 0) FROM books WHERE status = 'read'"
+                  " AND EXTRACT(YEAR FROM end_date) = :year");
+        q.bindValue(":year", year);
+        q.exec();
+    } else {
+        q.exec("SELECT COALESCE(SUM(page_count), 0) FROM books WHERE status = 'read'");
+    }
     return q.next() ? q.value(0).toInt() : 0;
 }
 
-double DatabaseManager::averageRating()
+double DatabaseManager::averageRating(int year)
 {
-    QSqlQuery q("SELECT COALESCE(AVG(rating), 0) FROM books WHERE rating > 0", m_db);
+    QSqlQuery q(m_db);
+    if (year > 0) {
+        q.prepare("SELECT COALESCE(AVG(rating), 0) FROM books WHERE rating > 0"
+                  " AND EXTRACT(YEAR FROM COALESCE(end_date, start_date)) = :year");
+        q.bindValue(":year", year);
+        q.exec();
+    } else {
+        q.exec("SELECT COALESCE(AVG(rating), 0) FROM books WHERE rating > 0");
+    }
     return q.next() ? q.value(0).toDouble() : 0.0;
 }
 
-QVariantList DatabaseManager::genreDistribution()
+QVariantList DatabaseManager::genreDistribution(int year)
 {
     QVariantList result;
-    QSqlQuery q(
-        "SELECT genre, COUNT(*) as count FROM books "
-        "WHERE status = 'read' AND genre IS NOT NULL AND genre != '' "
-        "GROUP BY genre ORDER BY count DESC",
-        m_db
-    );
+    QSqlQuery q(m_db);
+    if (year > 0) {
+        q.prepare("SELECT genre, COUNT(*) as count FROM books "
+                  "WHERE status = 'read' AND genre IS NOT NULL AND genre != '' "
+                  "AND EXTRACT(YEAR FROM end_date) = :year "
+                  "GROUP BY genre ORDER BY count DESC");
+        q.bindValue(":year", year);
+        q.exec();
+    } else {
+        q.exec("SELECT genre, COUNT(*) as count FROM books "
+               "WHERE status = 'read' AND genre IS NOT NULL AND genre != '' "
+               "GROUP BY genre ORDER BY count DESC");
+    }
 
     while (q.next()) {
         QVariantMap entry;
@@ -729,34 +760,55 @@ QVariantList DatabaseManager::booksPerMonth()
 
 // ─── Statistics (extended) ──────────────────────────────────
 
-int DatabaseManager::totalBooks()
+int DatabaseManager::totalBooks(int year)
 {
-    QSqlQuery q("SELECT COUNT(*) FROM books", m_db);
+    QSqlQuery q(m_db);
+    if (year > 0) {
+        q.prepare("SELECT COUNT(*) FROM books"
+                  " WHERE EXTRACT(YEAR FROM COALESCE(end_date, start_date)) = :year");
+        q.bindValue(":year", year);
+        q.exec();
+    } else {
+        q.exec("SELECT COUNT(*) FROM books");
+    }
     return q.next() ? q.value(0).toInt() : 0;
 }
 
-double DatabaseManager::averagePagesPerBook()
+double DatabaseManager::averagePagesPerBook(int year)
 {
     QSqlQuery q(m_db);
-    q.prepare("SELECT COALESCE(AVG(page_count), 0) FROM books "
-              "WHERE status IN ('read', 'reading') AND page_count > 0");
+    if (year > 0) {
+        q.prepare("SELECT COALESCE(AVG(page_count), 0) FROM books "
+                  "WHERE status IN ('read', 'reading') AND page_count > 0"
+                  " AND EXTRACT(YEAR FROM COALESCE(end_date, start_date)) = :year");
+        q.bindValue(":year", year);
+    } else {
+        q.prepare("SELECT COALESCE(AVG(page_count), 0) FROM books "
+                  "WHERE status IN ('read', 'reading') AND page_count > 0");
+    }
     if (q.exec() && q.next())
         return q.value(0).toDouble();
     return 0.0;
 }
 
-double DatabaseManager::averageCompletionPercent()
+double DatabaseManager::averageCompletionPercent(int year)
 {
     QSqlQuery q(m_db);
-    q.prepare(
+    QString sql =
         "SELECT COALESCE(AVG("
         "  CASE "
         "    WHEN status = 'read' THEN 100.0 "
         "    WHEN status = 'reading' AND page_count > 0 THEN (current_page::FLOAT / page_count) * 100.0 "
         "    ELSE NULL "
         "  END"
-        "), 0) FROM books WHERE status IN ('read', 'reading')"
-    );
+        "), 0) FROM books WHERE status IN ('read', 'reading')";
+    if (year > 0) {
+        sql += " AND EXTRACT(YEAR FROM COALESCE(end_date, start_date)) = :year";
+        q.prepare(sql);
+        q.bindValue(":year", year);
+    } else {
+        q.prepare(sql);
+    }
     if (q.exec() && q.next())
         return q.value(0).toDouble();
     return 0.0;
@@ -846,14 +898,23 @@ QVariantList DatabaseManager::booksPerMonthForYear(int year)
     return result;
 }
 
-QVariantMap DatabaseManager::statusDistribution()
+QVariantMap DatabaseManager::statusDistribution(int year)
 {
     QVariantMap result;
     result["reading"]   = 0;
     result["read"]      = 0;
     result["planned"]   = 0;
 
-    QSqlQuery q("SELECT status, COUNT(*) AS count FROM books GROUP BY status", m_db);
+    QSqlQuery q(m_db);
+    if (year > 0) {
+        q.prepare("SELECT status, COUNT(*) AS count FROM books"
+                  " WHERE EXTRACT(YEAR FROM COALESCE(end_date, start_date)) = :year"
+                  " GROUP BY status");
+        q.bindValue(":year", year);
+        q.exec();
+    } else {
+        q.exec("SELECT status, COUNT(*) AS count FROM books GROUP BY status");
+    }
     while (q.next()) {
         result[q.value("status").toString()] = q.value("count").toInt();
     }

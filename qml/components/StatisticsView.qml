@@ -98,15 +98,58 @@ Item {
             spacing: Theme.spacingLarge
 
             // ═══════════════════════════════════
-            // Header
+            // Header + Year filter
             // ═══════════════════════════════════
-            Text {
+            RowLayout {
+                Layout.fillWidth: true
                 Layout.leftMargin: Theme.spacingXL
+                Layout.rightMargin: Theme.spacingXL
                 Layout.topMargin: Theme.spacingXL
-                text: Theme.tr("Statistics")
-                color: Theme.textOnBackground
-                font.pixelSize: Theme.fontSizeHeader
-                font.bold: true
+
+                Text {
+                    text: Theme.tr("Statistics")
+                    color: Theme.textOnBackground
+                    font.pixelSize: Theme.fontSizeHeader
+                    font.bold: true
+                }
+
+                Item { Layout.fillWidth: true }
+
+                // Year filter ComboBox
+                ComboBox {
+                    id: yearCombo
+                    Layout.preferredWidth: 200
+                    Layout.preferredHeight: 36
+                    Material.accent: Theme.primary
+                    font.pixelSize: Theme.fontSizeMedium
+
+                    model: {
+                        var years = statsProvider.availableYears;
+                        var items = [Theme.tr("All time")];
+                        for (var i = 0; i < years.length; i++)
+                            items.push(String(years[i]));
+                        return items;
+                    }
+
+                    currentIndex: {
+                        if (statsProvider.selectedYear === 0) return 0;
+                        var years = statsProvider.availableYears;
+                        for (var i = 0; i < years.length; i++) {
+                            if (years[i] === statsProvider.selectedYear)
+                                return i + 1;
+                        }
+                        return 0;
+                    }
+
+                    onActivated: function(index) {
+                        if (index === 0) {
+                            statsProvider.selectedYear = 0;
+                        } else {
+                            var years = statsProvider.availableYears;
+                            statsProvider.selectedYear = years[index - 1];
+                        }
+                    }
+                }
             }
 
             // ═══════════════════════════════════
@@ -165,7 +208,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.spacingXL
                 Layout.rightMargin: Theme.spacingXL
-                Layout.preferredHeight: 350
+                Layout.preferredHeight: 400
                 spacing: Theme.spacingLarge
 
                 // ── Pie Chart: Library Composition ──
@@ -199,7 +242,7 @@ Item {
                             legend.labelColor: Theme.textSecondary
                             legend.font.pixelSize: Theme.fontSizeSmall
                             animationOptions: ChartView.SeriesAnimations
-                            margins.top: 0
+                            margins.top: 20
                             margins.bottom: 0
                             margins.left: 0
                             margins.right: 0
@@ -207,7 +250,7 @@ Item {
                             PieSeries {
                                 id: libraryPie
                                 holeSize: 0.45
-                                size: 0.85
+                                size: 0.75
                             }
                         }
 
@@ -365,7 +408,7 @@ Item {
 
                     Text {
                         text: {
-                            var yr = new Date().getFullYear();
+                            var yr = statsProvider.selectedYear > 0 ? statsProvider.selectedYear : new Date().getFullYear();
                             return Theme.tr("Monthly Books Read") + " (" + yr + " vs " + (yr - 1) + ")";
                         }
                         color: Theme.textSecondary
@@ -415,14 +458,14 @@ Item {
 
                         BarSeries {
                             id: currentYearBars
-                            name: String(new Date().getFullYear())
+                            name: String(statsProvider.selectedYear > 0 ? statsProvider.selectedYear : new Date().getFullYear())
                             axisX: monthCategoryAxis
                             axisY: monthlyCountAxis
                             barWidth: 0.6
 
                             BarSet {
                                 id: currentYearBarSet
-                                label: String(new Date().getFullYear())
+                                label: String(statsProvider.selectedYear > 0 ? statsProvider.selectedYear : new Date().getFullYear())
                                 color: Theme.primary
                                 borderColor: "transparent"
                             }
@@ -438,7 +481,10 @@ Item {
 
                         LineSeries {
                             id: prevYearLine
-                            name: String(new Date().getFullYear() - 1)
+                            name: {
+                                var yr = statsProvider.selectedYear > 0 ? statsProvider.selectedYear : new Date().getFullYear();
+                                return String(yr - 1);
+                            }
                             axisX: lineXAxis
                             axisY: monthlyCountAxis
                             color: Theme.statusPlanned
@@ -494,19 +540,18 @@ Item {
                     }
 
                     // Header row
-                    RowLayout {
+                    Row {
                         Layout.fillWidth: true
-                        spacing: 0
 
                         Text {
-                            Layout.preferredWidth: 80
+                            width: parent.width * 0.12
                             text: Theme.tr("Year")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
                         }
                         Text {
-                            Layout.fillWidth: true
+                            width: parent.width * 0.15
                             text: Theme.tr("Books")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -514,7 +559,7 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            Layout.fillWidth: true
+                            width: parent.width * 0.25
                             text: Theme.tr("Total Pages")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -522,7 +567,7 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            Layout.fillWidth: true
+                            width: parent.width * 0.25
                             text: Theme.tr("Avg Pages")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -530,7 +575,7 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                         }
                         Text {
-                            Layout.fillWidth: true
+                            width: parent.width * 0.23
                             text: Theme.tr("Avg Rating")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -545,21 +590,20 @@ Item {
                     Repeater {
                         model: statsProvider.booksPerYear
 
-                        RowLayout {
+                        Row {
                             required property var modelData
                             required property int index
-                            Layout.fillWidth: true
-                            spacing: 0
+                            width: parent.width
 
                             Text {
-                                Layout.preferredWidth: 80
+                                width: parent.width * 0.12
                                 text: modelData.year
                                 color: Theme.textOnSurface
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.bold: true
                             }
                             Text {
-                                Layout.fillWidth: true
+                                width: parent.width * 0.15
                                 text: modelData.count
                                 color: Theme.primary
                                 font.pixelSize: Theme.fontSizeMedium
@@ -567,21 +611,21 @@ Item {
                                 horizontalAlignment: Text.AlignHCenter
                             }
                             Text {
-                                Layout.fillWidth: true
+                                width: parent.width * 0.25
                                 text: modelData.totalPages.toLocaleString()
                                 color: Theme.textOnSurface
                                 font.pixelSize: Theme.fontSizeMedium
                                 horizontalAlignment: Text.AlignHCenter
                             }
                             Text {
-                                Layout.fillWidth: true
+                                width: parent.width * 0.25
                                 text: modelData.avgPages
                                 color: Theme.textOnSurface
                                 font.pixelSize: Theme.fontSizeMedium
                                 horizontalAlignment: Text.AlignHCenter
                             }
                             Text {
-                                Layout.fillWidth: true
+                                width: parent.width * 0.23
                                 text: modelData.avgRating > 0
                                       ? modelData.avgRating.toFixed(1) + " \u2605"
                                       : "\u2014"

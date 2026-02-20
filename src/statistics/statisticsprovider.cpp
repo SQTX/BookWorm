@@ -8,6 +8,18 @@ StatisticsProvider::StatisticsProvider(QObject *parent)
 {
 }
 
+// Year filter
+int StatisticsProvider::selectedYear() const { return m_selectedYear; }
+void StatisticsProvider::setSelectedYear(int year)
+{
+    if (m_selectedYear == year)
+        return;
+    m_selectedYear = year;
+    emit selectedYearChanged();
+    refresh();
+}
+QVariantList StatisticsProvider::availableYears() const { return m_availableYears; }
+
 // Existing getters
 int StatisticsProvider::totalBooksRead() const { return m_totalBooksRead; }
 int StatisticsProvider::totalPagesRead() const { return m_totalPagesRead; }
@@ -28,23 +40,29 @@ void StatisticsProvider::refresh()
 {
     auto &db = DatabaseManager::instance();
 
-    // Existing
-    m_totalBooksRead    = db.totalBooksRead();
-    m_totalPagesRead    = db.totalPagesRead();
-    m_averageRating     = db.averageRating();
-    m_genreDistribution = db.genreDistribution();
+    int yr = m_selectedYear;  // 0 = all years
+
+    // Available years (always global)
+    m_availableYears = db.getAvailableYears();
+
+    // Existing (year-filtered)
+    m_totalBooksRead    = db.totalBooksRead(yr);
+    m_totalPagesRead    = db.totalPagesRead(yr);
+    m_averageRating     = db.averageRating(yr);
+    m_genreDistribution = db.genreDistribution(yr);
     m_booksPerMonth     = db.booksPerMonth();
 
-    // Extended
-    m_totalBooks                 = db.totalBooks();
-    m_averagePagesPerBook        = db.averagePagesPerBook();
-    m_averageCompletionPercent   = db.averageCompletionPercent();
+    // Extended (year-filtered)
+    m_totalBooks                 = db.totalBooks(yr);
+    m_averagePagesPerBook        = db.averagePagesPerBook(yr);
+    m_averageCompletionPercent   = db.averageCompletionPercent(yr);
     m_booksPerYear               = db.booksPerYear();
-    m_statusDistribution         = db.statusDistribution();
+    m_statusDistribution         = db.statusDistribution(yr);
 
-    int currentYear = QDate::currentDate().year();
-    m_booksPerMonthCurrentYear   = db.booksPerMonthForYear(currentYear);
-    m_booksPerMonthPreviousYear  = db.booksPerMonthForYear(currentYear - 1);
+    // Monthly chart: use selectedYear if set, otherwise current year
+    int chartYear = (yr > 0) ? yr : QDate::currentDate().year();
+    m_booksPerMonthCurrentYear   = db.booksPerMonthForYear(chartYear);
+    m_booksPerMonthPreviousYear  = db.booksPerMonthForYear(chartYear - 1);
 
     emit dataChanged();
 }

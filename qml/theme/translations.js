@@ -217,6 +217,9 @@ var _pl = {
     "Update Progress": "Aktualizuj postęp",
     "Review": "Recenzja",
 
+    // ── Year filter ──
+    "All time": "Wszystkie lata",
+
     // ── Sorting ──
     "Default": "Domyślne",
     "Newest": "Najnowsze",
