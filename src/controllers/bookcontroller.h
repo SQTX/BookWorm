@@ -15,6 +15,7 @@ class BookController : public QObject
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
     Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
     Q_PROPERTY(QString filterYearMode READ filterYearMode WRITE setFilterYearMode NOTIFY filterYearModeChanged)
+    Q_PROPERTY(QString sortMode READ sortMode WRITE setSortMode NOTIFY sortModeChanged)
 
 public:
     explicit BookController(QObject *parent = nullptr);
@@ -71,17 +72,21 @@ public:
     void setFilterYear(int year);
     QString filterYearMode() const;
     void setFilterYearMode(const QString &mode);
+    QString sortMode() const;
+    void setSortMode(const QString &mode);
 
 signals:
     void filterStatusChanged();
     void searchQueryChanged();
     void filterYearChanged();
     void filterYearModeChanged();
+    void sortModeChanged();
     void booksChanged();
     void errorOccurred(const QString &message);
 
 private:
     void applyFilters();
+    void sortBooks(QVector<Book> &books);
 
     BookModel *m_model;
     QVector<Book> m_allBooks;
@@ -89,4 +94,5 @@ private:
     QString m_searchQuery;
     int m_filterYear = 0;
     QString m_filterYearMode = QStringLiteral("finish");
+    QString m_sortMode = QStringLiteral("default");
 };

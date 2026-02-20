@@ -18,6 +18,7 @@ Rectangle {
     required property string tags
 
     signal clicked()
+    signal rightClicked(real mouseX, real mouseY)
 
     width: 180
     height: 300
@@ -30,7 +31,13 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: card.clicked()
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.RightButton)
+                card.rightClicked(mouse.x, mouse.y)
+            else
+                card.clicked()
+        }
     }
 
     Column {

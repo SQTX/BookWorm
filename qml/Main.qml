@@ -27,6 +27,7 @@ ApplicationWindow {
         id: appSettings
         property alias style: root.appStyle
         property alias language: root.appLanguage
+        property alias cardsPerRow: root.libraryCardsPerRow
     }
 
     Component.onCompleted: {
@@ -399,6 +400,8 @@ ApplicationWindow {
     Component {
         id: bookListComponent
         BookListView {
+            userCardsPerRow: root.libraryCardsPerRow
+            onUserCardsPerRowChanged: root.libraryCardsPerRow = userCardsPerRow
             onBookSelected: function(bookId) {
                 stackView.push(bookDetailsComponent, { bookId: bookId });
             }
@@ -436,6 +439,7 @@ ApplicationWindow {
 
     property string appStyle: "classic"
     property string appLanguage: Qt.locale().name.substring(0,2) === "pl" ? "pl" : "en"
+    property int libraryCardsPerRow: 6  // default: 6 cards per row (0 = auto)
 
     Popup {
         id: settingsPopup

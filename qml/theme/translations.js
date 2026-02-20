@@ -210,6 +210,18 @@ var _pl = {
     "Deadline:": "Termin:",
     "Create": "Utwórz",
 
+    // ── Context menu ──
+    "Start Reading": "Rozpocznij czytanie",
+    "Add Pages": "Dodaj strony",
+    "Mark as Read": "Oznacz jako przeczytane",
+    "Update Progress": "Aktualizuj postęp",
+    "Review": "Recenzja",
+
+    // ── Sorting ──
+    "Default": "Domyślne",
+    "Newest": "Najnowsze",
+    "Oldest": "Najstarsze",
+
     // ── Menu bar ──
     "About BookWorm": "O BookWorm",
     "Check for Updates...": "Sprawdź aktualizacje...",

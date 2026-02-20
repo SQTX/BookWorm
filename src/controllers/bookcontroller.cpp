@@ -5,6 +5,7 @@
 #include <QTextStream>
 #include <QUrl>
 #include <QSet>
+#include <algorithm>
 
 BookController::BookController(QObject *parent)
     : QObject(parent)
@@ -467,6 +468,20 @@ void BookController::setFilterYearMode(const QString &mode)
     }
 }
 
+QString BookController::sortMode() const
+{
+    return m_sortMode;
+}
+
+void BookController::setSortMode(const QString &mode)
+{
+    if (m_sortMode != mode) {
+        m_sortMode = mode;
+        emit sortModeChanged();
+        applyFilters();
+    }
+}
+
 // ─── CSV helpers ────────────────────────────────────────────
 
 static QString escapeCsvField(const QString &field)
@@ -674,5 +689,71 @@ void BookController::applyFilters()
         filtered.append(book);
     }
 
+    sortBooks(filtered);
     m_model->setBooks(filtered);
+}
+
+static int statusPriority(const QString &s)
+{
+    if (s == QStringLiteral("reading"))   return 0;
+    if (s == QStringLiteral("planned"))   return 1;
+    if (s == QStringLiteral("read"))      return 2;
+    if (s == QStringLiteral("abandoned")) return 3;
+    return 4;
+}
+
+static QDate effectiveDate(const Book &book)
+{
+    if (book.endDate.isValid())   return book.endDate;
+    if (book.startDate.isValid()) return book.startDate;
+    return QDate(1900, 1, 1);
+}
+
+void BookController::sortBooks(QVector<Book> &books)
+{
+    if (m_sortMode == QStringLiteral("default")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            int pa = statusPriority(a.status);
+            int pb = statusPriority(b.status);
+            if (pa != pb) return pa < pb;
+
+            QDate da = effectiveDate(a);
+            QDate db = effectiveDate(b);
+            if (da != db) return da > db;
+
+            return a.author.toLower() < b.author.toLower();
+        });
+    } else if (m_sortMode == QStringLiteral("title_asc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return a.title.toLower() < b.title.toLower();
+        });
+    } else if (m_sortMode == QStringLiteral("title_desc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return a.title.toLower() > b.title.toLower();
+        });
+    } else if (m_sortMode == QStringLiteral("author_asc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return a.author.toLower() < b.author.toLower();
+        });
+    } else if (m_sortMode == QStringLiteral("author_desc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return a.author.toLower() > b.author.toLower();
+        });
+    } else if (m_sortMode == QStringLiteral("rating_desc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return a.rating > b.rating;
+        });
+    } else if (m_sortMode == QStringLiteral("date_desc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return effectiveDate(a) > effectiveDate(b);
+        });
+    } else if (m_sortMode == QStringLiteral("date_asc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return effectiveDate(a) < effectiveDate(b);
+        });
+    } else if (m_sortMode == QStringLiteral("pages_desc")) {
+        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+            return a.pageCount > b.pageCount;
+        });
+    }
 }
