@@ -24,6 +24,7 @@ struct Book {
     QString coverImagePath;
     QString itemType = QStringLiteral("book");
     bool isNonFiction = false;
+    int currentPage = 0;
     QStringList tags;
 
     QVariantMap toVariantMap() const;

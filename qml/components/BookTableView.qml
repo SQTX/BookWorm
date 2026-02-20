@@ -170,6 +170,7 @@ Item {
                 required property string coverImagePath
                 required property string itemType
                 required property bool isNonFiction
+                required property int currentPage
                 required property string tags
 
                 MouseArea {

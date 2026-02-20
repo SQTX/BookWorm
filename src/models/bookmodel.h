@@ -30,6 +30,7 @@ public:
         CoverImagePathRole,
         ItemTypeRole,
         IsNonFictionRole,
+        CurrentPageRole,
         TagsRole
     };
 

@@ -220,7 +220,7 @@ bool BookController::exportToCsv(const QString &filePath)
 
     // Header
     out << "title,author,genre,page_count,start_date,end_date,rating,status,"
-           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,tags\n";
+           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,current_page,tags\n";
 
     const auto allBooks = DatabaseManager::instance().fetchAllBooks();
     for (const Book &book : allBooks) {
@@ -239,6 +239,7 @@ bool BookController::exportToCsv(const QString &filePath)
             << escapeCsvField(book.language) << ','
             << escapeCsvField(book.itemType) << ','
             << (book.isNonFiction ? "true" : "false") << ','
+            << book.currentPage << ','
             << escapeCsvField(book.tags.join(", ")) << '\n';
     }
 
@@ -292,8 +293,12 @@ int BookController::importFromCsv(const QString &filePath)
         book.language        = parseCsvField(fields[12]);
         book.itemType        = parseCsvField(fields[13]);
         book.isNonFiction    = fields[14].trimmed().toLower() == "true";
+        // current_page at index 15 (if present), tags at 16
+        if (fields.size() >= 17) {
+            book.currentPage = fields[15].trimmed().toInt();
+        }
 
-        const QString tagsStr = parseCsvField(fields[15]);
+        const QString tagsStr = parseCsvField(fields.size() >= 17 ? fields[16] : fields[15]);
         if (!tagsStr.isEmpty()) {
             const auto parts = tagsStr.split(',');
             for (const auto &part : parts) {

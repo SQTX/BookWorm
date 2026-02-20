@@ -21,6 +21,7 @@ QVariantMap Book::toVariantMap() const
     map["coverImagePath"]  = coverImagePath;
     map["itemType"]        = itemType;
     map["isNonFiction"]    = isNonFiction;
+    map["currentPage"]     = currentPage;
     map["tags"]            = tags.join(", ");
     return map;
 }
@@ -45,6 +46,7 @@ Book Book::fromVariantMap(const QVariantMap &map)
     b.coverImagePath  = map.value("coverImagePath").toString();
     b.itemType        = map.value("itemType", "book").toString();
     b.isNonFiction    = map.value("isNonFiction", false).toBool();
+    b.currentPage     = map.value("currentPage", 0).toInt();
 
     const QString tagsStr = map.value("tags").toString();
     if (!tagsStr.isEmpty()) {
@@ -80,5 +82,6 @@ Book Book::fromSqlRecord(const QSqlRecord &record)
     b.itemType        = record.value("item_type").toString();
     if (b.itemType.isEmpty()) b.itemType = QStringLiteral("book");
     b.isNonFiction    = record.value("is_non_fiction").toBool();
+    b.currentPage     = record.value("current_page").toInt();
     return b;
 }

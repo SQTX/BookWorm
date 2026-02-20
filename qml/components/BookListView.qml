@@ -94,13 +94,13 @@ Item {
             GridView {
                 id: gridView
                 anchors.fill: parent
-                cellWidth: 216
-                cellHeight: 296
+                cellWidth: 196
+                cellHeight: 316
                 model: bookController.model
 
                 delegate: BookCard {
-                    width: 200
-                    height: 280
+                    width: 180
+                    height: 300
                     onClicked: bookListPage.bookSelected(bookId)
                 }
 

@@ -57,6 +57,7 @@ Dialog {
             var itIdx = itemTypeCombo.model.indexOf(editData.itemType || "book");
             itemTypeCombo.currentIndex = itIdx >= 0 ? itIdx : 0;
             nonFictionSwitch.checked = editData.isNonFiction || false;
+            currentPageField.value = editData.currentPage || 0;
         } else {
             clearForm();
         }
@@ -87,7 +88,8 @@ Dialog {
             tags:            tagsField.text,
             coverImagePath:  coverPath,
             itemType:        itemTypeCombo.model[itemTypeCombo.currentIndex],
-            isNonFiction:    nonFictionSwitch.checked
+            isNonFiction:    nonFictionSwitch.checked,
+            currentPage:     currentPageField.value
         };
     }
 
@@ -109,6 +111,7 @@ Dialog {
         coverPath            = "";
         itemTypeCombo.currentIndex = 0;
         nonFictionSwitch.checked = false;
+        currentPageField.value = 0;
     }
 
     ColumnLayout {
@@ -496,6 +499,25 @@ Dialog {
                                 editable: true
                                 Material.accent: Theme.primary
                             }
+
+                            // Row 2b: Current page + (empty)
+                            Text {
+                                text: "Current page"
+                                color: Theme.textSecondary
+                                font.pixelSize: Theme.fontSizeSmall
+                                visible: statusCombo.currentIndex === 0 // "reading"
+                            }
+                            Item { visible: statusCombo.currentIndex === 0 }
+
+                            SpinBox {
+                                id: currentPageField
+                                Layout.fillWidth: true
+                                from: 0; to: 99999
+                                editable: true
+                                Material.accent: Theme.primary
+                                visible: statusCombo.currentIndex === 0 // "reading"
+                            }
+                            Item { visible: statusCombo.currentIndex === 0 }
 
                             // Row 3: ISBN + Publisher
                             Text { text: "ISBN"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }

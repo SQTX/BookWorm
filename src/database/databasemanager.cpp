@@ -110,6 +110,7 @@ bool DatabaseManager::initializeSchema()
     // Migrations: add new columns if missing
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS item_type VARCHAR(32) DEFAULT 'book'");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS is_non_fiction BOOLEAN DEFAULT FALSE");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS current_page INTEGER DEFAULT 0");
 
     // Update rating constraint to allow 1-6 instead of 1-10
     q.exec("UPDATE books SET rating = LEAST(rating, 6) WHERE rating > 6");
@@ -170,10 +171,10 @@ int DatabaseManager::insertBook(const Book &book)
     q.prepare(
         "INSERT INTO books (title, author, genre, page_count, start_date, end_date, "
         "  rating, status, notes, isbn, publisher, publication_year, language, "
-        "  cover_image_path, item_type, is_non_fiction) "
+        "  cover_image_path, item_type, is_non_fiction, current_page) "
         "VALUES (:title, :author, :genre, :pageCount, :startDate, :endDate, "
         "  :rating, :status, :notes, :isbn, :publisher, :pubYear, :language, "
-        "  :coverPath, :itemType, :isNonFiction) "
+        "  :coverPath, :itemType, :isNonFiction, :currentPage) "
         "RETURNING id"
     );
 
@@ -193,6 +194,7 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":coverPath",    book.coverImagePath.isEmpty() ? QVariant() : book.coverImagePath);
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
+    q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
 
     if (!q.exec() || !q.next()) {
         qWarning() << "insertBook error:" << q.lastError().text();
@@ -211,7 +213,8 @@ bool DatabaseManager::updateBook(const Book &book)
         "  rating = :rating, status = :status, notes = :notes, isbn = :isbn, "
         "  publisher = :publisher, publication_year = :pubYear, language = :language, "
         "  cover_image_path = :coverPath, item_type = :itemType, "
-        "  is_non_fiction = :isNonFiction, updated_at = NOW() "
+        "  is_non_fiction = :isNonFiction, current_page = :currentPage, "
+        "  updated_at = NOW() "
         "WHERE id = :id"
     );
 
@@ -232,6 +235,7 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":coverPath",    book.coverImagePath.isEmpty() ? QVariant() : book.coverImagePath);
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
+    q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
 
     if (!q.exec()) {
         qWarning() << "updateBook error:" << q.lastError().text();
