@@ -1,9 +1,30 @@
 pragma Singleton
 import QtQuick
+import "translations.js" as Translations
 
 QtObject {
     // Active theme key
     property string currentTheme: "minimalist_dark"
+
+    // Language
+    property string language: "en"
+
+    function tr(key) {
+        // Reading 'language' creates QML binding dependency
+        return Translations.translate(key, language);
+    }
+
+    function typePlural(typeKey) {
+        return Translations.typePlural(typeKey, language);
+    }
+
+    function typeLabel(typeKey) {
+        return Translations.typeLabel(typeKey, language);
+    }
+
+    function getMonthLabels() {
+        return Translations.monthLabels(language);
+    }
 
     // Helper for Material.theme binding in Main.qml
     property bool isDark: currentTheme !== "minimalist_light"
@@ -199,10 +220,10 @@ QtObject {
 
     function statusLabel(status) {
         switch (status) {
-            case "reading":   return "Reading";
-            case "read":      return "Read";
-            case "planned":   return "Planned";
-            case "abandoned": return "Abandoned";
+            case "reading":   return tr("Reading");
+            case "read":      return tr("Read");
+            case "planned":   return tr("Planned");
+            case "abandoned": return tr("Abandoned");
             default:          return status;
         }
     }

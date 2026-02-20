@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(WormBook VERSION 1.0 LANGUAGES CXX)
+project(BookWorm VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,7 +23,7 @@ set_source_files_properties(qml/theme/Theme.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
 
-qt_add_executable(WormBook
+qt_add_executable(BookWorm
     src/main.cpp
     src/database/databasemanager.h
     src/database/databasemanager.cpp
@@ -37,12 +37,13 @@ qt_add_executable(WormBook
     src/statistics/statisticsprovider.cpp
 )
 
-qt_add_qml_module(WormBook
-    URI WormBook
+qt_add_qml_module(BookWorm
+    URI BookWorm
     VERSION 1.0
     QML_FILES
         qml/Main.qml
         qml/theme/Theme.qml
+        qml/theme/translations.js
         qml/components/BookCard.qml
         qml/components/BookForm.qml
         qml/components/BookDetails.qml
@@ -68,7 +69,7 @@ qt_add_qml_module(WormBook
 )
 
 # Include directories so QML type registration can find headers
-target_include_directories(WormBook PRIVATE
+target_include_directories(BookWorm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/models
     ${CMAKE_CURRENT_SOURCE_DIR}/src/controllers
@@ -76,7 +77,7 @@ target_include_directories(WormBook PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
 )
 
-target_link_libraries(WormBook PRIVATE
+target_link_libraries(BookWorm PRIVATE
     Qt6::Core
     Qt6::Sql
     Qt6::Qml
@@ -88,10 +89,10 @@ target_link_libraries(WormBook PRIVATE
 )
 
 if(APPLE)
-    set_target_properties(WormBook PROPERTIES
+    set_target_properties(BookWorm PROPERTIES
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER com.sqtx.wormbook
-        MACOSX_BUNDLE_BUNDLE_NAME WormBook
+        MACOSX_BUNDLE_GUI_IDENTIFIER com.sqtx.bookworm
+        MACOSX_BUNDLE_BUNDLE_NAME BookWorm
     )
 
 endif()

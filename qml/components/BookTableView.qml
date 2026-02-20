@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import WormBook
+import BookWorm
 
 Item {
     id: tablePage
@@ -11,16 +11,16 @@ Item {
 
     // Column definitions
     readonly property var columns: [
-        { role: "coverImagePath", label: "",            width: 50,  type: "cover" },
-        { role: "title",          label: "Title",       width: -1,  type: "text" },
-        { role: "itemType",       label: "Type",        width: 80,  type: "badge" },
-        { role: "status",         label: "Status",      width: 110, type: "status" },
-        { role: "pageCount",      label: "Pages",       width: 70,  type: "number" },
-        { role: "author",         label: "Author",      width: 180, type: "text" },
-        { role: "rating",         label: "Rating",      width: 120, type: "stars" },
-        { role: "endDate",        label: "Finished",    width: 130, type: "date" },
-        { role: "genre",          label: "Genre",       width: 120, type: "text" },
-        { role: "tags",           label: "Tags",        width: 130, type: "text" }
+        { role: "coverImagePath", key: "",              width: 50,  type: "cover" },
+        { role: "title",          key: "Title",         width: -1,  type: "text" },
+        { role: "itemType",       key: "Type",          width: 80,  type: "badge" },
+        { role: "status",         key: "Status",        width: 110, type: "status" },
+        { role: "pageCount",      key: "Pages",         width: 70,  type: "number" },
+        { role: "author",         key: "Author",        width: 180, type: "text" },
+        { role: "rating",         key: "Rating",        width: 120, type: "stars" },
+        { role: "endDate",        key: "Finished",      width: 130, type: "date" },
+        { role: "genre",          key: "Genre",         width: 120, type: "text" },
+        { role: "tags",           key: "Tags",          width: 130, type: "text" }
     ]
 
     ColumnLayout {
@@ -30,11 +30,13 @@ Item {
         // Header bar
         RowLayout {
             Layout.fillWidth: true
-            Layout.margins: Theme.spacingLarge
+            Layout.topMargin: Theme.spacingXL
+            Layout.leftMargin: Theme.spacingXL
+            Layout.rightMargin: Theme.spacingXL
             spacing: Theme.spacingLarge
 
             Text {
-                text: "Table"
+                text: Theme.tr("Table")
                 color: Theme.textOnBackground
                 font.pixelSize: Theme.fontSizeHeader
                 font.bold: true
@@ -50,10 +52,9 @@ Item {
                     var parts = [];
                     for (var i = 0; i < keys.length; i++) {
                         var k = keys[i];
-                        var label = k.charAt(0).toUpperCase() + k.slice(1) + "s";
-                        parts.push(label + ": " + dist[k]);
+                        parts.push(Theme.typePlural(k) + ": " + dist[k]);
                     }
-                    return parts.length > 0 ? parts.join("  \u00B7  ") : "0 books";
+                    return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
                 }
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
@@ -64,19 +65,20 @@ Item {
         // Search & filter bar
         RowLayout {
             Layout.fillWidth: true
-            Layout.leftMargin: Theme.spacingLarge
-            Layout.rightMargin: Theme.spacingLarge
-            Layout.bottomMargin: Theme.spacingMedium
+            Layout.topMargin: Theme.spacingLarge
+            Layout.leftMargin: Theme.spacingXL
+            Layout.rightMargin: Theme.spacingXL
+            Layout.bottomMargin: Theme.spacingLarge
             spacing: Theme.spacingSmall
 
             TextField {
                 id: searchField
-                Layout.preferredWidth: 260
+                Layout.preferredWidth: 220
                 Layout.preferredHeight: 36
                 topPadding: 6
                 bottomPadding: 6
                 font.pixelSize: Theme.fontSizeMedium
-                placeholderText: "\u{1F50D} Search title / author..."
+                placeholderText: "\u{1F50D} " + Theme.tr("Search title / author...")
                 Material.accent: Theme.primary
                 onTextChanged: bookController.searchQuery = text
             }
@@ -88,11 +90,11 @@ Item {
 
                 Repeater {
                     model: [
-                        { label: "All",       value: "" },
-                        { label: "Reading",   value: "reading" },
-                        { label: "Read",      value: "read" },
-                        { label: "Planned",   value: "planned" },
-                        { label: "Abandoned", value: "abandoned" }
+                        { key: "All",       value: "" },
+                        { key: "Reading",   value: "reading" },
+                        { key: "Read",      value: "read" },
+                        { key: "Planned",   value: "planned" },
+                        { key: "Abandoned", value: "abandoned" }
                     ]
 
                     Rectangle {
@@ -110,7 +112,7 @@ Item {
                         Text {
                             id: tFilterChip
                             anchors.centerIn: parent
-                            text: modelData.label
+                            text: Theme.tr(modelData.key)
                             color: bookController.filterStatus === modelData.value
                                    ? Theme.textOnPrimary : Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -128,7 +130,7 @@ Item {
 
             RoundButton {
                 width: 36; height: 36
-                icon.source: "qrc:/qt/qml/WormBook/src/img/icons/add-book.svg"
+                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
                 icon.width: 18; icon.height: 18
                 icon.color: Theme.textOnPrimary
                 Material.background: Theme.primary
@@ -165,7 +167,7 @@ Item {
                             anchors.left: parent.left
                             anchors.leftMargin: Theme.spacingSmall
                             anchors.verticalCenter: parent.verticalCenter
-                            text: modelData.label
+                            text: Theme.tr(modelData.key)
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -295,10 +297,7 @@ Item {
                             Text {
                                 id: typeText
                                 anchors.centerIn: parent
-                                text: {
-                                    var t = rowDelegate.itemType || "book";
-                                    return t.charAt(0).toUpperCase() + t.slice(1);
-                                }
+                                text: Theme.typeLabel(rowDelegate.itemType || "book")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeSmall
                             }
@@ -466,7 +465,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 visible: tableList.count === 0
-                text: searchField.text ? "No books match your search" : "No books yet. Click + to add one!"
+                text: searchField.text ? Theme.tr("No books match your search") : Theme.tr("No books yet. Click + to add one!")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeLarge
             }

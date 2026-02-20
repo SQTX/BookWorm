@@ -23,19 +23,19 @@ bool DatabaseManager::connect()
     if (m_db.isOpen())
         return true;
 
-    m_db = QSqlDatabase::addDatabase(WormBook::Config::DB_DRIVER);
-    m_db.setHostName(WormBook::Config::DB_HOST);
-    m_db.setPort(WormBook::Config::DB_PORT);
-    m_db.setDatabaseName(WormBook::Config::DB_NAME);
-    m_db.setUserName(WormBook::Config::DB_USER);
-    m_db.setPassword(WormBook::Config::DB_PASSWORD);
+    m_db = QSqlDatabase::addDatabase(BookWorm::Config::DB_DRIVER);
+    m_db.setHostName(BookWorm::Config::DB_HOST);
+    m_db.setPort(BookWorm::Config::DB_PORT);
+    m_db.setDatabaseName(BookWorm::Config::DB_NAME);
+    m_db.setUserName(BookWorm::Config::DB_USER);
+    m_db.setPassword(BookWorm::Config::DB_PASSWORD);
 
     if (!m_db.open()) {
         qCritical() << "Database connection failed:" << m_db.lastError().text();
         return false;
     }
 
-    qInfo() << "Connected to PostgreSQL database:" << WormBook::Config::DB_NAME;
+    qInfo() << "Connected to PostgreSQL database:" << BookWorm::Config::DB_NAME;
     return true;
 }
 

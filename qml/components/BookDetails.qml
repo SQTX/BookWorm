@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import WormBook
+import BookWorm
 
 Item {
     id: detailsPage
@@ -47,7 +47,7 @@ Item {
                 spacing: Theme.spacingMedium
 
                 Button {
-                    text: "\u2190 Back"
+                    text: "\u2190 " + Theme.tr("Back")
                     flat: true
                     Material.foreground: Theme.primary
                     onClicked: detailsPage.back()
@@ -56,7 +56,7 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Edit"
+                    text: Theme.tr("Edit")
                     flat: true
                     Material.foreground: Theme.secondary
                     onClicked: {
@@ -67,7 +67,7 @@ Item {
                 }
 
                 Button {
-                    text: "Delete"
+                    text: Theme.tr("Delete")
                     flat: true
                     Material.foreground: Theme.error
                     onClicked: deleteConfirm.open()
@@ -131,7 +131,7 @@ Item {
 
                     // Series
                     Text {
-                        text: "Series: " + (bookData.series || "")
+                        text: Theme.tr("Series: ") + (bookData.series || "")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                         visible: (bookData.series || "") !== ""
@@ -143,16 +143,13 @@ Item {
                         spacing: Theme.spacingMedium
 
                         MetaBadge {
-                            text: {
-                                var t = bookData.itemType || "book";
-                                return t.charAt(0).toUpperCase() + t.slice(1);
-                            }
+                            text: Theme.typeLabel(bookData.itemType || "book")
                             visible: (bookData.itemType || "book") !== "book"
                         }
-                        MetaBadge { text: "Non-fiction"; visible: bookData.isNonFiction || false }
+                        MetaBadge { text: Theme.tr("Non-fiction"); visible: bookData.isNonFiction || false }
                         MetaBadge { text: bookData.genre || ""; visible: text !== "" }
                         MetaBadge { text: bookData.language || ""; visible: text !== "" }
-                        MetaBadge { text: (bookData.pageCount || 0) + " pages"; visible: (bookData.pageCount || 0) > 0 }
+                        MetaBadge { text: (bookData.pageCount || 0) + " " + Theme.tr("pages"); visible: (bookData.pageCount || 0) > 0 }
                         MetaBadge { text: bookData.publisher || ""; visible: text !== "" }
                         MetaBadge { text: String(bookData.publicationYear || ""); visible: (bookData.publicationYear || 0) > 0 }
                         MetaBadge { text: "ISBN: " + (bookData.isbn || ""); visible: (bookData.isbn || "") !== "" }
@@ -170,14 +167,14 @@ Item {
                             spacing: Theme.spacingMedium
 
                             Text {
-                                text: "Progress"
+                                text: Theme.tr("Progress")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.bold: true
                             }
                             Item { Layout.fillWidth: true }
                             Text {
-                                text: (bookData.currentPage || 0) + " / " + (bookData.pageCount || 0) + " pages"
+                                text: (bookData.currentPage || 0) + " / " + (bookData.pageCount || 0) + " " + Theme.tr("pages")
                                 color: Theme.textOnSurface
                                 font.pixelSize: Theme.fontSizeMedium
                             }
@@ -230,9 +227,9 @@ Item {
 
                             Text {
                                 text: {
-                                    var labels = ["", "Bad", "Weak", "Average", "Good", "Very good", "Excellent"];
+                                    var labels = ["", Theme.tr("Bad"), Theme.tr("Weak"), Theme.tr("Average"), Theme.tr("Good"), Theme.tr("Very good"), Theme.tr("Excellent")];
                                     var r = bookData.rating || 0;
-                                    return r > 0 ? "  " + r + "/6 — " + labels[r] : "  Not rated";
+                                    return r > 0 ? "  " + r + "/6 — " + labels[r] : "  " + Theme.tr("Not rated");
                                 }
                                 color: Theme.textOnSurface
                                 font.pixelSize: Theme.fontSizeMedium
@@ -264,13 +261,13 @@ Item {
                         visible: (bookData.startDate || "") !== "" || (bookData.endDate || "") !== ""
 
                         Text {
-                            text: "Started: " + (bookData.startDate || "\u2014")
+                            text: Theme.tr("Started") + ": " + (bookData.startDate || "\u2014")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeMedium
                             visible: (bookData.startDate || "") !== ""
                         }
                         Text {
-                            text: "Finished: " + (bookData.endDate || "\u2014")
+                            text: Theme.tr("Finished") + ": " + (bookData.endDate || "\u2014")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeMedium
                             visible: (bookData.endDate || "") !== ""
@@ -328,7 +325,7 @@ Item {
                     spacing: Theme.spacingMedium
 
                     Text {
-                        text: "MY REVIEW"
+                        text: Theme.tr("MY REVIEW")
                         color: Theme.primary
                         font.pixelSize: Theme.fontSizeSmall
                         font.bold: true
@@ -339,7 +336,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.minimumHeight: 60
                         text: bookData.review || ""
-                        placeholderText: "Write your review..."
+                        placeholderText: Theme.tr("Write your review...")
                         wrapMode: TextArea.Wrap
                         font.pixelSize: Theme.fontSizeMedium
                         Material.accent: Theme.primary
@@ -349,7 +346,7 @@ Item {
                     }
 
                     Button {
-                        text: "Save Review"
+                        text: Theme.tr("Save Review")
                         Layout.alignment: Qt.AlignRight
                         Material.background: Theme.primary
                         Material.foreground: Theme.textOnPrimary
@@ -383,7 +380,7 @@ Item {
                     spacing: Theme.spacingMedium
 
                     Text {
-                        text: "NOTES"
+                        text: Theme.tr("NOTES")
                         color: Theme.primary
                         font.pixelSize: Theme.fontSizeSmall
                         font.bold: true
@@ -423,7 +420,7 @@ Item {
                         Layout.fillWidth: true
 
                         Text {
-                            text: "FAVORITE QUOTES"
+                            text: Theme.tr("FAVORITE QUOTES")
                             color: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -432,7 +429,7 @@ Item {
                         Item { Layout.fillWidth: true }
 
                         Button {
-                            text: "+ Add Quote"
+                            text: Theme.tr("+ Add Quote")
                             flat: true
                             Material.foreground: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
@@ -480,7 +477,7 @@ Item {
 
                     Text {
                         visible: detailsPage.quotes.length === 0
-                        text: "No quotes yet"
+                        text: Theme.tr("No quotes yet")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                         font.italic: true
@@ -512,7 +509,7 @@ Item {
                         Layout.fillWidth: true
 
                         Text {
-                            text: "HIGHLIGHTS"
+                            text: Theme.tr("HIGHLIGHTS")
                             color: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -521,7 +518,7 @@ Item {
                         Item { Layout.fillWidth: true }
 
                         Button {
-                            text: "+ Add Highlight"
+                            text: Theme.tr("+ Add Highlight")
                             flat: true
                             Material.foreground: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
@@ -591,7 +588,7 @@ Item {
 
                     Text {
                         visible: detailsPage.highlights.length === 0
-                        text: "No highlights yet"
+                        text: Theme.tr("No highlights yet")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                         font.italic: true
@@ -625,14 +622,14 @@ Item {
                         Layout.fillWidth: true
 
                         Text {
-                            text: "SUMMARY"
+                            text: Theme.tr("SUMMARY")
                             color: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
                         }
 
                         Text {
-                            text: (bookData.summary || "") !== "" ? "" : "(empty)"
+                            text: (bookData.summary || "") !== "" ? "" : Theme.tr("(empty)")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                             font.italic: true
@@ -641,7 +638,7 @@ Item {
                         Item { Layout.fillWidth: true }
 
                         Button {
-                            text: parent.parent.parent.parent.expanded ? "\u25B2 Collapse" : "\u25BC Expand"
+                            text: parent.parent.parent.parent.expanded ? "\u25B2 " + Theme.tr("Collapse") : "\u25BC " + Theme.tr("Expand")
                             flat: true
                             Material.foreground: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -659,14 +656,14 @@ Item {
                             Layout.fillWidth: true
                             Layout.minimumHeight: 80
                             text: bookData.summary || ""
-                            placeholderText: "Write a brief summary of the book..."
+                            placeholderText: Theme.tr("Write a brief summary of the book...")
                             wrapMode: TextArea.Wrap
                             font.pixelSize: Theme.fontSizeMedium
                             Material.accent: Theme.primary
                         }
 
                         Button {
-                            text: "Save Summary"
+                            text: Theme.tr("Save Summary")
                             Layout.alignment: Qt.AlignRight
                             Material.background: Theme.primary
                             Material.foreground: Theme.textOnPrimary
@@ -713,7 +710,7 @@ Item {
     // ── Delete confirmation ──
     Dialog {
         id: deleteConfirm
-        title: "Delete Book"
+        title: Theme.tr("Delete Book")
         modal: true
         standardButtons: Dialog.Yes | Dialog.No
         anchors.centerIn: parent
@@ -721,7 +718,7 @@ Item {
         Material.accent: Theme.primary
 
         Label {
-            text: "Are you sure you want to delete \"" + (bookData.title || "") + "\"?"
+            text: Theme.tr("Are you sure you want to delete") + " \"" + (bookData.title || "") + "\"?"
             wrapMode: Text.Wrap
         }
 
@@ -759,7 +756,7 @@ Item {
             Text {
                 Layout.topMargin: Theme.spacingLarge
                 Layout.leftMargin: Theme.spacingXL
-                text: "Add Quote"
+                text: Theme.tr("Add Quote")
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
@@ -774,7 +771,7 @@ Item {
                 spacing: Theme.spacingLarge
 
                 Text {
-                    text: "Quote text"
+                    text: Theme.tr("Quote text")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSizeSmall
                 }
@@ -784,7 +781,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.minimumHeight: 80
                     Layout.maximumHeight: 160
-                    placeholderText: "Enter quote..."
+                    placeholderText: Theme.tr("Enter quote...")
                     wrapMode: TextArea.Wrap
                     font.pixelSize: Theme.fontSizeMedium
                     Material.accent: Theme.primary
@@ -795,7 +792,7 @@ Item {
                     spacing: Theme.spacingLarge
 
                     Text {
-                        text: "Page:"
+                        text: Theme.tr("Page:")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                     }
@@ -810,7 +807,7 @@ Item {
                     }
 
                     Text {
-                        text: "(0 = no page)"
+                        text: Theme.tr("(0 = no page)")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeSmall
                         font.italic: true
@@ -829,14 +826,14 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Cancel"
+                    text: Theme.tr("Cancel")
                     flat: true
                     Material.foreground: Theme.textSecondary
                     onClicked: addQuoteDialog.reject()
                 }
 
                 Button {
-                    text: "Add"
+                    text: Theme.tr("Add")
                     enabled: quoteTextField.text.trim() !== ""
                     Material.background: enabled ? Theme.primary : Theme.surfaceVariant
                     Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary
@@ -880,7 +877,7 @@ Item {
             Text {
                 Layout.topMargin: Theme.spacingLarge
                 Layout.leftMargin: Theme.spacingXL
-                text: "Add Highlight"
+                text: Theme.tr("Add Highlight")
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
@@ -895,7 +892,7 @@ Item {
                 spacing: Theme.spacingLarge
 
                 Text {
-                    text: "Title *"
+                    text: Theme.tr("Title") + " *"
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSizeSmall
                 }
@@ -903,7 +900,7 @@ Item {
                 TextField {
                     id: hlTitleField
                     Layout.fillWidth: true
-                    placeholderText: "Highlight name..."
+                    placeholderText: Theme.tr("Highlight name...")
                     font.pixelSize: Theme.fontSizeMedium
                     Material.accent: Theme.primary
                 }
@@ -913,7 +910,7 @@ Item {
                     spacing: Theme.spacingLarge
 
                     Text {
-                        text: "Page:"
+                        text: Theme.tr("Page:")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                     }
@@ -929,7 +926,7 @@ Item {
                 }
 
                 Text {
-                    text: "Note"
+                    text: Theme.tr("Note")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSizeSmall
                 }
@@ -939,7 +936,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.minimumHeight: 60
                     Layout.maximumHeight: 120
-                    placeholderText: "Important info..."
+                    placeholderText: Theme.tr("Important info...")
                     wrapMode: TextArea.Wrap
                     font.pixelSize: Theme.fontSizeMedium
                     Material.accent: Theme.primary
@@ -957,14 +954,14 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Cancel"
+                    text: Theme.tr("Cancel")
                     flat: true
                     Material.foreground: Theme.textSecondary
                     onClicked: addHighlightDialog.reject()
                 }
 
                 Button {
-                    text: "Add"
+                    text: Theme.tr("Add")
                     enabled: hlTitleField.text.trim() !== ""
                     Material.background: enabled ? Theme.primary : Theme.surfaceVariant
                     Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary

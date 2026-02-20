@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtCharts
-import WormBook
+import BookWorm
 
 Item {
     id: statsPage
@@ -23,10 +23,7 @@ Item {
         "#AED581", "#FFD54F", "#BA68C8", "#4DD0E1"
     ]
 
-    readonly property var monthLabels: [
-        "Jan","Feb","Mar","Apr","May","Jun",
-        "Jul","Aug","Sep","Oct","Nov","Dec"
-    ]
+    readonly property var monthLabels: Theme.getMonthLabels()
 
     function updateCharts() {
         // ── Update Pie Chart ──
@@ -37,7 +34,7 @@ Item {
         var plannedCount = sd.planned || 0;
 
         if (readCount > 0) {
-            var s1 = libraryPie.append("Read (" + readCount + ")", readCount);
+            var s1 = libraryPie.append(Theme.tr("Read") + " (" + readCount + ")", readCount);
             s1.color = Theme.statusRead;
             s1.borderColor = Theme.surface;
             s1.borderWidth = 2;
@@ -46,7 +43,7 @@ Item {
             s1.labelFont.pixelSize = Theme.fontSizeSmall;
         }
         if (readingCount > 0) {
-            var s2 = libraryPie.append("Reading (" + readingCount + ")", readingCount);
+            var s2 = libraryPie.append(Theme.tr("Reading") + " (" + readingCount + ")", readingCount);
             s2.color = Theme.statusReading;
             s2.borderColor = Theme.surface;
             s2.borderWidth = 2;
@@ -55,7 +52,7 @@ Item {
             s2.labelFont.pixelSize = Theme.fontSizeSmall;
         }
         if (plannedCount > 0) {
-            var s3 = libraryPie.append("Planned (" + plannedCount + ")", plannedCount);
+            var s3 = libraryPie.append(Theme.tr("Planned") + " (" + plannedCount + ")", plannedCount);
             s3.color = Theme.statusPlanned;
             s3.borderColor = Theme.surface;
             s3.borderWidth = 2;
@@ -106,7 +103,7 @@ Item {
             Text {
                 Layout.leftMargin: Theme.spacingXL
                 Layout.topMargin: Theme.spacingXL
-                text: "Statistics"
+                text: Theme.tr("Statistics")
                 color: Theme.textOnBackground
                 font.pixelSize: Theme.fontSizeHeader
                 font.bold: true
@@ -124,21 +121,21 @@ Item {
                 StatCard {
                     Layout.fillWidth: true
                     value: statsProvider.totalBooks
-                    label: "Total Books"
+                    label: Theme.tr("Total Books")
                     accent: Theme.primary
                 }
 
                 StatCard {
                     Layout.fillWidth: true
                     value: statsProvider.totalBooksRead
-                    label: "Books Read"
+                    label: Theme.tr("Books Read")
                     accent: Theme.statusRead
                 }
 
                 StatCard {
                     Layout.fillWidth: true
                     value: statsProvider.totalPagesRead
-                    label: "Pages Read"
+                    label: Theme.tr("Pages Read")
                     accent: Theme.secondary
                 }
 
@@ -147,7 +144,7 @@ Item {
                     value: statsProvider.averagePagesPerBook > 0
                            ? Math.round(statsProvider.averagePagesPerBook)
                            : "\u2014"
-                    label: "Avg Pages/Book"
+                    label: Theme.tr("Avg Pages/Book")
                     accent: Theme.statusReading
                 }
 
@@ -156,7 +153,7 @@ Item {
                     value: statsProvider.averageCompletionPercent > 0
                            ? statsProvider.averageCompletionPercent.toFixed(1) + "%"
                            : "\u2014"
-                    label: "Avg Completion"
+                    label: Theme.tr("Avg Completion")
                     accent: Theme.statusPlanned
                 }
             }
@@ -184,7 +181,7 @@ Item {
                         spacing: 0
 
                         Text {
-                            text: "Library Composition"
+                            text: Theme.tr("Library Composition")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeMedium
                             font.bold: true
@@ -217,7 +214,7 @@ Item {
                         // Empty state
                         Text {
                             visible: statsProvider.totalBooks === 0
-                            text: "No books in library yet"
+                            text: Theme.tr("No books in library yet")
                             color: Theme.textSecondary
                             font.italic: true
                             Layout.alignment: Qt.AlignHCenter
@@ -243,7 +240,7 @@ Item {
                             spacing: Theme.spacingSmall
 
                             Text {
-                                text: "Average Rating"
+                                text: Theme.tr("Average Rating")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.bold: true
@@ -283,7 +280,7 @@ Item {
                             spacing: Theme.spacingSmall
 
                             Text {
-                                text: "Top Genre"
+                                text: Theme.tr("Top Genre")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.bold: true
@@ -304,7 +301,7 @@ Item {
                                 visible: statsProvider.genreDistribution.length > 0
                                 text: {
                                     var gd = statsProvider.genreDistribution;
-                                    if (gd.length > 0) return gd[0].count + " books";
+                                    if (gd.length > 0) return gd[0].count + " " + Theme.tr("books");
                                     return "";
                                 }
                                 color: Theme.textSecondary
@@ -321,7 +318,7 @@ Item {
                             spacing: Theme.spacingSmall
 
                             Text {
-                                text: "Read Rate"
+                                text: Theme.tr("Read Rate")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeMedium
                                 font.bold: true
@@ -339,7 +336,7 @@ Item {
                             }
 
                             Text {
-                                text: statsProvider.totalBooksRead + " of " + statsProvider.totalBooks + " books"
+                                text: statsProvider.totalBooksRead + " " + Theme.tr("of") + " " + statsProvider.totalBooks + " " + Theme.tr("books")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeSmall
                             }
@@ -369,7 +366,7 @@ Item {
                     Text {
                         text: {
                             var yr = new Date().getFullYear();
-                            return "Monthly Books Read (" + yr + " vs " + (yr - 1) + ")";
+                            return Theme.tr("Monthly Books Read") + " (" + yr + " vs " + (yr - 1) + ")";
                         }
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
@@ -462,7 +459,7 @@ Item {
                             }
                             return total === 0;
                         }
-                        text: "No monthly data yet"
+                        text: Theme.tr("No monthly data yet")
                         color: Theme.textSecondary
                         font.italic: true
                         Layout.alignment: Qt.AlignHCenter
@@ -490,7 +487,7 @@ Item {
                     spacing: Theme.spacingMedium
 
                     Text {
-                        text: "Yearly Reading Stats"
+                        text: Theme.tr("Yearly Reading Stats")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                         font.bold: true
@@ -503,22 +500,14 @@ Item {
 
                         Text {
                             Layout.preferredWidth: 80
-                            text: "Year"
+                            text: Theme.tr("Year")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: "Books"
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.bold: true
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-                        Text {
-                            Layout.fillWidth: true
-                            text: "Total Pages"
+                            text: Theme.tr("Books")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -526,7 +515,7 @@ Item {
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: "Avg Pages"
+                            text: Theme.tr("Total Pages")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -534,7 +523,15 @@ Item {
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: "Avg Rating"
+                            text: Theme.tr("Avg Pages")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: Theme.tr("Avg Rating")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -598,7 +595,7 @@ Item {
                     // Empty state
                     Text {
                         visible: statsProvider.booksPerYear.length === 0
-                        text: "No yearly data yet"
+                        text: Theme.tr("No yearly data yet")
                         color: Theme.textSecondary
                         font.italic: true
                         Layout.alignment: Qt.AlignHCenter
@@ -627,7 +624,7 @@ Item {
                     spacing: Theme.spacingMedium
 
                     Text {
-                        text: "Genre Distribution"
+                        text: Theme.tr("Genre Distribution")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                         font.bold: true
@@ -686,7 +683,7 @@ Item {
                     // Empty state
                     Text {
                         visible: statsProvider.genreDistribution.length === 0
-                        text: "No genre data yet"
+                        text: Theme.tr("No genre data yet")
                         color: Theme.textSecondary
                         font.italic: true
                         Layout.alignment: Qt.AlignHCenter

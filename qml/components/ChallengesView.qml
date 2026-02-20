@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import WormBook
+import BookWorm
 
 Item {
     id: challengesPage
@@ -40,7 +40,7 @@ Item {
             spacing: Theme.spacingLarge
 
             Text {
-                text: "Challenges"
+                text: Theme.tr("Challenges")
                 color: Theme.textOnBackground
                 font.pixelSize: Theme.fontSizeHeader
                 font.bold: true
@@ -127,11 +127,11 @@ Item {
                                         id: deadlineText
                                         anchors.centerIn: parent
                                         text: {
-                                            if (modelData.progress >= 1.0) return "\u2714 Completed";
+                                            if (modelData.progress >= 1.0) return "\u2714 " + Theme.tr("Completed");
                                             var dl = new Date(modelData.deadline);
                                             var now = new Date();
-                                            if (dl < now) return "Expired";
-                                            return "Due: " + modelData.deadline;
+                                            if (dl < now) return Theme.tr("Expired");
+                                            return Theme.tr("Due:") + " " + modelData.deadline;
                                         }
                                         color: {
                                             if (modelData.progress >= 1.0) return "#000000";
@@ -162,7 +162,7 @@ Item {
                                 spacing: Theme.spacingMedium
 
                                 Text {
-                                    text: modelData.currentCount + " / " + modelData.targetBooks + " books"
+                                    text: modelData.currentCount + " / " + modelData.targetBooks + " " + Theme.tr("books")
                                     color: Theme.textOnSurface
                                     font.pixelSize: Theme.fontSizeMedium
                                 }
@@ -215,7 +215,7 @@ Item {
                                         spacing: Theme.spacingMedium
 
                                         Text {
-                                            text: "\u23F1 Elapsed:"
+                                            text: "\u23F1 " + Theme.tr("Elapsed:")
                                             color: Theme.textSecondary
                                             font.pixelSize: Theme.fontSizeSmall
                                         }
@@ -226,13 +226,13 @@ Item {
                                                 var now = new Date();
                                                 var diffMs = now - start;
                                                 var days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                                                if (days < 1) return "< 1 day";
-                                                if (days === 1) return "1 day";
-                                                if (days < 30) return days + " days";
+                                                if (days < 1) return Theme.tr("< 1 day");
+                                                if (days === 1) return Theme.tr("1 day");
+                                                if (days < 30) return days + " " + Theme.tr("days");
                                                 var months = Math.floor(days / 30);
                                                 var remDays = days % 30;
-                                                if (months === 1) return "1 month" + (remDays > 0 ? ", " + remDays + "d" : "");
-                                                return months + " months" + (remDays > 0 ? ", " + remDays + "d" : "");
+                                                if (months === 1) return Theme.tr("1 month") + (remDays > 0 ? ", " + remDays + "d" : "");
+                                                return months + " " + Theme.tr("months") + (remDays > 0 ? ", " + remDays + "d" : "");
                                             }
                                             color: Theme.textOnSurface
                                             font.pixelSize: Theme.fontSizeSmall
@@ -242,7 +242,7 @@ Item {
                                         Item { Layout.fillWidth: true }
 
                                         Text {
-                                            text: "\u23F3 Remaining:"
+                                            text: "\u23F3 " + Theme.tr("Remaining:")
                                             color: Theme.textSecondary
                                             font.pixelSize: Theme.fontSizeSmall
                                         }
@@ -252,14 +252,14 @@ Item {
                                                 var dl = new Date(modelData.deadline);
                                                 var now = new Date();
                                                 var diffMs = dl - now;
-                                                if (diffMs <= 0) return "expired";
+                                                if (diffMs <= 0) return Theme.tr("expired");
                                                 var days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                                                if (days === 1) return "1 day";
-                                                if (days < 30) return days + " days";
+                                                if (days === 1) return Theme.tr("1 day");
+                                                if (days < 30) return days + " " + Theme.tr("days");
                                                 var months = Math.floor(days / 30);
                                                 var remDays = days % 30;
-                                                if (months === 1) return "1 month" + (remDays > 0 ? ", " + remDays + "d" : "");
-                                                return months + " months" + (remDays > 0 ? ", " + remDays + "d" : "");
+                                                if (months === 1) return Theme.tr("1 month") + (remDays > 0 ? ", " + remDays + "d" : "");
+                                                return months + " " + Theme.tr("months") + (remDays > 0 ? ", " + remDays + "d" : "");
                                             }
                                             color: {
                                                 var dl = new Date(modelData.deadline);
@@ -282,7 +282,7 @@ Item {
                                         visible: modelData.progress < 1.0
 
                                         Text {
-                                            text: "\u{1F4D6} Avg pages/day to finish:"
+                                            text: "\u{1F4D6} " + Theme.tr("Avg pages/day to finish:")
                                             color: Theme.textSecondary
                                             font.pixelSize: Theme.fontSizeSmall
                                         }
@@ -296,8 +296,8 @@ Item {
                                                 var avgPagesPerBook = 400;
                                                 var totalPagesLeft = booksLeft * avgPagesPerBook;
                                                 var pagesPerDay = Math.ceil(totalPagesLeft / daysLeft);
-                                                if (booksLeft <= 0) return "\u2714 done!";
-                                                return pagesPerDay + " pages/day (" + booksLeft + " books \u00D7 400 pp)";
+                                                if (booksLeft <= 0) return "\u2714 " + Theme.tr("done!");
+                                                return pagesPerDay + " " + Theme.tr("pages/day") + " (" + booksLeft + " " + Theme.tr("books") + " \u00D7 400 pp)";
                                             }
                                             color: {
                                                 var dl = new Date(modelData.deadline);
@@ -333,7 +333,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: challengesPage.expandedId === modelData.id
-                                          ? "\u25B2 Hide books" : "\u25BC Show books (" + modelData.currentCount + ")"
+                                          ? "\u25B2 " + Theme.tr("Hide books") : "\u25BC " + Theme.tr("Show books") + " (" + modelData.currentCount + ")"
                                     color: Theme.primary
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
@@ -406,7 +406,7 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: Theme.spacingXL * 2
                     visible: challengesPage.challenges.length === 0
-                    text: "No challenges yet. Click + to create one!"
+                    text: Theme.tr("No challenges yet. Click + to create one!")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSizeLarge
                 }
@@ -448,7 +448,7 @@ Item {
             Text {
                 Layout.topMargin: Theme.spacingLarge
                 Layout.leftMargin: Theme.spacingXL
-                text: "New Challenge"
+                text: Theme.tr("New Challenge")
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
@@ -464,7 +464,7 @@ Item {
 
                 // Name
                 Text {
-                    text: "Challenge name"
+                    text: Theme.tr("Challenge name")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSizeSmall
                 }
@@ -472,7 +472,7 @@ Item {
                 TextField {
                     id: challengeNameField
                     Layout.fillWidth: true
-                    placeholderText: "e.g. Summer Reading"
+                    placeholderText: Theme.tr("e.g. Summer Reading")
                     font.pixelSize: Theme.fontSizeMedium
                     Material.accent: Theme.primary
                 }
@@ -485,7 +485,7 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: "Number of books"
+                            text: Theme.tr("Number of books")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                         }
@@ -524,7 +524,7 @@ Item {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: "Duration (months)"
+                            text: Theme.tr("Duration (months)")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
                         }
@@ -532,7 +532,7 @@ Item {
                         Text {
                             text: {
                                 var m = Math.round(monthsSlider.value);
-                                return m + (m === 1 ? " month" : " months");
+                                return m + " " + (m === 1 ? Theme.tr("month") : Theme.tr("months"));
                             }
                             color: Theme.primary
                             font.pixelSize: Theme.fontSizeLarge
@@ -579,7 +579,7 @@ Item {
                                 var months = Math.round(monthsSlider.value);
                                 // End of the target month: day 0 of next month = last day of target month
                                 var deadline = new Date(now.getFullYear(), now.getMonth() + months + 1, 0);
-                                return "Deadline: " + deadline.toISOString().split("T")[0];
+                                return Theme.tr("Deadline:") + " " + deadline.toISOString().split("T")[0];
                             }
                             color: Theme.textOnSurface
                             font.pixelSize: Theme.fontSizeMedium
@@ -592,7 +592,7 @@ Item {
                                 var days = months * 30;
                                 var totalPages = books * 400;
                                 var ppd = Math.ceil(totalPages / days);
-                                return "\u2248 " + ppd + " pages/day (avg 400 pages/book)";
+                                return "\u2248 " + ppd + " " + Theme.tr("pages/day") + " (avg 400 " + Theme.tr("pages") + "/" + Theme.tr("Book").toLowerCase() + ")";
                             }
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -612,14 +612,14 @@ Item {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: "Cancel"
+                    text: Theme.tr("Cancel")
                     flat: true
                     Material.foreground: Theme.textSecondary
                     onClicked: addChallengeDialog.reject()
                 }
 
                 Button {
-                    text: "Create"
+                    text: Theme.tr("Create")
                     enabled: challengeNameField.text.trim() !== ""
                     Material.background: enabled ? Theme.primary : Theme.surfaceVariant
                     Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary

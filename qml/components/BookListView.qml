@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import WormBook
+import BookWorm
 
 Item {
     id: bookListPage
@@ -34,7 +34,7 @@ Item {
             spacing: Theme.spacingLarge
 
             Text {
-                text: "Library"
+                text: Theme.tr("Library")
                 color: Theme.textOnBackground
                 font.pixelSize: Theme.fontSizeHeader
                 font.bold: true
@@ -51,10 +51,9 @@ Item {
                     var parts = [];
                     for (var i = 0; i < keys.length; i++) {
                         var k = keys[i];
-                        var label = k.charAt(0).toUpperCase() + k.slice(1) + "s";
-                        parts.push(label + ": " + dist[k]);
+                        parts.push(Theme.typePlural(k) + ": " + dist[k]);
                     }
-                    return parts.length > 0 ? parts.join("  \u00B7  ") : "0 books";
+                    return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
                 }
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
@@ -75,7 +74,7 @@ Item {
                 topPadding: 6
                 bottomPadding: 6
                 font.pixelSize: Theme.fontSizeMedium
-                placeholderText: "\u{1F50D} Search title / author..."
+                placeholderText: "\u{1F50D} " + Theme.tr("Search title / author...")
                 Material.accent: Theme.primary
                 onTextChanged: bookController.searchQuery = text
             }
@@ -119,8 +118,8 @@ Item {
 
                     Repeater {
                         model: [
-                            { label: "Start",  value: "start" },
-                            { label: "Finish", value: "finish" }
+                            { key: "Start",  value: "start" },
+                            { key: "Finish", value: "finish" }
                         ]
 
                         Rectangle {
@@ -135,7 +134,7 @@ Item {
                             Text {
                                 id: modeLabel
                                 anchors.centerIn: parent
-                                text: modelData.label
+                                text: Theme.tr(modelData.key)
                                 color: bookController.filterYearMode === modelData.value
                                        ? Theme.textOnPrimary : Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeSmall - 1
@@ -160,11 +159,11 @@ Item {
 
                 Repeater {
                     model: [
-                        { label: "All",       value: "" },
-                        { label: "Reading",   value: "reading" },
-                        { label: "Read",      value: "read" },
-                        { label: "Planned",   value: "planned" },
-                        { label: "Abandoned", value: "abandoned" }
+                        { key: "All",       value: "" },
+                        { key: "Reading",   value: "reading" },
+                        { key: "Read",      value: "read" },
+                        { key: "Planned",   value: "planned" },
+                        { key: "Abandoned", value: "abandoned" }
                     ]
 
                     Rectangle {
@@ -182,7 +181,7 @@ Item {
                         Text {
                             id: filterChipText
                             anchors.centerIn: parent
-                            text: modelData.label
+                            text: Theme.tr(modelData.key)
                             color: bookController.filterStatus === modelData.value
                                    ? Theme.textOnPrimary : Theme.textSecondary
                             font.pixelSize: Theme.fontSizeSmall
@@ -201,13 +200,13 @@ Item {
             // Layout button
             RoundButton {
                 width: 36; height: 36
-                icon.source: "qrc:/qt/qml/WormBook/src/img/icons/sheet-view.svg"
+                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"
                 icon.width: 18; icon.height: 18
                 icon.color: Theme.textSecondary
                 Material.background: Theme.surfaceVariant
 
                 ToolTip.visible: hovered
-                ToolTip.text: "Layout"
+                ToolTip.text: Theme.tr("Layout")
 
                 onClicked: layoutPopup.open()
             }
@@ -215,7 +214,7 @@ Item {
             // Add book button
             RoundButton {
                 width: 36; height: 36
-                icon.source: "qrc:/qt/qml/WormBook/src/img/icons/add-book.svg"
+                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
                 icon.width: 18; icon.height: 18
                 icon.color: Theme.textOnPrimary
                 Material.background: Theme.primary
@@ -296,7 +295,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     visible: gridView.count === 0
-                    text: searchField.text ? "No books match your search" : "No books yet. Click + to add one!"
+                    text: searchField.text ? Theme.tr("No books match your search") : Theme.tr("No books yet. Click + to add one!")
                     color: Theme.textSecondary
                     font.pixelSize: Theme.fontSizeLarge
                 }
@@ -325,7 +324,7 @@ Item {
             spacing: Theme.spacingMedium
 
             Text {
-                text: "Layout"
+                text: Theme.tr("Layout")
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeMedium
                 font.bold: true
@@ -340,7 +339,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: "Auto"
+                    text: Theme.tr("Auto")
                     color: Theme.textOnSurface
                     font.pixelSize: Theme.fontSizeMedium
                 }
@@ -367,7 +366,7 @@ Item {
                 opacity: autoSwitch.checked ? 0.4 : 1.0
 
                 Text {
-                    text: "Cards per row"
+                    text: Theme.tr("Cards per row")
                     color: Theme.textOnSurface
                     font.pixelSize: Theme.fontSizeSmall
                 }

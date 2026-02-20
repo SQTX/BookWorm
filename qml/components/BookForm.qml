@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import WormBook
+import BookWorm
 
 Dialog {
     id: formDialog
@@ -284,7 +284,7 @@ Dialog {
                 anchors.left: parent.left
                 anchors.leftMargin: Theme.spacingXL
                 anchors.verticalCenter: parent.verticalCenter
-                text: mode === "add" ? "Add New Book" : "Edit Book"
+                text: mode === "add" ? Theme.tr("Add New Book") : Theme.tr("Edit Book")
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
@@ -359,14 +359,14 @@ Dialog {
 
                                 Image {
                                     Layout.alignment: Qt.AlignHCenter
-                                    source: "qrc:/qt/qml/WormBook/src/img/icons/book-cover.svg"
+                                    source: "qrc:/qt/qml/BookWorm/src/img/icons/book-cover.svg"
                                     sourceSize.width: 36
                                     sourceSize.height: 36
                                     opacity: 0.4
                                 }
                                 Text {
                                     Layout.alignment: Qt.AlignHCenter
-                                    text: "Add Cover"
+                                    text: Theme.tr("Add Cover")
                                     color: Theme.textSecondary
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
@@ -380,7 +380,7 @@ Dialog {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "Change"
+                                    text: Theme.tr("Change")
                                     color: "#FFFFFF"
                                     font.pixelSize: Theme.fontSizeMedium
                                     font.bold: true
@@ -426,7 +426,7 @@ Dialog {
                             Layout.preferredHeight: 40
                             topPadding: fieldTopPad
                             bottomPadding: fieldBotPad
-                            placeholderText: "Title *"
+                            placeholderText: Theme.tr("Title *")
                             font.pixelSize: Theme.fontSizeLarge
                             Material.accent: Theme.primary
                         }
@@ -441,7 +441,7 @@ Dialog {
                                 anchors.fill: parent
                                 topPadding: fieldTopPad
                                 bottomPadding: fieldBotPad
-                                placeholderText: "Author *"
+                                placeholderText: Theme.tr("Author *")
                                 font.pixelSize: Theme.fontSizeMedium
                                 Material.accent: Theme.primary
                                 onTextChanged: {
@@ -523,7 +523,7 @@ Dialog {
                             spacing: Theme.spacingMedium
 
                             Text {
-                                text: "Type:"
+                                text: Theme.tr("Type:")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeSmall
                             }
@@ -548,7 +548,7 @@ Dialog {
                             }
 
                             Text {
-                                text: "Technical book / Textbook"
+                                text: Theme.tr("Technical book / Textbook")
                                 color: Theme.textOnSurface
                                 font.pixelSize: Theme.fontSizeMedium
 
@@ -578,10 +578,10 @@ Dialog {
 
                     Repeater {
                         model: [
-                            { label: "Reading",   value: "reading",   idx: 0 },
-                            { label: "Read",      value: "read",      idx: 1 },
-                            { label: "Planned",   value: "planned",   idx: 2 },
-                            { label: "Abandoned", value: "abandoned", idx: 3 }
+                            { key: "Reading",   value: "reading",   idx: 0 },
+                            { key: "Read",      value: "read",      idx: 1 },
+                            { key: "Planned",   value: "planned",   idx: 2 },
+                            { key: "Abandoned", value: "abandoned", idx: 3 }
                         ]
 
                         Rectangle {
@@ -601,7 +601,7 @@ Dialog {
                             Text {
                                 id: chipText
                                 anchors.centerIn: parent
-                                text: modelData.label
+                                text: Theme.tr(modelData.key)
                                 color: statusCombo.currentIndex === modelData.idx
                                        ? "#000000" : Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeMedium
@@ -628,7 +628,7 @@ Dialog {
                     Row {
                         id: starRating
                         property int rating: 0
-                        readonly property var labels: ["", "Bad", "Weak", "Average", "Good", "Very good", "Excellent"]
+                        readonly property var labels: ["", Theme.tr("Bad"), Theme.tr("Weak"), Theme.tr("Average"), Theme.tr("Good"), Theme.tr("Very good"), Theme.tr("Excellent")]
                         Layout.alignment: Qt.AlignHCenter
                         spacing: 4
 
@@ -666,7 +666,7 @@ Dialog {
                         Layout.alignment: Qt.AlignHCenter
                         text: starRating.rating > 0
                               ? starRating.rating + " / 6 — " + starRating.labels[starRating.rating]
-                              : "Not rated"
+                              : Theme.tr("Not rated")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeSmall
                     }
@@ -692,7 +692,7 @@ Dialog {
                         spacing: Theme.spacingMedium
 
                         Text {
-                            text: "DETAILS"
+                            text: Theme.tr("DETAILS")
                             color: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -705,8 +705,8 @@ Dialog {
                             rowSpacing: Theme.spacingSmall
 
                             // Row 1: Genre label + Language label
-                            Text { text: "Genre"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
-                            Text { text: "Language"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: Theme.tr("Genre"); color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: Theme.tr("Language"); color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
 
                             // Row 1 fields: Genre selector + Language ComboBox
                             RowLayout {
@@ -729,7 +729,7 @@ Dialog {
 
                                         Text {
                                             Layout.fillWidth: true
-                                            text: formDialog.selectedGenre() || "Select genre..."
+                                            text: formDialog.selectedGenre() || Theme.tr("Select genre...")
                                             color: formDialog.selectedGenre() ? Theme.textOnSurface : Theme.textSecondary
                                             font.pixelSize: Theme.fontSizeSmall
                                             elide: Text.ElideRight
@@ -802,7 +802,7 @@ Dialog {
                                                     Layout.preferredHeight: 30
                                                     topPadding: 4
                                                     bottomPadding: 4
-                                                    placeholderText: "Search or add genre..."
+                                                    placeholderText: Theme.tr("Search or add genre...")
                                                     font.pixelSize: Theme.fontSizeSmall
                                                     Material.accent: Theme.primary
                                                     onAccepted: {
@@ -889,7 +889,7 @@ Dialog {
                             }
 
                             // Series with autocomplete (spans both columns)
-                            Text { text: "Series"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall; Layout.columnSpan: 2 }
+                            Text { text: Theme.tr("Series"); color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall; Layout.columnSpan: 2 }
 
                             Item {
                                 Layout.fillWidth: true
@@ -901,7 +901,7 @@ Dialog {
                                     anchors.fill: parent
                                     topPadding: fieldTopPad
                                     bottomPadding: fieldBotPad
-                                    placeholderText: "Series name..."
+                                    placeholderText: Theme.tr("Series name...")
                                     font.pixelSize: Theme.fontSizeSmall
                                     Material.accent: Theme.primary
                                     onTextChanged: {
@@ -979,8 +979,8 @@ Dialog {
                             }
 
                             // Row 2: Pages + Publication date
-                            Text { text: "Pages"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
-                            Text { text: "Published Year"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: Theme.tr("Pages"); color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: Theme.tr("Published Year"); color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
 
                             SpinBox {
                                 id: pageCountField
@@ -1005,7 +1005,7 @@ Dialog {
 
                             // Row 2b: Current page (only when reading)
                             Text {
-                                text: "Current page"
+                                text: Theme.tr("Current page")
                                 color: Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeSmall
                                 visible: statusCombo.currentIndex === 0
@@ -1025,8 +1025,8 @@ Dialog {
                             Item { visible: statusCombo.currentIndex === 0 }
 
                             // Row 3: ISBN + Publisher (with autocomplete)
-                            Text { text: "ISBN"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
-                            Text { text: "Publisher"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: Theme.tr("ISBN"); color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                            Text { text: Theme.tr("Publisher"); color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
 
                             TextField {
                                 id: isbnField
@@ -1049,7 +1049,7 @@ Dialog {
                                     anchors.fill: parent
                                     topPadding: fieldTopPad
                                     bottomPadding: fieldBotPad
-                                    placeholderText: "Publisher name"
+                                    placeholderText: Theme.tr("Publisher name")
                                     font.pixelSize: Theme.fontSizeSmall
                                     Material.accent: Theme.primary
                                     onTextChanged: {
@@ -1150,7 +1150,7 @@ Dialog {
                         spacing: Theme.spacingMedium
 
                         Text {
-                            text: "READING DATES"
+                            text: Theme.tr("READING DATES")
                             color: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -1165,7 +1165,7 @@ Dialog {
                                 spacing: 2
 
                                 Text {
-                                    text: "Started"
+                                    text: Theme.tr("Started")
                                     color: Theme.textSecondary
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
@@ -1189,11 +1189,11 @@ Dialog {
 
                                     ToolButton {
                                         width: 28; height: 28
-                                        icon.source: "qrc:/qt/qml/WormBook/src/img/icons/calendar.svg"
+                                        icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/calendar.svg"
                                         icon.width: 16; icon.height: 16
                                         icon.color: Theme.textSecondary
                                         ToolTip.visible: hovered
-                                        ToolTip.text: "Set today"
+                                        ToolTip.text: Theme.tr("Set today")
                                         onClicked: startDateField.text = formDialog.todayDisplay()
                                     }
                                 }
@@ -1204,7 +1204,7 @@ Dialog {
                                 spacing: 2
 
                                 Text {
-                                    text: "Finished"
+                                    text: Theme.tr("Finished")
                                     color: Theme.textSecondary
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
@@ -1228,11 +1228,11 @@ Dialog {
 
                                     ToolButton {
                                         width: 28; height: 28
-                                        icon.source: "qrc:/qt/qml/WormBook/src/img/icons/calendar.svg"
+                                        icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/calendar.svg"
                                         icon.width: 16; icon.height: 16
                                         icon.color: Theme.textSecondary
                                         ToolTip.visible: hovered
-                                        ToolTip.text: "Set today"
+                                        ToolTip.text: Theme.tr("Set today")
                                         onClicked: endDateField.text = formDialog.todayDisplay()
                                     }
                                 }
@@ -1261,7 +1261,7 @@ Dialog {
                         spacing: Theme.spacingMedium
 
                         Text {
-                            text: "NOTES"
+                            text: Theme.tr("NOTES")
                             color: Theme.primary
                             font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
@@ -1271,7 +1271,7 @@ Dialog {
                             id: notesField
                             Layout.fillWidth: true
                             Layout.minimumHeight: 70
-                            placeholderText: "Your thoughts about the book..."
+                            placeholderText: Theme.tr("Your thoughts about the book...")
                             wrapMode: TextArea.Wrap
                             font.pixelSize: Theme.fontSizeSmall
                             Material.accent: Theme.primary
@@ -1304,8 +1304,8 @@ Dialog {
                 Text {
                     Layout.fillWidth: true
                     text: {
-                        if (titleField.text.trim() === "") return "Title is required";
-                        if (authorField.text.trim() === "") return "Author is required";
+                        if (titleField.text.trim() === "") return Theme.tr("Title is required");
+                        if (authorField.text.trim() === "") return Theme.tr("Author is required");
                         return "";
                     }
                     color: Theme.error
@@ -1315,14 +1315,14 @@ Dialog {
                 }
 
                 Button {
-                    text: "Cancel"
+                    text: Theme.tr("Cancel")
                     flat: true
                     Material.foreground: Theme.textSecondary
                     onClicked: formDialog.reject()
                 }
 
                 Button {
-                    text: mode === "add" ? "Add Book" : "Save"
+                    text: mode === "add" ? Theme.tr("Add Book") : Theme.tr("Save")
                     enabled: titleField.text.trim() !== "" && authorField.text.trim() !== ""
                     Material.background: enabled ? Theme.primary : Theme.surfaceVariant
                     Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary
@@ -1338,7 +1338,7 @@ Dialog {
 
     FileDialog {
         id: fileDialog
-        title: "Select Cover Image"
+        title: Theme.tr("Select Cover Image")
         nameFilters: ["Image files (*.png *.jpg *.jpeg *.webp)"]
         onAccepted: {
             var path = selectedFile.toString();

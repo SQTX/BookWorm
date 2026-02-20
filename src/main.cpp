@@ -18,10 +18,10 @@ int main(int argc, char *argv[])
     QCoreApplication::addLibraryPath(QStringLiteral("/opt/homebrew/share/qt/plugins"));
 
     QApplication app(argc, argv);
-    app.setApplicationName(WormBook::Config::APP_NAME);
-    app.setApplicationVersion(WormBook::Config::APP_VERSION);
-    app.setOrganizationName(WormBook::Config::APP_ORG);
-    app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/WormBook/Priv/img/main_icon.png")));
+    app.setApplicationName(BookWorm::Config::APP_NAME);
+    app.setApplicationVersion(BookWorm::Config::APP_VERSION);
+    app.setOrganizationName(BookWorm::Config::APP_ORG);
+    app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/BookWorm/src/img/png/main_icon.png")));
 
     QQuickStyle::setStyle("Material");
     qputenv("QT_QUICK_CONTROLS_MATERIAL_THEME", "Dark");
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     // Database connection
     auto &db = DatabaseManager::instance();
     if (!db.connect()) {
-        qCritical("Failed to connect to PostgreSQL database '%s'", WormBook::Config::DB_NAME);
+        qCritical("Failed to connect to PostgreSQL database '%s'", BookWorm::Config::DB_NAME);
         return 1;
     }
     db.initializeSchema();
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("statsProvider", &statsProvider);
 
     using namespace Qt::StringLiterals;
-    const QUrl url(u"qrc:/qt/qml/WormBook/qml/Main.qml"_s);
+    const QUrl url(u"qrc:/qt/qml/BookWorm/qml/Main.qml"_s);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, []() { QCoreApplication::exit(-1); },
                      Qt::QueuedConnection);

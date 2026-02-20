@@ -4,7 +4,8 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtCore
-import WormBook
+import BookWorm
+import Qt.labs.platform as Platform
 
 ApplicationWindow {
     id: root
@@ -13,7 +14,7 @@ ApplicationWindow {
     height: 800
     minimumWidth: 900
     minimumHeight: 600
-    title: "WormBook"
+    title: "BookWorm"
     color: Theme.background
 
     Material.theme: Theme.isDark ? Material.Dark : Material.Light
@@ -30,6 +31,158 @@ ApplicationWindow {
 
     Component.onCompleted: {
         Theme.setTheme(root.appStyle);
+        Theme.language = root.appLanguage;
+    }
+
+    onAppLanguageChanged: Theme.language = root.appLanguage
+
+    // ── Native macOS Menu Bar ──
+    Platform.MenuBar {
+        Platform.Menu {
+            title: "BookWorm"
+            Platform.MenuItem {
+                text: Theme.tr("About BookWorm")
+                onTriggered: aboutDialog.open()
+            }
+            Platform.MenuSeparator {}
+            Platform.MenuItem {
+                text: Theme.tr("Check for Updates...")
+                enabled: false
+            }
+        }
+        Platform.Menu {
+            title: Theme.tr("File")
+            Platform.MenuItem {
+                text: Theme.tr("Import CSV")
+                onTriggered: importDialog.open()
+            }
+            Platform.MenuItem {
+                text: Theme.tr("Export CSV")
+                onTriggered: exportDialog.open()
+            }
+        }
+        Platform.Menu {
+            title: Theme.tr("View")
+            Platform.Menu {
+                title: Theme.tr("Languages")
+                Platform.MenuItem {
+                    text: "English"
+                    checkable: true
+                    checked: root.appLanguage === "en"
+                    onTriggered: root.appLanguage = "en"
+                }
+                Platform.MenuItem {
+                    text: "Polski"
+                    checkable: true
+                    checked: root.appLanguage === "pl"
+                    onTriggered: root.appLanguage = "pl"
+                }
+            }
+            Platform.Menu {
+                title: Theme.tr("Theme")
+                Platform.MenuItem {
+                    text: Theme.tr("Minimalist Light")
+                    checkable: true
+                    checked: root.appStyle === "minimalist_light"
+                    onTriggered: { root.appStyle = "minimalist_light"; Theme.setTheme("minimalist_light"); }
+                }
+                Platform.MenuItem {
+                    text: Theme.tr("Minimalist Dark")
+                    checkable: true
+                    checked: root.appStyle === "minimalist_dark"
+                    onTriggered: { root.appStyle = "minimalist_dark"; Theme.setTheme("minimalist_dark"); }
+                }
+                Platform.MenuItem {
+                    text: Theme.tr("Classic")
+                    checkable: true
+                    checked: root.appStyle === "classic"
+                    onTriggered: { root.appStyle = "classic"; Theme.setTheme("classic"); }
+                }
+            }
+        }
+        Platform.Menu {
+            title: Theme.tr("Help")
+        }
+    }
+
+    // ── About Dialog ──
+    Dialog {
+        id: aboutDialog
+        title: ""
+        modal: true
+        standardButtons: Dialog.NoButton
+        anchors.centerIn: parent
+        width: 340
+        padding: 0
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Item { Layout.preferredHeight: Theme.spacingXL }
+
+            Image {
+                Layout.alignment: Qt.AlignHCenter
+                source: "qrc:/qt/qml/BookWorm/src/img/png/main_icon.png"
+                sourceSize.width: 80
+                sourceSize.height: 80
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingLarge }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: "BookWorm"
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingMedium }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: Theme.tr("Version") + " 1.0.0"
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeMedium
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingLarge }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: "Copyright \u00A9 2024\u20132026 Jakub SQTX Sitarczyk."
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+            }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: Theme.tr("All rights reserved.")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingXL }
+
+            Button {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.bottomMargin: Theme.spacingLarge
+                text: "OK"
+                flat: true
+                Material.foreground: Theme.primary
+                onClicked: aboutDialog.close()
+            }
+        }
     }
 
     RowLayout {
@@ -52,7 +205,7 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/library-view.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/library-view.svg"
                     icon.width: 22; icon.height: 22
                     icon.color: currentPage === 0 ? Theme.primary : Theme.textSecondary
 
@@ -66,7 +219,7 @@ ApplicationWindow {
                     }
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Biblioteka" : "Library"
+                    ToolTip.text: Theme.tr("Library")
 
                     onClicked: {
                         currentPage = 0;
@@ -78,7 +231,7 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/sheet-view.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"
                     icon.width: 22; icon.height: 22
                     icon.color: currentPage === 1 ? Theme.primary : Theme.textSecondary
 
@@ -92,7 +245,7 @@ ApplicationWindow {
                     }
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Tabela" : "Table"
+                    ToolTip.text: Theme.tr("Table")
 
                     onClicked: {
                         currentPage = 1;
@@ -104,7 +257,7 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/stat-view.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/stat-view.svg"
                     icon.width: 22; icon.height: 22
                     icon.color: currentPage === 2 ? Theme.primary : Theme.textSecondary
 
@@ -118,7 +271,7 @@ ApplicationWindow {
                     }
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Statystyki" : "Statistics"
+                    ToolTip.text: Theme.tr("Statistics")
 
                     onClicked: {
                         currentPage = 2;
@@ -130,7 +283,7 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/challenges.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/challenges.svg"
                     icon.width: 22; icon.height: 22
                     icon.color: currentPage === 3 ? Theme.primary : Theme.textSecondary
 
@@ -144,7 +297,7 @@ ApplicationWindow {
                     }
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Wyzwania" : "Challenges"
+                    ToolTip.text: Theme.tr("Challenges")
 
                     onClicked: {
                         currentPage = 3;
@@ -158,12 +311,12 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/tags.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/tags.svg"
                     icon.width: 20; icon.height: 20
                     icon.color: Theme.textSecondary
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Tagi" : "Tags"
+                    ToolTip.text: Theme.tr("Tags")
 
                     onClicked: tagsPopup.open()
                 }
@@ -172,12 +325,12 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/export.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/export.svg"
                     icon.width: 20; icon.height: 20
                     icon.color: Theme.textSecondary
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Eksportuj CSV" : "Export CSV"
+                    ToolTip.text: Theme.tr("Export CSV")
 
                     onClicked: exportDialog.open()
                 }
@@ -186,12 +339,12 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/inport.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/inport.svg"
                     icon.width: 20; icon.height: 20
                     icon.color: Theme.textSecondary
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Importuj CSV" : "Import CSV"
+                    ToolTip.text: Theme.tr("Import CSV")
 
                     onClicked: importDialog.open()
                 }
@@ -200,12 +353,12 @@ ApplicationWindow {
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
                     width: 48; height: 48
-                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/settings.svg"
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/settings.svg"
                     icon.width: 22; icon.height: 22
                     icon.color: Theme.textSecondary
 
                     ToolTip.visible: hovered
-                    ToolTip.text: root.appLanguage === "pl" ? "Ustawienia" : "Settings"
+                    ToolTip.text: Theme.tr("Settings")
 
                     onClicked: settingsPopup.open()
                 }
@@ -281,8 +434,8 @@ ApplicationWindow {
 
     // ── Settings ──
 
-    property string appStyle: "minimalist_dark"
-    property string appLanguage: "en"
+    property string appStyle: "classic"
+    property string appLanguage: Qt.locale().name.substring(0,2) === "pl" ? "pl" : "en"
 
     Popup {
         id: settingsPopup
@@ -313,7 +466,7 @@ ApplicationWindow {
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.spacingLarge
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.appLanguage === "pl" ? "Ustawienia" : "Settings"
+                    text: Theme.tr("Settings")
                     color: Theme.textOnSurface
                     font.pixelSize: Theme.fontSizeLarge
                     font.bold: true
@@ -326,7 +479,7 @@ ApplicationWindow {
             Text {
                 Layout.topMargin: Theme.spacingMedium
                 Layout.leftMargin: Theme.spacingLarge
-                text: root.appLanguage === "pl" ? "J\u0118ZYK" : "LANGUAGE"
+                text: Theme.tr("LANGUAGE")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
                 font.bold: true
@@ -399,7 +552,7 @@ ApplicationWindow {
             Text {
                 Layout.topMargin: Theme.spacingMedium
                 Layout.leftMargin: Theme.spacingLarge
-                text: root.appLanguage === "pl" ? "STYL APLIKACJI" : "APP STYLE"
+                text: Theme.tr("APP STYLE")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
                 font.bold: true
@@ -431,8 +584,7 @@ ApplicationWindow {
 
                         Text {
                             Layout.fillWidth: true
-                            text: root.appLanguage === "pl"
-                                  ? modelData.labelPl : modelData.label
+                            text: Theme.tr(modelData.label)
                             color: root.appStyle === modelData.key
                                    ? Theme.primary : Theme.textOnSurface
                             font.pixelSize: Theme.fontSizeMedium
@@ -486,7 +638,7 @@ ApplicationWindow {
 
                 Text {
                     anchors.centerIn: parent
-                    text: root.appLanguage === "pl" ? "Resetuj dane" : "Reset All Data"
+                    text: Theme.tr("Reset All Data")
                     color: "#FFFFFF"
                     font.pixelSize: Theme.fontSizeMedium
                     font.bold: true
@@ -555,7 +707,7 @@ ApplicationWindow {
                     anchors.left: parent.left
                     anchors.leftMargin: Theme.spacingLarge
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.appLanguage === "pl" ? "Tagi" : "Tags"
+                    text: Theme.tr("Tags")
                     color: Theme.textOnSurface
                     font.pixelSize: Theme.fontSizeLarge
                     font.bold: true
@@ -670,7 +822,7 @@ ApplicationWindow {
                         Layout.topMargin: Theme.spacingLarge
                         Layout.bottomMargin: Theme.spacingLarge
                         visible: tagsPopup.tagsList.length === 0
-                        text: root.appLanguage === "pl" ? "Brak tagów" : "No tags yet"
+                        text: Theme.tr("No tags yet")
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeMedium
                     }
@@ -710,7 +862,7 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 32
                     topPadding: 4; bottomPadding: 4
-                    placeholderText: root.appLanguage === "pl" ? "Nowy tag..." : "New tag..."
+                    placeholderText: Theme.tr("New tag...")
                     font.pixelSize: Theme.fontSizeMedium
                     Material.accent: Theme.primary
                     text: tagsPopup.newTagName
@@ -772,7 +924,7 @@ ApplicationWindow {
             spacing: Theme.spacingMedium
 
             Text {
-                text: root.appLanguage === "pl" ? "Wybierz kolor" : "Pick color"
+                text: Theme.tr("Pick color")
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeMedium
                 font.bold: true
@@ -879,7 +1031,7 @@ ApplicationWindow {
             Text {
                 Layout.topMargin: Theme.spacingLarge
                 Layout.leftMargin: Theme.spacingXL
-                text: root.appLanguage === "pl" ? "Resetowanie danych" : "Reset Data"
+                text: Theme.tr("Reset Data")
                 color: "#D32F2F"
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
@@ -890,9 +1042,7 @@ ApplicationWindow {
             Text {
                 Layout.fillWidth: true
                 Layout.margins: Theme.spacingXL
-                text: root.appLanguage === "pl"
-                    ? "Czy na pewno chcesz usunąć wszystkie dane? Ta operacja jest nieodwracalna."
-                    : "Are you sure you want to delete all data? This action cannot be undone."
+                text: Theme.tr("Are you sure you want to delete all data? This action cannot be undone.")
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeMedium
                 wrapMode: Text.Wrap
@@ -908,7 +1058,7 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 Button {
-                    text: root.appLanguage === "pl" ? "Anuluj" : "Cancel"
+                    text: Theme.tr("Cancel")
                     flat: true
                     Material.foreground: Theme.textSecondary
                     onClicked: resetConfirmDialog.reject()
@@ -922,9 +1072,7 @@ ApplicationWindow {
                         bookController.resetAllData();
                         bookController.loadBooks();
                         resetConfirmDialog.close();
-                        csvToast.show(root.appLanguage === "pl"
-                            ? "Dane zostały zresetowane"
-                            : "All data has been reset");
+                        csvToast.show(Theme.tr("All data has been reset"));
                     }
                 }
             }
@@ -935,41 +1083,33 @@ ApplicationWindow {
 
     FileDialog {
         id: exportDialog
-        title: root.appLanguage === "pl" ? "Eksportuj do CSV" : "Export to CSV"
+        title: Theme.tr("Export to CSV")
         fileMode: FileDialog.SaveFile
         nameFilters: ["CSV files (*.csv)"]
         defaultSuffix: "csv"
-        currentFile: "file:///wormbook_export.csv"
+        currentFile: "file:///bookworm_export.csv"
 
         onAccepted: {
             if (bookController.exportToCsv(selectedFile)) {
-                csvToast.show(root.appLanguage === "pl"
-                    ? "Eksport zakończony pomyślnie"
-                    : "Export completed successfully");
+                csvToast.show(Theme.tr("Export completed successfully"));
             } else {
-                csvToast.show(root.appLanguage === "pl"
-                    ? "Błąd eksportu"
-                    : "Export failed");
+                csvToast.show(Theme.tr("Export failed"));
             }
         }
     }
 
     FileDialog {
         id: importDialog
-        title: root.appLanguage === "pl" ? "Importuj z CSV" : "Import from CSV"
+        title: Theme.tr("Import from CSV")
         fileMode: FileDialog.OpenFile
         nameFilters: ["CSV files (*.csv)"]
 
         onAccepted: {
             var count = bookController.importFromCsv(selectedFile);
             if (count >= 0) {
-                csvToast.show(root.appLanguage === "pl"
-                    ? "Zaimportowano " + count + " książek"
-                    : "Imported " + count + " books");
+                csvToast.show(Theme.tr("Imported") + " " + count + " " + Theme.tr("books"));
             } else {
-                csvToast.show(root.appLanguage === "pl"
-                    ? "Błąd importu"
-                    : "Import failed");
+                csvToast.show(Theme.tr("Import failed"));
             }
         }
     }
