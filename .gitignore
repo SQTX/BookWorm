@@ -1,0 +1,32 @@
+# Build
+build/
+
+# Private assets (original resources)
+Priv/
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# Qt Creator
+CMakeLists.txt.user
+*.pro.user
+*.qmlc
+*.jsc
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Compiled
+*.o
+*.a
+*.dylib
+*.so
+*.app
+moc_*
+qrc_*
+ui_*

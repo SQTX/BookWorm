@@ -1,0 +1,88 @@
+cmake_minimum_required(VERSION 3.21)
+project(WormBook VERSION 1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+
+find_package(Qt6 REQUIRED COMPONENTS
+    Core
+    Sql
+    Qml
+    Quick
+    QuickControls2
+    Charts
+)
+
+qt_standard_project_setup(REQUIRES 6.5)
+
+# Theme singleton
+set_source_files_properties(qml/theme/Theme.qml
+    PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+)
+
+qt_add_executable(WormBook
+    src/main.cpp
+    src/database/databasemanager.h
+    src/database/databasemanager.cpp
+    src/models/book.h
+    src/models/book.cpp
+    src/models/bookmodel.h
+    src/models/bookmodel.cpp
+    src/controllers/bookcontroller.h
+    src/controllers/bookcontroller.cpp
+    src/statistics/statisticsprovider.h
+    src/statistics/statisticsprovider.cpp
+)
+
+qt_add_qml_module(WormBook
+    URI WormBook
+    VERSION 1.0
+    QML_FILES
+        qml/Main.qml
+        qml/theme/Theme.qml
+        qml/components/BookCard.qml
+        qml/components/BookForm.qml
+        qml/components/BookDetails.qml
+        qml/components/BookListView.qml
+        qml/components/BookTableView.qml
+        qml/components/StatisticsView.qml
+    RESOURCES
+        src/img/png/main_icon.png
+        src/img/icons/library-view.svg
+        src/img/icons/sheet-view.svg
+        src/img/icons/stat-view.svg
+        src/img/icons/settings.svg
+        src/img/icons/export.svg
+        src/img/icons/inport.svg
+        src/img/icons/add-book.svg
+        src/img/icons/star-full.svg
+        src/img/icons/star-empty.svg
+)
+
+# Include directories so QML type registration can find headers
+target_include_directories(WormBook PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/models
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/controllers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/statistics
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/database
+)
+
+target_link_libraries(WormBook PRIVATE
+    Qt6::Core
+    Qt6::Sql
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::Charts
+)
+
+if(APPLE)
+    set_target_properties(WormBook PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER com.sqtx.wormbook
+        MACOSX_BUNDLE_BUNDLE_NAME WormBook
+    )
+
+endif()
