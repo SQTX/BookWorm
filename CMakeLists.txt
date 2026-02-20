@@ -11,7 +11,9 @@ find_package(Qt6 REQUIRED COMPONENTS
     Qml
     Quick
     QuickControls2
+    Widgets
     Charts
+    ChartsQml
 )
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -79,7 +81,9 @@ target_link_libraries(WormBook PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
+    Qt6::Widgets
     Qt6::Charts
+    Qt6::ChartsQml
 )
 
 if(APPLE)

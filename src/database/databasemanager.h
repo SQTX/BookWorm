@@ -58,6 +58,14 @@ public:
     QVariantList genreDistribution();
     QVariantList booksPerMonth();
 
+    // Statistics (extended)
+    int totalBooks();
+    double averagePagesPerBook();
+    double averageCompletionPercent();
+    QVariantList booksPerYear();
+    QVariantList booksPerMonthForYear(int year);
+    QVariantMap statusDistribution();
+
 private:
     DatabaseManager() = default;
     ~DatabaseManager();

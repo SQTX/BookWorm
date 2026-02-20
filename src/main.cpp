@@ -1,4 +1,4 @@
-#include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     QCoreApplication::addLibraryPath(QStringLiteral("/opt/homebrew/Cellar/qtbase/6.10.2/share/qt/plugins"));
     QCoreApplication::addLibraryPath(QStringLiteral("/opt/homebrew/share/qt/plugins"));
 
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
     app.setApplicationName(WormBook::Config::APP_NAME);
     app.setApplicationVersion(WormBook::Config::APP_VERSION);
     app.setOrganizationName(WormBook::Config::APP_ORG);

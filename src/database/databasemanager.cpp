@@ -667,3 +667,136 @@ QVariantList DatabaseManager::booksPerMonth()
     std::reverse(result.begin(), result.end());
     return result;
 }
+
+// ─── Statistics (extended) ──────────────────────────────────
+
+int DatabaseManager::totalBooks()
+{
+    QSqlQuery q("SELECT COUNT(*) FROM books", m_db);
+    return q.next() ? q.value(0).toInt() : 0;
+}
+
+double DatabaseManager::averagePagesPerBook()
+{
+    QSqlQuery q(m_db);
+    q.prepare("SELECT COALESCE(AVG(page_count), 0) FROM books "
+              "WHERE status IN ('read', 'reading') AND page_count > 0");
+    if (q.exec() && q.next())
+        return q.value(0).toDouble();
+    return 0.0;
+}
+
+double DatabaseManager::averageCompletionPercent()
+{
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT COALESCE(AVG("
+        "  CASE "
+        "    WHEN status = 'read' THEN 100.0 "
+        "    WHEN status = 'reading' AND page_count > 0 THEN (current_page::FLOAT / page_count) * 100.0 "
+        "    ELSE NULL "
+        "  END"
+        "), 0) FROM books WHERE status IN ('read', 'reading')"
+    );
+    if (q.exec() && q.next())
+        return q.value(0).toDouble();
+    return 0.0;
+}
+
+QVariantList DatabaseManager::booksPerYear()
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT "
+        "  EXTRACT(YEAR FROM end_date)::INT AS year, "
+        "  COUNT(*) AS count, "
+        "  COALESCE(SUM(page_count), 0) AS total_pages, "
+        "  COALESCE(AVG(page_count), 0)::INT AS avg_pages, "
+        "  COALESCE(AVG(NULLIF(rating, 0)), 0) AS avg_rating "
+        "FROM books "
+        "WHERE status = 'read' AND end_date IS NOT NULL "
+        "GROUP BY year ORDER BY year DESC"
+    );
+
+    if (!q.exec()) {
+        qWarning() << "booksPerYear error:" << q.lastError().text();
+        return result;
+    }
+
+    while (q.next()) {
+        QVariantMap entry;
+        entry["year"]       = q.value("year").toInt();
+        entry["count"]      = q.value("count").toInt();
+        entry["totalPages"] = q.value("total_pages").toInt();
+        entry["avgPages"]   = q.value("avg_pages").toInt();
+        entry["avgRating"]  = q.value("avg_rating").toDouble();
+        result.append(entry);
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::booksPerMonthForYear(int year)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT m.month_num, COALESCE(b.count, 0) AS count "
+        "FROM generate_series(1, 12) AS m(month_num) "
+        "LEFT JOIN ("
+        "  SELECT EXTRACT(MONTH FROM end_date)::INT AS month_num, COUNT(*) AS count "
+        "  FROM books "
+        "  WHERE status = 'read' AND end_date IS NOT NULL "
+        "    AND EXTRACT(YEAR FROM end_date) = :year "
+        "  GROUP BY month_num"
+        ") b ON m.month_num = b.month_num "
+        "ORDER BY m.month_num"
+    );
+    q.bindValue(":year", year);
+
+    if (!q.exec()) {
+        qWarning() << "booksPerMonthForYear error:" << q.lastError().text();
+        // Return 12 zero entries as fallback
+        for (int i = 1; i <= 12; ++i) {
+            QVariantMap entry;
+            entry["month"] = i;
+            entry["count"] = 0;
+            result.append(entry);
+        }
+        return result;
+    }
+
+    while (q.next()) {
+        QVariantMap entry;
+        entry["month"] = q.value("month_num").toInt();
+        entry["count"] = q.value("count").toInt();
+        result.append(entry);
+    }
+
+    // Ensure exactly 12 entries
+    if (result.size() < 12) {
+        result.clear();
+        for (int i = 1; i <= 12; ++i) {
+            QVariantMap entry;
+            entry["month"] = i;
+            entry["count"] = 0;
+            result.append(entry);
+        }
+    }
+
+    return result;
+}
+
+QVariantMap DatabaseManager::statusDistribution()
+{
+    QVariantMap result;
+    result["reading"]   = 0;
+    result["read"]      = 0;
+    result["planned"]   = 0;
+
+    QSqlQuery q("SELECT status, COUNT(*) AS count FROM books GROUP BY status", m_db);
+    while (q.next()) {
+        result[q.value("status").toString()] = q.value("count").toInt();
+    }
+    return result;
+}
