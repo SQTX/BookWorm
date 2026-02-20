@@ -21,6 +21,14 @@ Item {
         challenges = bookController.getChallenges();
     }
 
+    // Timer to refresh elapsed time every minute
+    Timer {
+        interval: 60000
+        running: true
+        repeat: true
+        onTriggered: challengesPage.loadChallenges()
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.spacingXL
@@ -186,6 +194,128 @@ Item {
                                 }
                             }
 
+                            // ── Timer / Stats row ──
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: timerCol.implicitHeight + Theme.spacingMedium * 2
+                                radius: Theme.radiusSmall
+                                color: Theme.surfaceVariant
+
+                                ColumnLayout {
+                                    id: timerCol
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.margins: Theme.spacingMedium
+                                    spacing: 6
+
+                                    // Elapsed time
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.spacingMedium
+
+                                        Text {
+                                            text: "\u23F1 Elapsed:"
+                                            color: Theme.textSecondary
+                                            font.pixelSize: Theme.fontSizeSmall
+                                        }
+
+                                        Text {
+                                            text: {
+                                                var start = new Date(modelData.createdAt);
+                                                var now = new Date();
+                                                var diffMs = now - start;
+                                                var days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                                                if (days < 1) return "< 1 day";
+                                                if (days === 1) return "1 day";
+                                                if (days < 30) return days + " days";
+                                                var months = Math.floor(days / 30);
+                                                var remDays = days % 30;
+                                                if (months === 1) return "1 month" + (remDays > 0 ? ", " + remDays + "d" : "");
+                                                return months + " months" + (remDays > 0 ? ", " + remDays + "d" : "");
+                                            }
+                                            color: Theme.textOnSurface
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            font.bold: true
+                                        }
+
+                                        Item { Layout.fillWidth: true }
+
+                                        Text {
+                                            text: "\u23F3 Remaining:"
+                                            color: Theme.textSecondary
+                                            font.pixelSize: Theme.fontSizeSmall
+                                        }
+
+                                        Text {
+                                            text: {
+                                                var dl = new Date(modelData.deadline);
+                                                var now = new Date();
+                                                var diffMs = dl - now;
+                                                if (diffMs <= 0) return "expired";
+                                                var days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                                                if (days === 1) return "1 day";
+                                                if (days < 30) return days + " days";
+                                                var months = Math.floor(days / 30);
+                                                var remDays = days % 30;
+                                                if (months === 1) return "1 month" + (remDays > 0 ? ", " + remDays + "d" : "");
+                                                return months + " months" + (remDays > 0 ? ", " + remDays + "d" : "");
+                                            }
+                                            color: {
+                                                var dl = new Date(modelData.deadline);
+                                                var now = new Date();
+                                                var diffMs = dl - now;
+                                                if (diffMs <= 0) return Theme.error;
+                                                var days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                                                if (days <= 7) return Theme.error;
+                                                return Theme.textOnSurface;
+                                            }
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            font.bold: true
+                                        }
+                                    }
+
+                                    // Average pages per day needed
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.spacingMedium
+                                        visible: modelData.progress < 1.0
+
+                                        Text {
+                                            text: "\u{1F4D6} Avg pages/day to finish:"
+                                            color: Theme.textSecondary
+                                            font.pixelSize: Theme.fontSizeSmall
+                                        }
+
+                                        Text {
+                                            text: {
+                                                var dl = new Date(modelData.deadline);
+                                                var now = new Date();
+                                                var daysLeft = Math.max(1, Math.ceil((dl - now) / (1000 * 60 * 60 * 24)));
+                                                var booksLeft = Math.max(0, modelData.targetBooks - modelData.currentCount);
+                                                var avgPagesPerBook = 400;
+                                                var totalPagesLeft = booksLeft * avgPagesPerBook;
+                                                var pagesPerDay = Math.ceil(totalPagesLeft / daysLeft);
+                                                if (booksLeft <= 0) return "\u2714 done!";
+                                                return pagesPerDay + " pages/day (" + booksLeft + " books \u00D7 400 pp)";
+                                            }
+                                            color: {
+                                                var dl = new Date(modelData.deadline);
+                                                var now = new Date();
+                                                var daysLeft = Math.max(1, Math.ceil((dl - now) / (1000 * 60 * 60 * 24)));
+                                                var booksLeft = Math.max(0, modelData.targetBooks - modelData.currentCount);
+                                                var pagesPerDay = Math.ceil((booksLeft * 400) / daysLeft);
+                                                if (pagesPerDay > 100) return Theme.error;
+                                                if (pagesPerDay > 50) return Theme.statusPlanned;
+                                                return Theme.statusRead;
+                                            }
+                                            font.pixelSize: Theme.fontSizeSmall
+                                            font.bold: true
+                                        }
+                                    }
+                                }
+                            }
+
                             // Period info
                             Text {
                                 text: modelData.createdAt + "  \u2192  " + modelData.deadline
@@ -284,84 +414,228 @@ Item {
         }
     }
 
-    // Add challenge dialog
+    // ── Add challenge dialog (2 sliders) ──
     Dialog {
         id: addChallengeDialog
-        title: "New Challenge"
+        title: ""
         modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
+        standardButtons: Dialog.NoButton
         anchors.centerIn: parent
-        width: 400
-        Material.theme: Material.Dark
+        width: Math.min(480, parent.width - 48)
+        padding: 0
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
         Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        onOpened: {
+            challengeNameField.text = "";
+            booksSlider.value = 5;
+            monthsSlider.value = 3;
+        }
 
         ColumnLayout {
             anchors.fill: parent
-            spacing: Theme.spacingMedium
+            spacing: 0
 
-            TextField {
-                id: challengeNameField
-                Layout.fillWidth: true
-                placeholderText: "Challenge name (e.g. Summer Reading)"
-                Material.accent: Theme.primary
+            // Header
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: "New Challenge"
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
             }
 
-            RowLayout {
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
+
+            // Content
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingMedium
+                Layout.margins: Theme.spacingXL
+                spacing: Theme.spacingLarge
 
+                // Name
                 Text {
-                    text: "Target:"
+                    text: "Challenge name"
                     color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeMedium
-                }
-
-                SpinBox {
-                    id: challengeTargetField
-                    from: 1; to: 999
-                    value: 10
-                    editable: true
-                    Material.accent: Theme.primary
-                }
-
-                Text {
-                    text: "books"
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeMedium
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingMedium
-
-                Text {
-                    text: "Deadline:"
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeMedium
+                    font.pixelSize: Theme.fontSizeSmall
                 }
 
                 TextField {
-                    id: challengeDeadlineField
+                    id: challengeNameField
                     Layout.fillWidth: true
-                    placeholderText: "YYYY-MM-DD"
-                    inputMask: "9999-99-99"
+                    placeholderText: "e.g. Summer Reading"
+                    font.pixelSize: Theme.fontSizeMedium
                     Material.accent: Theme.primary
                 }
-            }
-        }
 
-        onAccepted: {
-            if (challengeNameField.text.trim() !== "" && challengeDeadlineField.text.trim() !== "") {
-                bookController.addChallenge(
-                    challengeNameField.text,
-                    challengeTargetField.value,
-                    challengeDeadlineField.text
-                );
-                challengeNameField.text = "";
-                challengeTargetField.value = 10;
-                challengeDeadlineField.text = "";
-                challengesPage.loadChallenges();
+                // Books slider
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "Number of books"
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: Math.round(booksSlider.value)
+                            color: Theme.primary
+                            font.pixelSize: Theme.fontSizeLarge
+                            font.bold: true
+                        }
+                    }
+
+                    Slider {
+                        id: booksSlider
+                        Layout.fillWidth: true
+                        from: 1; to: 30
+                        stepSize: 1
+                        value: 5
+                        snapMode: Slider.SnapAlways
+                        Material.accent: Theme.primary
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "1"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                        Item { Layout.fillWidth: true }
+                        Text { text: "30"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                    }
+                }
+
+                // Months slider
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "Duration (months)"
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: {
+                                var m = Math.round(monthsSlider.value);
+                                return m + (m === 1 ? " month" : " months");
+                            }
+                            color: Theme.primary
+                            font.pixelSize: Theme.fontSizeLarge
+                            font.bold: true
+                        }
+                    }
+
+                    Slider {
+                        id: monthsSlider
+                        Layout.fillWidth: true
+                        from: 1; to: 12
+                        stepSize: 1
+                        value: 3
+                        snapMode: Slider.SnapAlways
+                        Material.accent: Theme.primary
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "1"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                        Item { Layout.fillWidth: true }
+                        Text { text: "12"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
+                    }
+                }
+
+                // Preview: calculated deadline & avg pages/day
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: previewCol.implicitHeight + Theme.spacingMedium * 2
+                    radius: Theme.radiusSmall
+                    color: Theme.surfaceVariant
+
+                    ColumnLayout {
+                        id: previewCol
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: Theme.spacingMedium
+                        spacing: 4
+
+                        Text {
+                            text: {
+                                var now = new Date();
+                                var deadline = new Date(now.getFullYear(), now.getMonth() + Math.round(monthsSlider.value), now.getDate());
+                                return "Deadline: " + deadline.toISOString().split("T")[0];
+                            }
+                            color: Theme.textOnSurface
+                            font.pixelSize: Theme.fontSizeMedium
+                        }
+
+                        Text {
+                            text: {
+                                var months = Math.round(monthsSlider.value);
+                                var books = Math.round(booksSlider.value);
+                                var days = months * 30;
+                                var totalPages = books * 400;
+                                var ppd = Math.ceil(totalPages / days);
+                                return "\u2248 " + ppd + " pages/day (avg 400 pages/book)";
+                            }
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                        }
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            // Footer
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "Cancel"
+                    flat: true
+                    Material.foreground: Theme.textSecondary
+                    onClicked: addChallengeDialog.reject()
+                }
+
+                Button {
+                    text: "Create"
+                    enabled: challengeNameField.text.trim() !== ""
+                    Material.background: enabled ? Theme.primary : Theme.surfaceVariant
+                    Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary
+                    onClicked: {
+                        var now = new Date();
+                        var months = Math.round(monthsSlider.value);
+                        var deadline = new Date(now.getFullYear(), now.getMonth() + months, now.getDate());
+                        var deadlineStr = deadline.toISOString().split("T")[0];
+
+                        bookController.addChallenge(
+                            challengeNameField.text.trim(),
+                            Math.round(booksSlider.value),
+                            deadlineStr
+                        );
+                        challengesPage.loadChallenges();
+                        addChallengeDialog.close();
+                    }
+                }
             }
         }
     }

@@ -37,11 +37,19 @@ public:
     bool addQuote(int bookId, const QString &quote, int page);
     bool removeQuote(int quoteId);
 
+    // Highlights
+    QVariantList fetchHighlightsForBook(int bookId);
+    bool addHighlight(int bookId, const QString &title, int page, const QString &note);
+    bool removeHighlight(int highlightId);
+
     // Challenges
     QVariantList fetchAllChallenges();
     int insertChallenge(const QString &name, int targetBooks, const QDate &deadline);
     bool deleteChallenge(int id);
     QVariantList fetchBooksForChallenge(int challengeId);
+
+    // Reset
+    bool resetAllData();
 
     // Statistics
     int totalBooksRead();

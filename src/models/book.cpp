@@ -24,6 +24,8 @@ QVariantMap Book::toVariantMap() const
     map["isNonFiction"]    = isNonFiction;
     map["currentPage"]     = currentPage;
     map["series"]          = series;
+    map["summary"]         = summary;
+    map["review"]          = review;
     map["tags"]            = tags.join(", ");
     return map;
 }
@@ -51,6 +53,8 @@ Book Book::fromVariantMap(const QVariantMap &map)
     b.isNonFiction    = map.value("isNonFiction", false).toBool();
     b.currentPage     = map.value("currentPage", 0).toInt();
     b.series          = map.value("series").toString().trimmed();
+    b.summary         = map.value("summary").toString();
+    b.review          = map.value("review").toString();
 
     const QString tagsStr = map.value("tags").toString();
     if (!tagsStr.isEmpty()) {
@@ -89,5 +93,7 @@ Book Book::fromSqlRecord(const QSqlRecord &record)
     b.isNonFiction    = record.value("is_non_fiction").toBool();
     b.currentPage     = record.value("current_page").toInt();
     b.series          = record.value("series").toString();
+    b.summary         = record.value("summary").toString();
+    b.review          = record.value("review").toString();
     return b;
 }

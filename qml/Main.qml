@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtCore
 import WormBook
 
 ApplicationWindow {
@@ -15,10 +16,21 @@ ApplicationWindow {
     title: "WormBook"
     color: Theme.background
 
-    Material.theme: Material.Dark
+    Material.theme: Theme.isDark ? Material.Dark : Material.Light
     Material.accent: Theme.primary
 
     property int currentPage: 0  // 0 = library, 1 = table, 2 = statistics, 3 = challenges
+
+    // Persistence for settings
+    Settings {
+        id: appSettings
+        property alias style: root.appStyle
+        property alias language: root.appLanguage
+    }
+
+    Component.onCompleted: {
+        Theme.setTheme(root.appStyle);
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -393,9 +405,7 @@ ApplicationWindow {
                     { key: "minimalist_dark",  label: "Minimalist Dark",
                       labelPl: "Minimalistyczny ciemny" },
                     { key: "classic",          label: "Classic",
-                      labelPl: "Klasyczny" },
-                    { key: "dark_academia",    label: "Dark Academia",
-                      labelPl: "Dark Academia" }
+                      labelPl: "Klasyczny" }
                 ]
 
                 Rectangle {
@@ -443,12 +453,130 @@ ApplicationWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.appStyle = modelData.key
+                        onClicked: {
+                            root.appStyle = modelData.key;
+                            Theme.setTheme(modelData.key);
+                        }
                     }
                 }
             }
 
-            Item { Layout.preferredHeight: Theme.spacingMedium }
+            // ── Separator ──
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: Theme.spacingMedium
+                height: 1
+                color: Theme.divider
+            }
+
+            // ── Reset data button ──
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 40
+                Layout.margins: Theme.spacingLarge
+                radius: Theme.radiusSmall
+                color: resetMouse.containsMouse ? "#D32F2F" : "#B71C1C"
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.appLanguage === "pl" ? "Resetuj dane" : "Reset All Data"
+                    color: "#FFFFFF"
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: resetMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        settingsPopup.close();
+                        resetConfirmDialog.open();
+                    }
+                }
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingSmall }
+        }
+    }
+
+    // ── Reset confirmation dialog ──
+    Dialog {
+        id: resetConfirmDialog
+        title: ""
+        modal: true
+        standardButtons: Dialog.NoButton
+        anchors.centerIn: parent
+        width: Math.min(400, parent.width - 48)
+        padding: 0
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: root.appLanguage === "pl" ? "Resetowanie danych" : "Reset Data"
+                color: "#D32F2F"
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingXL
+                text: root.appLanguage === "pl"
+                    ? "Czy na pewno chcesz usunąć wszystkie dane? Ta operacja jest nieodwracalna."
+                    : "Are you sure you want to delete all data? This action cannot be undone."
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeMedium
+                wrapMode: Text.Wrap
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: root.appLanguage === "pl" ? "Anuluj" : "Cancel"
+                    flat: true
+                    Material.foreground: Theme.textSecondary
+                    onClicked: resetConfirmDialog.reject()
+                }
+
+                Button {
+                    text: "OK"
+                    Material.background: "#B71C1C"
+                    Material.foreground: "#FFFFFF"
+                    onClicked: {
+                        bookController.resetAllData();
+                        bookController.loadBooks();
+                        resetConfirmDialog.close();
+                        csvToast.show(root.appLanguage === "pl"
+                            ? "Dane zostały zresetowane"
+                            : "All data has been reset");
+                    }
+                }
+            }
         }
     }
 

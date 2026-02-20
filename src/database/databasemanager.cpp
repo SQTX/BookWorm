@@ -113,6 +113,8 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS current_page INTEGER DEFAULT 0");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS series VARCHAR(256)");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS publication_date DATE");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS summary TEXT");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS review TEXT");
 
     // Update rating constraint to allow 1-6 instead of 1-10
     q.exec("UPDATE books SET rating = LEAST(rating, 6) WHERE rating > 6");
@@ -133,6 +135,16 @@ bool DatabaseManager::initializeSchema()
            "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"
            ")");
 
+    // Highlights table
+    q.exec("CREATE TABLE IF NOT EXISTS highlights ("
+           "  id SERIAL PRIMARY KEY,"
+           "  book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,"
+           "  title VARCHAR(256) NOT NULL,"
+           "  page INTEGER,"
+           "  note TEXT,"
+           "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"
+           ")");
+
     // Indexes (safe to call multiple times)
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_status ON books(status)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_genre ON books(genre)");
@@ -140,6 +152,7 @@ bool DatabaseManager::initializeSchema()
     q.exec("CREATE INDEX IF NOT EXISTS idx_book_tags_book_id ON book_tags(book_id)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_favorite_quotes_book_id ON favorite_quotes(book_id)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_challenges_deadline ON challenges(deadline)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_highlights_book_id ON highlights(book_id)");
 
     qInfo() << "Database schema initialized";
     return true;
@@ -188,10 +201,12 @@ int DatabaseManager::insertBook(const Book &book)
     q.prepare(
         "INSERT INTO books (title, author, genre, page_count, start_date, end_date, "
         "  rating, status, notes, isbn, publisher, publication_year, language, "
-        "  cover_image_path, item_type, is_non_fiction, current_page, series, publication_date) "
+        "  cover_image_path, item_type, is_non_fiction, current_page, series, "
+        "  publication_date, summary, review) "
         "VALUES (:title, :author, :genre, :pageCount, :startDate, :endDate, "
         "  :rating, :status, :notes, :isbn, :publisher, :pubYear, :language, "
-        "  :coverPath, :itemType, :isNonFiction, :currentPage, :series, :pubDate) "
+        "  :coverPath, :itemType, :isNonFiction, :currentPage, :series, "
+        "  :pubDate, :summary, :review) "
         "RETURNING id"
     );
 
@@ -214,6 +229,8 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
     q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
+    q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
+    q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
 
     if (!q.exec() || !q.next()) {
         qWarning() << "insertBook error:" << q.lastError().text();
@@ -233,7 +250,8 @@ bool DatabaseManager::updateBook(const Book &book)
         "  publisher = :publisher, publication_year = :pubYear, language = :language, "
         "  cover_image_path = :coverPath, item_type = :itemType, "
         "  is_non_fiction = :isNonFiction, current_page = :currentPage, "
-        "  series = :series, publication_date = :pubDate, updated_at = NOW() "
+        "  series = :series, publication_date = :pubDate, "
+        "  summary = :summary, review = :review, updated_at = NOW() "
         "WHERE id = :id"
     );
 
@@ -257,6 +275,8 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
     q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
+    q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
+    q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
 
     if (!q.exec()) {
         qWarning() << "updateBook error:" << q.lastError().text();
@@ -408,6 +428,57 @@ bool DatabaseManager::removeQuote(int quoteId)
     return true;
 }
 
+// ─── Highlights ─────────────────────────────────────────────
+
+QVariantList DatabaseManager::fetchHighlightsForBook(int bookId)
+{
+    QVariantList list;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id, title, page, note FROM highlights WHERE book_id = :bookId ORDER BY page, id");
+    q.bindValue(":bookId", bookId);
+
+    if (q.exec()) {
+        while (q.next()) {
+            QVariantMap entry;
+            entry["id"]    = q.value("id").toInt();
+            entry["title"] = q.value("title").toString();
+            entry["page"]  = q.value("page").toInt();
+            entry["note"]  = q.value("note").toString();
+            list.append(entry);
+        }
+    }
+    return list;
+}
+
+bool DatabaseManager::addHighlight(int bookId, const QString &title, int page, const QString &note)
+{
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO highlights (book_id, title, page, note) VALUES (:bookId, :title, :page, :note)");
+    q.bindValue(":bookId", bookId);
+    q.bindValue(":title",  title);
+    q.bindValue(":page",   page > 0 ? page : QVariant());
+    q.bindValue(":note",   note.isEmpty() ? QVariant() : note);
+
+    if (!q.exec()) {
+        qWarning() << "addHighlight error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::removeHighlight(int highlightId)
+{
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM highlights WHERE id = :id");
+    q.bindValue(":id", highlightId);
+
+    if (!q.exec()) {
+        qWarning() << "removeHighlight error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 // ─── Challenges ─────────────────────────────────────────────
 
 QVariantList DatabaseManager::fetchAllChallenges()
@@ -514,6 +585,26 @@ QVariantList DatabaseManager::fetchBooksForChallenge(int challengeId)
         }
     }
     return result;
+}
+
+// ─── Reset ──────────────────────────────────────────────────
+
+bool DatabaseManager::resetAllData()
+{
+    QSqlQuery q(m_db);
+    // Order matters for foreign keys
+    bool ok = true;
+    ok = q.exec("DELETE FROM favorite_quotes") && ok;
+    ok = q.exec("DELETE FROM highlights") && ok;
+    ok = q.exec("DELETE FROM book_tags") && ok;
+    ok = q.exec("DELETE FROM challenges") && ok;
+    ok = q.exec("DELETE FROM books") && ok;
+    ok = q.exec("DELETE FROM tags") && ok;
+
+    if (!ok)
+        qWarning() << "resetAllData error:" << q.lastError().text();
+
+    return ok;
 }
 
 // ─── Statistics ─────────────────────────────────────────────

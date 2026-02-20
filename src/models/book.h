@@ -27,6 +27,8 @@ struct Book {
     bool isNonFiction = false;
     int currentPage = 0;
     QString series;
+    QString summary;
+    QString review;
     QStringList tags;
 
     QVariantMap toVariantMap() const;

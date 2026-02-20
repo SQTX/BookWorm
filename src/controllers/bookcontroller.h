@@ -38,6 +38,13 @@ public:
     Q_INVOKABLE bool removeQuote(int quoteId);
     Q_INVOKABLE QVariantList getQuotesForBook(int bookId);
 
+    Q_INVOKABLE bool addHighlight(int bookId, const QString &title, int page, const QString &note);
+    Q_INVOKABLE bool removeHighlight(int highlightId);
+    Q_INVOKABLE QVariantList getHighlightsForBook(int bookId);
+
+    Q_INVOKABLE bool updateSummary(int bookId, const QString &summary);
+    Q_INVOKABLE bool updateReview(int bookId, const QString &review);
+
     Q_INVOKABLE QVariantMap getTypeDistribution();
 
     // Challenges
@@ -48,6 +55,7 @@ public:
 
     Q_INVOKABLE bool exportToCsv(const QString &filePath);
     Q_INVOKABLE int  importFromCsv(const QString &filePath);
+    Q_INVOKABLE bool resetAllData();
 
     QString filterStatus() const;
     void setFilterStatus(const QString &status);

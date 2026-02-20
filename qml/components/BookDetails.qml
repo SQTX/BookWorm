@@ -10,6 +10,7 @@ Item {
     property int bookId: -1
     property var bookData: ({})
     property var quotes: []
+    property var highlights: []
 
     signal back()
     signal bookDeleted()
@@ -19,17 +20,27 @@ Item {
     function loadData() {
         bookData = bookController.getBookDetails(bookId);
         quotes = bookController.getQuotesForBook(bookId);
+        highlights = bookController.getHighlightsForBook(bookId);
     }
 
-    ScrollView {
+    Flickable {
         anchors.fill: parent
+        contentWidth: width
+        contentHeight: mainColumn.implicitHeight + Theme.spacingXL
         clip: true
+        flickableDirection: Flickable.VerticalFlick
+        boundsBehavior: Flickable.StopAtBounds
+
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
         ColumnLayout {
-            width: detailsPage.width
+            id: mainColumn
+            width: parent.width
             spacing: 0
 
+            // ═══════════════════════════════════
             // Top bar
+            // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
                 Layout.margins: Theme.spacingLarge
@@ -63,11 +74,13 @@ Item {
                 }
             }
 
-            // Main content
+            // ═══════════════════════════════════
+            // Main content: Cover + Info
+            // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.spacingXL * 2
+                Layout.rightMargin: Theme.spacingXL * 2
                 spacing: Theme.spacingXL
 
                 // Cover
@@ -94,7 +107,7 @@ Item {
                     }
                 }
 
-                // Info
+                // Info column
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Theme.spacingMedium
@@ -116,7 +129,15 @@ Item {
                         font.pixelSize: Theme.fontSizeLarge
                     }
 
-                    // Meta info row
+                    // Series
+                    Text {
+                        text: "Series: " + (bookData.series || "")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeMedium
+                        visible: (bookData.series || "") !== ""
+                    }
+
+                    // Meta info badges
                     Flow {
                         Layout.fillWidth: true
                         spacing: Theme.spacingMedium
@@ -137,24 +158,86 @@ Item {
                         MetaBadge { text: "ISBN: " + (bookData.isbn || ""); visible: (bookData.isbn || "") !== "" }
                     }
 
-                    // Rating
-                    Row {
+                    // ── Reading progress bar (only for "reading" status) ──
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: parent.width * 0.80
                         spacing: 4
-                        visible: (bookData.rating || 0) > 0
+                        visible: (bookData.status || "") === "reading" && (bookData.pageCount || 0) > 0
 
-                        Repeater {
-                            model: 6
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingMedium
+
                             Text {
-                                text: index < (bookData.rating || 0) ? "\u2605" : "\u2606"
-                                color: index < (bookData.rating || 0) ? Theme.primary : Theme.textSecondary
-                                font.pixelSize: 22
+                                text: "Progress"
+                                color: Theme.textSecondary
+                                font.pixelSize: Theme.fontSizeMedium
+                                font.bold: true
+                            }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                                text: (bookData.currentPage || 0) + " / " + (bookData.pageCount || 0) + " pages"
+                                color: Theme.textOnSurface
+                                font.pixelSize: Theme.fontSizeMedium
+                            }
+                            Text {
+                                property real pct: (bookData.pageCount || 0) > 0
+                                    ? Math.round(((bookData.currentPage || 0) / (bookData.pageCount || 1)) * 100)
+                                    : 0
+                                text: pct + "%"
+                                color: Theme.primary
+                                font.pixelSize: Theme.fontSizeMedium
+                                font.bold: true
                             }
                         }
 
-                        Text {
-                            text: " " + (bookData.rating || 0) + "/6"
-                            color: Theme.textOnSurface
-                            font.pixelSize: Theme.fontSizeMedium
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 8
+                            radius: 4
+                            color: Theme.surfaceVariant
+
+                            Rectangle {
+                                width: parent.width * Math.min(1.0,
+                                    (bookData.pageCount || 0) > 0
+                                        ? (bookData.currentPage || 0) / (bookData.pageCount || 1)
+                                        : 0)
+                                height: parent.height
+                                radius: 4
+                                color: Theme.statusReading
+                            }
+                        }
+                    }
+
+                    // ── Star rating (only for "read" status) ──
+                    ColumnLayout {
+                        spacing: 4
+                        visible: (bookData.status || "") === "read"
+
+                        Row {
+                            spacing: 4
+
+                            Repeater {
+                                model: 6
+                                Text {
+                                    required property int index
+                                    text: index < (bookData.rating || 0) ? "\u2605" : "\u2606"
+                                    color: index < (bookData.rating || 0) ? Theme.primary : Theme.textSecondary
+                                    font.pixelSize: 26
+                                }
+                            }
+
+                            Text {
+                                text: {
+                                    var labels = ["", "Bad", "Weak", "Average", "Good", "Very good", "Excellent"];
+                                    var r = bookData.rating || 0;
+                                    return r > 0 ? "  " + r + "/6 — " + labels[r] : "  Not rated";
+                                }
+                                color: Theme.textOnSurface
+                                font.pixelSize: Theme.fontSizeMedium
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
                     }
 
@@ -181,13 +264,13 @@ Item {
                         visible: (bookData.startDate || "") !== "" || (bookData.endDate || "") !== ""
 
                         Text {
-                            text: "Started: " + (bookData.startDate || "—")
+                            text: "Started: " + (bookData.startDate || "\u2014")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeMedium
                             visible: (bookData.startDate || "") !== ""
                         }
                         Text {
-                            text: "Finished: " + (bookData.endDate || "—")
+                            text: "Finished: " + (bookData.endDate || "\u2014")
                             color: Theme.textSecondary
                             font.pixelSize: Theme.fontSizeMedium
                             visible: (bookData.endDate || "") !== ""
@@ -222,25 +305,87 @@ Item {
                 }
             }
 
-            // Notes section
+            // ═══════════════════════════════════
+            // Review section (only for "read" books)
+            // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingXL
-                Layout.preferredHeight: notesContent.implicitHeight + Theme.spacingXL * 2
+                Layout.leftMargin: Theme.spacingXL * 2
+                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.topMargin: Theme.spacingXL
+                Layout.bottomMargin: 0
+                implicitHeight: reviewCol.implicitHeight + Theme.spacingLarge * 2
+                radius: Theme.radiusMedium
+                color: Theme.surface
+                visible: (bookData.status || "") === "read"
+
+                ColumnLayout {
+                    id: reviewCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.spacingLarge
+                    spacing: Theme.spacingMedium
+
+                    Text {
+                        text: "MY REVIEW"
+                        color: Theme.primary
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.bold: true
+                    }
+
+                    TextArea {
+                        id: reviewArea
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: 60
+                        text: bookData.review || ""
+                        placeholderText: "Write your review..."
+                        wrapMode: TextArea.Wrap
+                        font.pixelSize: Theme.fontSizeMedium
+                        Material.accent: Theme.primary
+                        onEditingFinished: {
+                            bookController.updateReview(detailsPage.bookId, text);
+                        }
+                    }
+
+                    Button {
+                        text: "Save Review"
+                        Layout.alignment: Qt.AlignRight
+                        Material.background: Theme.primary
+                        Material.foreground: Theme.textOnPrimary
+                        font.pixelSize: Theme.fontSizeSmall
+                        onClicked: {
+                            bookController.updateReview(detailsPage.bookId, reviewArea.text);
+                        }
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════
+            // Notes section
+            // ═══════════════════════════════════
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingXL * 2
+                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.topMargin: Theme.spacingLarge
+                implicitHeight: notesContent.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusMedium
                 color: Theme.surface
                 visible: (bookData.notes || "") !== ""
 
                 ColumnLayout {
                     id: notesContent
-                    anchors.fill: parent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
                     anchors.margins: Theme.spacingLarge
                     spacing: Theme.spacingMedium
 
                     Text {
-                        text: "Notes"
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeMedium
+                        text: "NOTES"
+                        color: Theme.primary
+                        font.pixelSize: Theme.fontSizeSmall
                         font.bold: true
                     }
 
@@ -254,17 +399,23 @@ Item {
                 }
             }
 
+            // ═══════════════════════════════════
             // Quotes section
+            // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingXL
-                Layout.preferredHeight: quotesColumn.implicitHeight + Theme.spacingXL * 2
+                Layout.leftMargin: Theme.spacingXL * 2
+                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.topMargin: Theme.spacingLarge
+                implicitHeight: quotesColumn.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusMedium
                 color: Theme.surface
 
                 ColumnLayout {
                     id: quotesColumn
-                    anchors.fill: parent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
                     anchors.margins: Theme.spacingLarge
                     spacing: Theme.spacingMedium
 
@@ -272,9 +423,9 @@ Item {
                         Layout.fillWidth: true
 
                         Text {
-                            text: "Favorite Quotes"
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeMedium
+                            text: "FAVORITE QUOTES"
+                            color: Theme.primary
+                            font.pixelSize: Theme.fontSizeSmall
                             font.bold: true
                         }
 
@@ -289,37 +440,44 @@ Item {
                         }
                     }
 
-                    // Quote list
                     Repeater {
                         model: detailsPage.quotes
 
-                        RowLayout {
+                        Rectangle {
                             Layout.fillWidth: true
-                            spacing: Theme.spacingMedium
+                            implicitHeight: quoteRow.implicitHeight + Theme.spacingMedium
+                            radius: Theme.radiusSmall
+                            color: Theme.surfaceVariant
 
-                            Text {
-                                Layout.fillWidth: true
-                                text: "\u201C" + modelData.quote + "\u201D" +
-                                      (modelData.page > 0 ? " (p. " + modelData.page + ")" : "")
-                                color: Theme.textOnSurface
-                                font.pixelSize: Theme.fontSizeMedium
-                                font.italic: true
-                                wrapMode: Text.Wrap
-                            }
+                            RowLayout {
+                                id: quoteRow
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingMedium
+                                spacing: Theme.spacingMedium
 
-                            ToolButton {
-                                text: "\u2715"
-                                font.pixelSize: 12
-                                Material.foreground: Theme.error
-                                onClicked: {
-                                    bookController.removeQuote(modelData.id);
-                                    detailsPage.quotes = bookController.getQuotesForBook(bookId);
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "\u201C" + modelData.quote + "\u201D" +
+                                          (modelData.page > 0 ? "  \u2014 p. " + modelData.page : "")
+                                    color: Theme.textOnSurface
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.italic: true
+                                    wrapMode: Text.Wrap
+                                }
+
+                                ToolButton {
+                                    text: "\u2715"
+                                    font.pixelSize: 12
+                                    Material.foreground: Theme.error
+                                    onClicked: {
+                                        bookController.removeQuote(modelData.id);
+                                        detailsPage.quotes = bookController.getQuotesForBook(bookId);
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Empty state
                     Text {
                         visible: detailsPage.quotes.length === 0
                         text: "No quotes yet"
@@ -330,12 +488,203 @@ Item {
                 }
             }
 
+            // ═══════════════════════════════════
+            // Highlights section
+            // ═══════════════════════════════════
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingXL * 2
+                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.topMargin: Theme.spacingLarge
+                implicitHeight: highlightsCol.implicitHeight + Theme.spacingLarge * 2
+                radius: Theme.radiusMedium
+                color: Theme.surface
+
+                ColumnLayout {
+                    id: highlightsCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.spacingLarge
+                    spacing: Theme.spacingMedium
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "HIGHLIGHTS"
+                            color: Theme.primary
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Button {
+                            text: "+ Add Highlight"
+                            flat: true
+                            Material.foreground: Theme.primary
+                            font.pixelSize: Theme.fontSizeSmall
+                            onClicked: addHighlightDialog.open()
+                        }
+                    }
+
+                    Repeater {
+                        model: detailsPage.highlights
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: hlCol.implicitHeight + Theme.spacingMedium
+                            radius: Theme.radiusSmall
+                            color: Theme.surfaceVariant
+
+                            ColumnLayout {
+                                id: hlCol
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Theme.spacingMedium
+                                spacing: 4
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingMedium
+
+                                    Text {
+                                        text: modelData.title
+                                        color: Theme.textOnSurface
+                                        font.pixelSize: Theme.fontSizeMedium
+                                        font.bold: true
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    Text {
+                                        text: modelData.page > 0 ? "p. " + modelData.page : ""
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        visible: modelData.page > 0
+                                    }
+
+                                    ToolButton {
+                                        text: "\u2715"
+                                        font.pixelSize: 12
+                                        Material.foreground: Theme.error
+                                        onClicked: {
+                                            bookController.removeHighlight(modelData.id);
+                                            detailsPage.highlights = bookController.getHighlightsForBook(bookId);
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.note || ""
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    wrapMode: Text.Wrap
+                                    visible: (modelData.note || "") !== ""
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        visible: detailsPage.highlights.length === 0
+                        text: "No highlights yet"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.italic: true
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════
+            // Summary (collapsible)
+            // ═══════════════════════════════════
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingXL * 2
+                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.topMargin: Theme.spacingLarge
+                implicitHeight: summaryCol.implicitHeight + Theme.spacingLarge * 2
+                radius: Theme.radiusMedium
+                color: Theme.surface
+
+                property bool expanded: false
+
+                ColumnLayout {
+                    id: summaryCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.spacingLarge
+                    spacing: Theme.spacingMedium
+
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "SUMMARY"
+                            color: Theme.primary
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: (bookData.summary || "") !== "" ? "" : "(empty)"
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.italic: true
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Button {
+                            text: parent.parent.parent.parent.expanded ? "\u25B2 Collapse" : "\u25BC Expand"
+                            flat: true
+                            Material.foreground: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                            onClicked: parent.parent.parent.parent.expanded = !parent.parent.parent.parent.expanded
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMedium
+                        visible: parent.parent.expanded
+
+                        TextArea {
+                            id: summaryArea
+                            Layout.fillWidth: true
+                            Layout.minimumHeight: 80
+                            text: bookData.summary || ""
+                            placeholderText: "Write a brief summary of the book..."
+                            wrapMode: TextArea.Wrap
+                            font.pixelSize: Theme.fontSizeMedium
+                            Material.accent: Theme.primary
+                        }
+
+                        Button {
+                            text: "Save Summary"
+                            Layout.alignment: Qt.AlignRight
+                            Material.background: Theme.primary
+                            Material.foreground: Theme.textOnPrimary
+                            font.pixelSize: Theme.fontSizeSmall
+                            onClicked: {
+                                bookController.updateSummary(detailsPage.bookId, summaryArea.text);
+                            }
+                        }
+                    }
+                }
+            }
+
             // Bottom spacer
             Item { Layout.preferredHeight: Theme.spacingXL }
         }
     }
 
-    // Meta badge helper
+    // ── Meta badge helper ──
     component MetaBadge: Rectangle {
         property alias text: badgeText.text
         implicitWidth: badgeText.implicitWidth + Theme.spacingLarge
@@ -351,7 +700,7 @@ Item {
         }
     }
 
-    // Edit dialog
+    // ── Edit dialog ──
     BookForm {
         id: editDialog
         mode: "edit"
@@ -361,14 +710,15 @@ Item {
         }
     }
 
-    // Delete confirmation
+    // ── Delete confirmation ──
     Dialog {
         id: deleteConfirm
         title: "Delete Book"
         modal: true
         standardButtons: Dialog.Yes | Dialog.No
         anchors.centerIn: parent
-        Material.theme: Material.Dark
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.accent: Theme.primary
 
         Label {
             text: "Are you sure you want to delete \"" + (bookData.title || "") + "\"?"
@@ -381,51 +731,253 @@ Item {
         }
     }
 
-    // Add quote dialog
+    // ── Add Quote dialog (fixed layout) ──
     Dialog {
         id: addQuoteDialog
-        title: "Add Quote"
+        title: ""
         modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
+        standardButtons: Dialog.NoButton
         anchors.centerIn: parent
-        width: 450
-        Material.theme: Material.Dark
+        width: Math.min(520, parent.width - 48)
+        padding: 0
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
         Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
 
         ColumnLayout {
             anchors.fill: parent
-            spacing: Theme.spacingMedium
+            spacing: 0
 
-            TextArea {
-                id: quoteTextField
-                Layout.fillWidth: true
-                Layout.preferredHeight: 100
-                placeholderText: "Enter quote..."
-                wrapMode: TextArea.Wrap
+            // Header
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: "Add Quote"
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
             }
 
-            SpinBox {
-                id: quotePageField
-                from: 0; to: 99999
-                editable: true
-                value: 0
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
 
-                Label {
-                    text: "Page (0 = none):"
-                    anchors.right: parent.left
-                    anchors.rightMargin: Theme.spacingMedium
-                    anchors.verticalCenter: parent.verticalCenter
+            // Content
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingXL
+                spacing: Theme.spacingLarge
+
+                Text {
+                    text: "Quote text"
                     color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                TextArea {
+                    id: quoteTextField
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 80
+                    Layout.maximumHeight: 160
+                    placeholderText: "Enter quote..."
+                    wrapMode: TextArea.Wrap
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingLarge
+
+                    Text {
+                        text: "Page:"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeMedium
+                    }
+
+                    SpinBox {
+                        id: quotePageField
+                        from: 0; to: 99999
+                        editable: true
+                        value: 0
+                        Layout.preferredWidth: 140
+                        Material.accent: Theme.primary
+                    }
+
+                    Text {
+                        text: "(0 = no page)"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.italic: true
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            // Footer
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "Cancel"
+                    flat: true
+                    Material.foreground: Theme.textSecondary
+                    onClicked: addQuoteDialog.reject()
+                }
+
+                Button {
+                    text: "Add"
+                    enabled: quoteTextField.text.trim() !== ""
+                    Material.background: enabled ? Theme.primary : Theme.surfaceVariant
+                    Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary
+                    onClicked: {
+                        bookController.addQuote(bookId, quoteTextField.text.trim(), quotePageField.value);
+                        detailsPage.quotes = bookController.getQuotesForBook(bookId);
+                        quoteTextField.text = "";
+                        quotePageField.value = 0;
+                        addQuoteDialog.close();
+                    }
                 }
             }
         }
+    }
 
-        onAccepted: {
-            if (quoteTextField.text.trim() !== "") {
-                bookController.addQuote(bookId, quoteTextField.text, quotePageField.value);
-                detailsPage.quotes = bookController.getQuotesForBook(bookId);
-                quoteTextField.text = "";
-                quotePageField.value = 0;
+    // ── Add Highlight dialog ──
+    Dialog {
+        id: addHighlightDialog
+        title: ""
+        modal: true
+        standardButtons: Dialog.NoButton
+        anchors.centerIn: parent
+        width: Math.min(520, parent.width - 48)
+        padding: 0
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            // Header
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: "Add Highlight"
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
+
+            // Content
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingXL
+                spacing: Theme.spacingLarge
+
+                Text {
+                    text: "Title *"
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                TextField {
+                    id: hlTitleField
+                    Layout.fillWidth: true
+                    placeholderText: "Highlight name..."
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingLarge
+
+                    Text {
+                        text: "Page:"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeMedium
+                    }
+
+                    SpinBox {
+                        id: hlPageField
+                        from: 0; to: 99999
+                        editable: true
+                        value: 0
+                        Layout.preferredWidth: 140
+                        Material.accent: Theme.primary
+                    }
+                }
+
+                Text {
+                    text: "Note"
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                TextArea {
+                    id: hlNoteField
+                    Layout.fillWidth: true
+                    Layout.minimumHeight: 60
+                    Layout.maximumHeight: 120
+                    placeholderText: "Important info..."
+                    wrapMode: TextArea.Wrap
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            // Footer
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: "Cancel"
+                    flat: true
+                    Material.foreground: Theme.textSecondary
+                    onClicked: addHighlightDialog.reject()
+                }
+
+                Button {
+                    text: "Add"
+                    enabled: hlTitleField.text.trim() !== ""
+                    Material.background: enabled ? Theme.primary : Theme.surfaceVariant
+                    Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary
+                    onClicked: {
+                        bookController.addHighlight(bookId, hlTitleField.text.trim(),
+                            hlPageField.value, hlNoteField.text.trim());
+                        detailsPage.highlights = bookController.getHighlightsForBook(bookId);
+                        hlTitleField.text = "";
+                        hlPageField.value = 0;
+                        hlNoteField.text = "";
+                        addHighlightDialog.close();
+                    }
+                }
             }
         }
     }

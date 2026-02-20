@@ -283,6 +283,60 @@ QVariantList BookController::getQuotesForBook(int bookId)
     return DatabaseManager::instance().fetchQuotesForBook(bookId);
 }
 
+// ─── Highlights ─────────────────────────────────────────────
+
+bool BookController::addHighlight(int bookId, const QString &title, int page, const QString &note)
+{
+    if (title.trimmed().isEmpty()) {
+        emit errorOccurred("Highlight title is required");
+        return false;
+    }
+    return DatabaseManager::instance().addHighlight(bookId, title.trimmed(), page, note.trimmed());
+}
+
+bool BookController::removeHighlight(int highlightId)
+{
+    return DatabaseManager::instance().removeHighlight(highlightId);
+}
+
+QVariantList BookController::getHighlightsForBook(int bookId)
+{
+    return DatabaseManager::instance().fetchHighlightsForBook(bookId);
+}
+
+// ─── Summary / Review ───────────────────────────────────────
+
+bool BookController::updateSummary(int bookId, const QString &summary)
+{
+    // Update only the summary field via a direct query
+    auto optBook = DatabaseManager::instance().fetchBookById(bookId);
+    if (!optBook) return false;
+    Book book = *optBook;
+    book.summary = summary.trimmed();
+    bool ok = DatabaseManager::instance().updateBook(book);
+    if (ok) {
+        for (auto &b : m_allBooks) {
+            if (b.id == bookId) { b.summary = book.summary; break; }
+        }
+    }
+    return ok;
+}
+
+bool BookController::updateReview(int bookId, const QString &review)
+{
+    auto optBook = DatabaseManager::instance().fetchBookById(bookId);
+    if (!optBook) return false;
+    Book book = *optBook;
+    book.review = review.trimmed();
+    bool ok = DatabaseManager::instance().updateBook(book);
+    if (ok) {
+        for (auto &b : m_allBooks) {
+            if (b.id == bookId) { b.review = book.review; break; }
+        }
+    }
+    return ok;
+}
+
 // ─── Challenges ─────────────────────────────────────────────
 
 QVariantList BookController::getChallenges()
@@ -310,6 +364,17 @@ bool BookController::deleteChallenge(int id)
 QVariantList BookController::getBooksForChallenge(int challengeId)
 {
     return DatabaseManager::instance().fetchBooksForChallenge(challengeId);
+}
+
+bool BookController::resetAllData()
+{
+    bool ok = DatabaseManager::instance().resetAllData();
+    if (ok) {
+        m_allBooks.clear();
+        m_model->setBooks({});
+        emit booksChanged();
+    }
+    return ok;
 }
 
 QString BookController::filterStatus() const
