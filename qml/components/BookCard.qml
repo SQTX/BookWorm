@@ -59,6 +59,7 @@ Rectangle {
                 Text {
                     text: card.status === "read" ? "\u2714"
                         : card.status === "reading" ? "\u25CF"
+                        : card.status === "abandoned" ? "\u2715"
                         : "\u2026"
                     color: "#000000"
                     font.pixelSize: 10

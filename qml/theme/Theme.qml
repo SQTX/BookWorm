@@ -20,6 +20,7 @@ QtObject {
     readonly property color statusReading:   "#4FC3F7"
     readonly property color statusRead:      "#81C784"
     readonly property color statusPlanned:   "#FFB74D"
+    readonly property color statusAbandoned: "#A0A0B0"
 
     // Typography
     readonly property int fontSizeSmall:     12
@@ -41,19 +42,21 @@ QtObject {
 
     function statusColor(status) {
         switch(status) {
-            case "reading": return statusReading;
-            case "read":    return statusRead;
-            case "planned": return statusPlanned;
-            default:        return textSecondary;
+            case "reading":   return statusReading;
+            case "read":      return statusRead;
+            case "planned":   return statusPlanned;
+            case "abandoned": return statusAbandoned;
+            default:          return textSecondary;
         }
     }
 
     function statusLabel(status) {
         switch(status) {
-            case "reading": return "Reading";
-            case "read":    return "Read";
-            case "planned": return "Planned";
-            default:        return status;
+            case "reading":   return "Reading";
+            case "read":      return "Read";
+            case "planned":   return "Planned";
+            case "abandoned": return "Abandoned";
+            default:          return status;
         }
     }
 }

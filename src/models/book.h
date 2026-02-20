@@ -20,11 +20,13 @@ struct Book {
     QString isbn;
     QString publisher;
     int publicationYear = 0;
+    QDate publicationDate;
     QString language = QStringLiteral("English");
     QString coverImagePath;
     QString itemType = QStringLiteral("book");
     bool isNonFiction = false;
     int currentPage = 0;
+    QString series;
     QStringList tags;
 
     QVariantMap toVariantMap() const;

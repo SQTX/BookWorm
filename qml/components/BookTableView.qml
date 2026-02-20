@@ -43,9 +43,20 @@ Item {
             Item { Layout.fillWidth: true }
 
             Text {
-                text: bookController.model.count + " books"
+                text: {
+                    var dummy = bookController.model.count;
+                    var dist = bookController.getTypeDistribution();
+                    var keys = Object.keys(dist).sort();
+                    var parts = [];
+                    for (var i = 0; i < keys.length; i++) {
+                        var k = keys[i];
+                        var label = k.charAt(0).toUpperCase() + k.slice(1) + "s";
+                        parts.push(label + ": " + dist[k]);
+                    }
+                    return parts.length > 0 ? parts.join("  \u00B7  ") : "0 books";
+                }
                 color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeMedium
+                font.pixelSize: Theme.fontSizeSmall
                 verticalAlignment: Text.AlignVCenter
             }
         }
@@ -56,12 +67,16 @@ Item {
             Layout.leftMargin: Theme.spacingLarge
             Layout.rightMargin: Theme.spacingLarge
             Layout.bottomMargin: Theme.spacingMedium
-            spacing: Theme.spacingMedium
+            spacing: Theme.spacingSmall
 
             TextField {
                 id: searchField
-                Layout.preferredWidth: 300
-                placeholderText: "Search by title or author..."
+                Layout.preferredWidth: 260
+                Layout.preferredHeight: 36
+                topPadding: 6
+                bottomPadding: 6
+                font.pixelSize: Theme.fontSizeMedium
+                placeholderText: "\u{1F50D} Search title / author..."
                 Material.accent: Theme.primary
                 onTextChanged: bookController.searchQuery = text
             }
@@ -73,25 +88,48 @@ Item {
 
                 Repeater {
                     model: [
-                        { label: "All", value: "" },
-                        { label: "Reading", value: "reading" },
-                        { label: "Read", value: "read" },
-                        { label: "Planned", value: "planned" }
+                        { label: "All",       value: "" },
+                        { label: "Reading",   value: "reading" },
+                        { label: "Read",      value: "read" },
+                        { label: "Planned",   value: "planned" },
+                        { label: "Abandoned", value: "abandoned" }
                     ]
 
-                    Button {
-                        text: modelData.label
-                        flat: true
-                        highlighted: bookController.filterStatus === modelData.value
-                        Material.accent: Theme.primary
-                        onClicked: bookController.filterStatus = modelData.value
+                    Rectangle {
+                        required property var modelData
+                        required property int index
+                        width: tFilterChip.implicitWidth + Theme.spacingLarge
+                        height: 28
+                        radius: 14
+                        color: bookController.filterStatus === modelData.value
+                               ? Theme.primary : Theme.surfaceVariant
+                        border.width: 1
+                        border.color: bookController.filterStatus === modelData.value
+                                      ? "transparent" : Theme.divider
+
+                        Text {
+                            id: tFilterChip
+                            anchors.centerIn: parent
+                            text: modelData.label
+                            color: bookController.filterStatus === modelData.value
+                                   ? Theme.textOnPrimary : Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: bookController.filterStatus === modelData.value
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: bookController.filterStatus = modelData.value
+                        }
                     }
                 }
             }
 
             RoundButton {
+                width: 36; height: 36
                 icon.source: "qrc:/qt/qml/WormBook/src/img/icons/add-book.svg"
-                icon.width: 20; icon.height: 20
+                icon.width: 18; icon.height: 18
                 icon.color: Theme.textOnPrimary
                 Material.background: Theme.primary
                 onClicked: addDialog.open()
@@ -288,7 +326,10 @@ Item {
                                 spacing: 4
 
                                 Text {
-                                    text: rowDelegate.status === "read" ? "\u2714" : rowDelegate.status === "planned" ? "\u2718" : "\u25CF"
+                                    text: rowDelegate.status === "read" ? "\u2714"
+                                          : rowDelegate.status === "abandoned" ? "\u2715"
+                                          : rowDelegate.status === "planned" ? "\u2026"
+                                          : "\u25CF"
                                     color: "#000000"
                                     font.pixelSize: 10
                                     anchors.verticalCenter: parent.verticalCenter

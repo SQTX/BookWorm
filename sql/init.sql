@@ -11,13 +11,15 @@ CREATE TABLE IF NOT EXISTS books (
     end_date         DATE,
     rating           SMALLINT CHECK (rating >= 1 AND rating <= 10),
     status           VARCHAR(16) NOT NULL DEFAULT 'planned'
-                         CHECK (status IN ('reading', 'read', 'planned')),
+                         CHECK (status IN ('reading', 'read', 'planned', 'abandoned')),
     notes            TEXT,
     isbn             VARCHAR(20),
     publisher        VARCHAR(256),
     publication_year SMALLINT,
+    publication_date DATE,
     language         VARCHAR(64) DEFAULT 'English',
     cover_image_path VARCHAR(1024),
+    series           VARCHAR(256),
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

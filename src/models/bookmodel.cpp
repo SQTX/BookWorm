@@ -33,11 +33,13 @@ QVariant BookModel::data(const QModelIndex &index, int role) const
     case IsbnRole:            return book.isbn;
     case PublisherRole:       return book.publisher;
     case PublicationYearRole: return book.publicationYear;
+    case PublicationDateRole: return book.publicationDate.isValid() ? book.publicationDate.toString(Qt::ISODate) : QString();
     case LanguageRole:        return book.language;
     case CoverImagePathRole:  return book.coverImagePath;
     case ItemTypeRole:        return book.itemType;
     case IsNonFictionRole:    return book.isNonFiction;
     case CurrentPageRole:     return book.currentPage;
+    case SeriesRole:          return book.series;
     case TagsRole:            return book.tags.join(", ");
     }
 
@@ -60,11 +62,13 @@ QHash<int, QByteArray> BookModel::roleNames() const
         { IsbnRole,            "isbn" },
         { PublisherRole,       "publisher" },
         { PublicationYearRole, "publicationYear" },
+        { PublicationDateRole, "publicationDate" },
         { LanguageRole,        "language" },
         { CoverImagePathRole,  "coverImagePath" },
         { ItemTypeRole,        "itemType" },
         { IsNonFictionRole,    "isNonFiction" },
         { CurrentPageRole,     "currentPage" },
+        { SeriesRole,          "series" },
         { TagsRole,            "tags" }
     };
 }

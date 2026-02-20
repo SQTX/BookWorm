@@ -47,6 +47,7 @@ qt_add_qml_module(WormBook
         qml/components/BookListView.qml
         qml/components/BookTableView.qml
         qml/components/StatisticsView.qml
+        qml/components/ChallengesView.qml
     RESOURCES
         src/img/png/main_icon.png
         src/img/icons/library-view.svg
@@ -58,6 +59,9 @@ qt_add_qml_module(WormBook
         src/img/icons/add-book.svg
         src/img/icons/star-full.svg
         src/img/icons/star-empty.svg
+        src/img/icons/challenges.svg
+        src/img/icons/book-cover.svg
+        src/img/icons/calendar.svg
 )
 
 # Include directories so QML type registration can find headers

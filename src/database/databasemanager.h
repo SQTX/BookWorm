@@ -4,6 +4,7 @@
 #include <QVector>
 #include <QVariantList>
 #include <QPair>
+#include <QDate>
 #include <optional>
 
 #include "../models/book.h"
@@ -35,6 +36,12 @@ public:
     QVariantList fetchQuotesForBook(int bookId);
     bool addQuote(int bookId, const QString &quote, int page);
     bool removeQuote(int quoteId);
+
+    // Challenges
+    QVariantList fetchAllChallenges();
+    int insertChallenge(const QString &name, int targetBooks, const QDate &deadline);
+    bool deleteChallenge(int id);
+    QVariantList fetchBooksForChallenge(int challengeId);
 
     // Statistics
     int totalBooksRead();

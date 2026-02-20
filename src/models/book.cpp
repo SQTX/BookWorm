@@ -17,11 +17,13 @@ QVariantMap Book::toVariantMap() const
     map["isbn"]            = isbn;
     map["publisher"]       = publisher;
     map["publicationYear"] = publicationYear;
+    map["publicationDate"] = publicationDate.isValid() ? publicationDate.toString(Qt::ISODate) : QString();
     map["language"]        = language;
     map["coverImagePath"]  = coverImagePath;
     map["itemType"]        = itemType;
     map["isNonFiction"]    = isNonFiction;
     map["currentPage"]     = currentPage;
+    map["series"]          = series;
     map["tags"]            = tags.join(", ");
     return map;
 }
@@ -42,11 +44,13 @@ Book Book::fromVariantMap(const QVariantMap &map)
     b.isbn            = map.value("isbn").toString().trimmed();
     b.publisher       = map.value("publisher").toString().trimmed();
     b.publicationYear = map.value("publicationYear", 0).toInt();
+    b.publicationDate = QDate::fromString(map.value("publicationDate").toString(), Qt::ISODate);
     b.language        = map.value("language", "English").toString();
     b.coverImagePath  = map.value("coverImagePath").toString();
     b.itemType        = map.value("itemType", "book").toString();
     b.isNonFiction    = map.value("isNonFiction", false).toBool();
     b.currentPage     = map.value("currentPage", 0).toInt();
+    b.series          = map.value("series").toString().trimmed();
 
     const QString tagsStr = map.value("tags").toString();
     if (!tagsStr.isEmpty()) {
@@ -77,11 +81,13 @@ Book Book::fromSqlRecord(const QSqlRecord &record)
     b.isbn            = record.value("isbn").toString();
     b.publisher       = record.value("publisher").toString();
     b.publicationYear = record.value("publication_year").toInt();
+    b.publicationDate = record.value("publication_date").toDate();
     b.language        = record.value("language").toString();
     b.coverImagePath  = record.value("cover_image_path").toString();
     b.itemType        = record.value("item_type").toString();
     if (b.itemType.isEmpty()) b.itemType = QStringLiteral("book");
     b.isNonFiction    = record.value("is_non_fiction").toBool();
     b.currentPage     = record.value("current_page").toInt();
+    b.series          = record.value("series").toString();
     return b;
 }

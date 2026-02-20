@@ -18,7 +18,7 @@ ApplicationWindow {
     Material.theme: Material.Dark
     Material.accent: Theme.primary
 
-    property int currentPage: 0  // 0 = library, 1 = table, 2 = statistics
+    property int currentPage: 0  // 0 = library, 1 = table, 2 = statistics, 3 = challenges
 
     RowLayout {
         anchors.fill: parent
@@ -111,6 +111,32 @@ ApplicationWindow {
                     onClicked: {
                         currentPage = 2;
                         stackView.replace(null, statisticsComponent);
+                    }
+                }
+
+                // Challenges button
+                ToolButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 48; height: 48
+                    icon.source: "qrc:/qt/qml/WormBook/src/img/icons/challenges.svg"
+                    icon.width: 22; icon.height: 22
+                    icon.color: currentPage === 3 ? Theme.primary : Theme.textSecondary
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3; height: 24
+                        radius: 2
+                        color: Theme.primary
+                        visible: currentPage === 3
+                    }
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: root.appLanguage === "pl" ? "Wyzwania" : "Challenges"
+
+                    onClicked: {
+                        currentPage = 3;
+                        stackView.replace(null, challengesComponent);
                     }
                 }
 
@@ -227,6 +253,11 @@ ApplicationWindow {
     Component {
         id: statisticsComponent
         StatisticsView {}
+    }
+
+    Component {
+        id: challengesComponent
+        ChallengesView {}
     }
 
     // ── Settings ──

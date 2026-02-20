@@ -66,7 +66,7 @@ bool DatabaseManager::initializeSchema()
             "  end_date DATE,"
             "  rating SMALLINT CHECK (rating >= 1 AND rating <= 10),"
             "  status VARCHAR(16) NOT NULL DEFAULT 'planned'"
-            "    CHECK (status IN ('reading', 'read', 'planned')),"
+            "    CHECK (status IN ('reading', 'read', 'planned', 'abandoned')),"
             "  notes TEXT,"
             "  isbn VARCHAR(20),"
             "  publisher VARCHAR(256),"
@@ -111,11 +111,27 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS item_type VARCHAR(32) DEFAULT 'book'");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS is_non_fiction BOOLEAN DEFAULT FALSE");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS current_page INTEGER DEFAULT 0");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS series VARCHAR(256)");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS publication_date DATE");
 
     // Update rating constraint to allow 1-6 instead of 1-10
     q.exec("UPDATE books SET rating = LEAST(rating, 6) WHERE rating > 6");
     q.exec("ALTER TABLE books DROP CONSTRAINT IF EXISTS books_rating_check");
     q.exec("ALTER TABLE books ADD CONSTRAINT books_rating_check CHECK (rating >= 1 AND rating <= 6)");
+
+    // Update status constraint to allow 'abandoned'
+    q.exec("ALTER TABLE books DROP CONSTRAINT IF EXISTS books_status_check");
+    q.exec("ALTER TABLE books ADD CONSTRAINT books_status_check "
+           "CHECK (status IN ('reading', 'read', 'planned', 'abandoned'))");
+
+    // Challenges table
+    q.exec("CREATE TABLE IF NOT EXISTS challenges ("
+           "  id SERIAL PRIMARY KEY,"
+           "  name VARCHAR(256) NOT NULL,"
+           "  target_books INTEGER NOT NULL DEFAULT 1,"
+           "  deadline DATE NOT NULL,"
+           "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"
+           ")");
 
     // Indexes (safe to call multiple times)
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_status ON books(status)");
@@ -123,6 +139,7 @@ bool DatabaseManager::initializeSchema()
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_end_date ON books(end_date)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_book_tags_book_id ON book_tags(book_id)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_favorite_quotes_book_id ON favorite_quotes(book_id)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_challenges_deadline ON challenges(deadline)");
 
     qInfo() << "Database schema initialized";
     return true;
@@ -171,10 +188,10 @@ int DatabaseManager::insertBook(const Book &book)
     q.prepare(
         "INSERT INTO books (title, author, genre, page_count, start_date, end_date, "
         "  rating, status, notes, isbn, publisher, publication_year, language, "
-        "  cover_image_path, item_type, is_non_fiction, current_page) "
+        "  cover_image_path, item_type, is_non_fiction, current_page, series, publication_date) "
         "VALUES (:title, :author, :genre, :pageCount, :startDate, :endDate, "
         "  :rating, :status, :notes, :isbn, :publisher, :pubYear, :language, "
-        "  :coverPath, :itemType, :isNonFiction, :currentPage) "
+        "  :coverPath, :itemType, :isNonFiction, :currentPage, :series, :pubDate) "
         "RETURNING id"
     );
 
@@ -195,6 +212,8 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
     q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
+    q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
+    q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
 
     if (!q.exec() || !q.next()) {
         qWarning() << "insertBook error:" << q.lastError().text();
@@ -214,7 +233,7 @@ bool DatabaseManager::updateBook(const Book &book)
         "  publisher = :publisher, publication_year = :pubYear, language = :language, "
         "  cover_image_path = :coverPath, item_type = :itemType, "
         "  is_non_fiction = :isNonFiction, current_page = :currentPage, "
-        "  updated_at = NOW() "
+        "  series = :series, publication_date = :pubDate, updated_at = NOW() "
         "WHERE id = :id"
     );
 
@@ -236,6 +255,8 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
     q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
+    q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
+    q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
 
     if (!q.exec()) {
         qWarning() << "updateBook error:" << q.lastError().text();
@@ -385,6 +406,114 @@ bool DatabaseManager::removeQuote(int quoteId)
         return false;
     }
     return true;
+}
+
+// ─── Challenges ─────────────────────────────────────────────
+
+QVariantList DatabaseManager::fetchAllChallenges()
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id, name, target_books, deadline, created_at FROM challenges ORDER BY deadline");
+
+    if (!q.exec()) {
+        qWarning() << "fetchAllChallenges error:" << q.lastError().text();
+        return result;
+    }
+
+    while (q.next()) {
+        QVariantMap ch;
+        int id = q.value("id").toInt();
+        ch["id"]          = id;
+        ch["name"]        = q.value("name").toString();
+        ch["targetBooks"] = q.value("target_books").toInt();
+        ch["deadline"]    = q.value("deadline").toDate().toString(Qt::ISODate);
+        ch["createdAt"]   = q.value("created_at").toDateTime().date().toString(Qt::ISODate);
+
+        // Count books read within challenge period
+        QSqlQuery countQ(m_db);
+        countQ.prepare(
+            "SELECT COUNT(*) FROM books "
+            "WHERE status = 'read' AND end_date IS NOT NULL "
+            "AND end_date >= :start AND end_date <= :deadline"
+        );
+        countQ.bindValue(":start", q.value("created_at").toDateTime().date());
+        countQ.bindValue(":deadline", q.value("deadline").toDate());
+        int currentCount = 0;
+        if (countQ.exec() && countQ.next())
+            currentCount = countQ.value(0).toInt();
+
+        ch["currentCount"] = currentCount;
+        int target = q.value("target_books").toInt();
+        ch["progress"] = target > 0 ? qMin(1.0, static_cast<double>(currentCount) / target) : 0.0;
+
+        result.append(ch);
+    }
+    return result;
+}
+
+int DatabaseManager::insertChallenge(const QString &name, int targetBooks, const QDate &deadline)
+{
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO challenges (name, target_books, deadline) VALUES (:name, :target, :deadline) RETURNING id");
+    q.bindValue(":name", name);
+    q.bindValue(":target", targetBooks);
+    q.bindValue(":deadline", deadline);
+
+    if (!q.exec() || !q.next()) {
+        qWarning() << "insertChallenge error:" << q.lastError().text();
+        return -1;
+    }
+    return q.value(0).toInt();
+}
+
+bool DatabaseManager::deleteChallenge(int id)
+{
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM challenges WHERE id = :id");
+    q.bindValue(":id", id);
+
+    if (!q.exec()) {
+        qWarning() << "deleteChallenge error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+QVariantList DatabaseManager::fetchBooksForChallenge(int challengeId)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT created_at, deadline FROM challenges WHERE id = :id");
+    q.bindValue(":id", challengeId);
+
+    if (!q.exec() || !q.next())
+        return result;
+
+    QDate start = q.value("created_at").toDateTime().date();
+    QDate deadline = q.value("deadline").toDate();
+
+    QSqlQuery booksQ(m_db);
+    booksQ.prepare(
+        "SELECT id, title, author, end_date FROM books "
+        "WHERE status = 'read' AND end_date IS NOT NULL "
+        "AND end_date >= :start AND end_date <= :deadline "
+        "ORDER BY end_date"
+    );
+    booksQ.bindValue(":start", start);
+    booksQ.bindValue(":deadline", deadline);
+
+    if (booksQ.exec()) {
+        while (booksQ.next()) {
+            QVariantMap entry;
+            entry["id"]      = booksQ.value("id").toInt();
+            entry["title"]   = booksQ.value("title").toString();
+            entry["author"]  = booksQ.value("author").toString();
+            entry["endDate"] = booksQ.value("end_date").toDate().toString(Qt::ISODate);
+            result.append(entry);
+        }
+    }
+    return result;
 }
 
 // ─── Statistics ─────────────────────────────────────────────

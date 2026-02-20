@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QUrl>
+#include <QSet>
 
 BookController::BookController(QObject *parent)
     : QObject(parent)
@@ -108,9 +109,163 @@ QVariantMap BookController::getBookDetails(int id)
     return book->toVariantMap();
 }
 
+QVariantMap BookController::getTypeDistribution()
+{
+    QVariantMap dist;
+    for (const Book &book : m_allBooks) {
+        QString type = book.itemType.isEmpty() ? QStringLiteral("book") : book.itemType;
+        dist[type] = dist.value(type, 0).toInt() + 1;
+    }
+    return dist;
+}
+
 QStringList BookController::getAllTags()
 {
     return DatabaseManager::instance().fetchAllTags();
+}
+
+QStringList BookController::getAllGenres()
+{
+    QStringList genres;
+    QSet<QString> seen;
+    for (const Book &book : m_allBooks) {
+        if (!book.genre.isEmpty() && !seen.contains(book.genre)) {
+            seen.insert(book.genre);
+            genres.append(book.genre);
+        }
+    }
+    genres.sort();
+    return genres;
+}
+
+QStringList BookController::getAllSeries()
+{
+    QStringList seriesList;
+    QSet<QString> seen;
+    for (const Book &book : m_allBooks) {
+        if (!book.series.isEmpty() && !seen.contains(book.series)) {
+            seen.insert(book.series);
+            seriesList.append(book.series);
+        }
+    }
+    seriesList.sort();
+    return seriesList;
+}
+
+QStringList BookController::getAllAuthors()
+{
+    QStringList authors;
+    QSet<QString> seen;
+    for (const Book &book : m_allBooks) {
+        if (!book.author.isEmpty() && !seen.contains(book.author)) {
+            seen.insert(book.author);
+            authors.append(book.author);
+        }
+    }
+    authors.sort();
+    return authors;
+}
+
+QStringList BookController::getAllPublishers()
+{
+    QStringList publishers;
+    QSet<QString> seen;
+    for (const Book &book : m_allBooks) {
+        if (!book.publisher.isEmpty() && !seen.contains(book.publisher)) {
+            seen.insert(book.publisher);
+            publishers.append(book.publisher);
+        }
+    }
+    publishers.sort();
+    return publishers;
+}
+
+QStringList BookController::getSeriesForAuthor(const QString &author)
+{
+    QStringList seriesList;
+    QSet<QString> seen;
+    const QString trimmed = author.trimmed();
+    for (const Book &book : m_allBooks) {
+        if (book.author.compare(trimmed, Qt::CaseInsensitive) == 0
+            && !book.series.isEmpty() && !seen.contains(book.series)) {
+            seen.insert(book.series);
+            seriesList.append(book.series);
+        }
+    }
+    seriesList.sort();
+    return seriesList;
+}
+
+QStringList BookController::getDefaultGenres()
+{
+    static const QStringList defaults = {
+        QStringLiteral("Fantasy"),
+        QStringLiteral("Science Fiction"),
+        QStringLiteral("Mystery"),
+        QStringLiteral("Thriller"),
+        QStringLiteral("Horror"),
+        QStringLiteral("Romance"),
+        QStringLiteral("Historical Fiction"),
+        QStringLiteral("Literary Fiction"),
+        QStringLiteral("Contemporary Fiction"),
+        QStringLiteral("Dystopian"),
+        QStringLiteral("Adventure"),
+        QStringLiteral("Crime"),
+        QStringLiteral("Drama"),
+        QStringLiteral("Young Adult"),
+        QStringLiteral("Children's"),
+        QStringLiteral("Biography"),
+        QStringLiteral("Autobiography"),
+        QStringLiteral("Memoir"),
+        QStringLiteral("Self-Help"),
+        QStringLiteral("Psychology"),
+        QStringLiteral("Philosophy"),
+        QStringLiteral("History"),
+        QStringLiteral("Science"),
+        QStringLiteral("Technology"),
+        QStringLiteral("Programming"),
+        QStringLiteral("Mathematics"),
+        QStringLiteral("Business"),
+        QStringLiteral("Economics"),
+        QStringLiteral("Politics"),
+        QStringLiteral("Sociology"),
+        QStringLiteral("Travel"),
+        QStringLiteral("Cooking"),
+        QStringLiteral("Art"),
+        QStringLiteral("Music"),
+        QStringLiteral("Poetry"),
+        QStringLiteral("Essay"),
+        QStringLiteral("Journalism"),
+        QStringLiteral("True Crime"),
+        QStringLiteral("Graphic Novel"),
+        QStringLiteral("Manga"),
+        QStringLiteral("Comic"),
+        QStringLiteral("Religion"),
+        QStringLiteral("Spirituality"),
+        QStringLiteral("Health"),
+        QStringLiteral("Fitness"),
+        QStringLiteral("Education"),
+        QStringLiteral("Reference"),
+        QStringLiteral("Humor"),
+        QStringLiteral("Western"),
+        QStringLiteral("Military"),
+        QStringLiteral("Classics"),
+        QStringLiteral("Fairy Tale"),
+        QStringLiteral("Mythology"),
+        QStringLiteral("Satire"),
+        QStringLiteral("Anthology")
+    };
+
+    // Merge defaults with genres from existing books
+    QSet<QString> all(defaults.begin(), defaults.end());
+    for (const Book &book : m_allBooks) {
+        if (!book.genre.isEmpty())
+            all.insert(book.genre);
+    }
+
+    QStringList result(all.begin(), all.end());
+    result.sort();
+    return result;
 }
 
 bool BookController::addQuote(int bookId, const QString &quote, int page)
@@ -126,6 +281,35 @@ bool BookController::removeQuote(int quoteId)
 QVariantList BookController::getQuotesForBook(int bookId)
 {
     return DatabaseManager::instance().fetchQuotesForBook(bookId);
+}
+
+// ─── Challenges ─────────────────────────────────────────────
+
+QVariantList BookController::getChallenges()
+{
+    return DatabaseManager::instance().fetchAllChallenges();
+}
+
+bool BookController::addChallenge(const QString &name, int targetBooks, const QString &deadline)
+{
+    QDate dl = QDate::fromString(deadline, Qt::ISODate);
+    if (name.trimmed().isEmpty() || !dl.isValid() || targetBooks < 1) {
+        emit errorOccurred("Invalid challenge data");
+        return false;
+    }
+
+    int id = DatabaseManager::instance().insertChallenge(name.trimmed(), targetBooks, dl);
+    return id > 0;
+}
+
+bool BookController::deleteChallenge(int id)
+{
+    return DatabaseManager::instance().deleteChallenge(id);
+}
+
+QVariantList BookController::getBooksForChallenge(int challengeId)
+{
+    return DatabaseManager::instance().fetchBooksForChallenge(challengeId);
 }
 
 QString BookController::filterStatus() const
@@ -152,6 +336,20 @@ void BookController::setSearchQuery(const QString &query)
     if (m_searchQuery != query) {
         m_searchQuery = query;
         emit searchQueryChanged();
+        applyFilters();
+    }
+}
+
+QString BookController::filterEndDate() const
+{
+    return m_filterEndDate;
+}
+
+void BookController::setFilterEndDate(const QString &date)
+{
+    if (m_filterEndDate != date) {
+        m_filterEndDate = date;
+        emit filterEndDateChanged();
         applyFilters();
     }
 }
@@ -336,6 +534,10 @@ void BookController::applyFilters()
 {
     QVector<Book> filtered;
 
+    QDate endDateFilter;
+    if (!m_filterEndDate.isEmpty())
+        endDateFilter = QDate::fromString(m_filterEndDate, Qt::ISODate);
+
     for (const Book &book : m_allBooks) {
         // Status filter
         if (!m_filterStatus.isEmpty() && book.status != m_filterStatus)
@@ -346,6 +548,14 @@ void BookController::applyFilters()
             const QString query = m_searchQuery.toLower();
             if (!book.title.toLower().contains(query) &&
                 !book.author.toLower().contains(query))
+                continue;
+        }
+
+        // End date filter (month match)
+        if (endDateFilter.isValid()) {
+            if (!book.endDate.isValid() ||
+                book.endDate.year() != endDateFilter.year() ||
+                book.endDate.month() != endDateFilter.month())
                 continue;
         }
 

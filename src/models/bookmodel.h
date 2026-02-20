@@ -26,11 +26,13 @@ public:
         IsbnRole,
         PublisherRole,
         PublicationYearRole,
+        PublicationDateRole,
         LanguageRole,
         CoverImagePathRole,
         ItemTypeRole,
         IsNonFictionRole,
         CurrentPageRole,
+        SeriesRole,
         TagsRole
     };
 

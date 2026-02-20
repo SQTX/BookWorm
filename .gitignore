@@ -4,6 +4,9 @@ build/
 # Private assets (original resources)
 Priv/
 
+# Claude
+CLAUDE.md
+
 # macOS
 .DS_Store
 *.dSYM/
