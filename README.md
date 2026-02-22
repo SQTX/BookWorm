@@ -150,12 +150,41 @@ cmake .. \
 
 ## Screenshots
 
-<!-- Add screenshots here -->
-<!-- <p align="center">
-   <img src="./docs/img/library_view.png" width=700px>
+<p align="center">
+   <img src="./docs/img/ss_01-library.png" width=700px>
    <br>
    <b>Fig. 1</b> <i>Library view — card grid with status indicators</i>
-</p> -->
+</p>
+
+<p align="center">
+   <img src="./docs/img/ss_02-add_book.png" width=700px>
+   <br>
+   <b>Fig. 2</b> <i>Add / edit book form</i>
+</p>
+
+<p align="center">
+   <img src="./docs/img/ss_03-book.png" width=700px>
+   <br>
+   <b>Fig. 3</b> <i>Book details — quotes, highlights, summary & review</i>
+</p>
+
+<p align="center">
+   <img src="./docs/img/ss_04-table.png" width=700px>
+   <br>
+   <b>Fig. 4</b> <i>Table view — spreadsheet layout</i>
+</p>
+
+<p align="center">
+   <img src="./docs/img/ss_05-stats.png" width=700px>
+   <br>
+   <b>Fig. 5</b> <i>Statistics — charts & reading analytics</i>
+</p>
+
+<p align="center">
+   <img src="./docs/img/ss_06-challenges.png" width=700px>
+   <br>
+   <b>Fig. 6</b> <i>Reading challenges — goals & progress tracking</i>
+</p>
 
 ## Author
 
