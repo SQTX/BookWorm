@@ -231,7 +231,7 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
     q.bindValue(":audioMode",    book.audioMode);
-    q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
+    q.bindValue(":currentPage",  book.currentPage);
     q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
@@ -279,7 +279,7 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
     q.bindValue(":audioMode",    book.audioMode);
-    q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
+    q.bindValue(":currentPage",  book.currentPage);
     q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);

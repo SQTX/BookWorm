@@ -555,6 +555,8 @@ Item {
         }
 
         onAccepted: {
+            // Force-commit typed text (editable SpinBox doesn't update value until Enter/focus-loss)
+            addPagesSpinBox.value = addPagesSpinBox.valueFromText(addPagesSpinBox.contentItem.text, addPagesSpinBox.locale);
             var data = bookController.getBookDetails(bookListPage.contextBookId);
             data["currentPage"] = addPagesSpinBox.value;
             bookController.updateBook(data);

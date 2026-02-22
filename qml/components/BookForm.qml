@@ -242,7 +242,10 @@ Dialog {
             itemType:        itemTypeCombo.model[itemTypeCombo.currentIndex],
             isNonFiction:    nonFictionCheck.checked,
             audioMode:       selectedAudioMode(),
-            currentPage:     currentPageField.value
+            currentPage:     currentPageField.value,
+            publicationDate: mode === "edit" && editData ? (editData.publicationDate || "") : "",
+            summary:         mode === "edit" && editData ? (editData.summary || "") : "",
+            review:          mode === "edit" && editData ? (editData.review || "") : ""
         };
     }
 
@@ -1380,6 +1383,10 @@ Dialog {
                     Material.background: enabled ? Theme.primary : Theme.surfaceVariant
                     Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary
                     onClicked: {
+                        // Force-commit editable SpinBox text before collecting
+                        pageCountField.value = pageCountField.valueFromText(pageCountField.contentItem.text, pageCountField.locale);
+                        currentPageField.value = currentPageField.valueFromText(currentPageField.contentItem.text, currentPageField.locale);
+                        pubYearField.value = pubYearField.valueFromText(pubYearField.contentItem.text, pubYearField.locale);
                         formDialog.collectData();
                         formDialog.accepted();
                         formDialog.close();
