@@ -31,6 +31,7 @@ public:
         CoverImagePathRole,
         ItemTypeRole,
         IsNonFictionRole,
+        AudioModeRole,
         CurrentPageRole,
         SeriesRole,
         TagsRole

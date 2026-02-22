@@ -67,6 +67,13 @@ qt_add_qml_module(BookWorm
         src/img/icons/book-cover.svg
         src/img/icons/calendar.svg
         src/img/icons/tags.svg
+        src/img/icons/techbook.svg
+        src/img/icons/audiobook.svg
+        src/img/icons/audobook-support.svg
+        src/img/icons/status-reading.svg
+        src/img/icons/status-read.svg
+        src/img/icons/status-planed.svg
+        src/img/icons/status-abondoned.svg
 )
 
 # Include directories so QML type registration can find headers

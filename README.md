@@ -23,8 +23,9 @@ A desktop application for tracking your personal book library — what you're re
 
 - **Three views**: Library (card grid), Table (spreadsheet), and Statistics (charts & analytics).
 - **Book CRUD**: Add, edit, and delete books with cover images, ratings, genres, tags, and more.
-- **Item types**: Book, article, newspaper, magazine, comic, manga, thesis, and other.
+- **Item types**: Book, article, newspaper, magazine, comic, manga, thesis, workbook, and other.
 - **Reading progress**: Track current page with a visual progress bar for books in "reading" status.
+- **Audiobook mode**: Mark books as audiobook or audiobook-supported, with visual indicators on cards.
 - **Rating system**: 0–6 star rating (only available for finished books).
 - **Tags & genres**: Color-coded tags with a dedicated management popup, genre categorization.
 - **Favorite quotes**: Save quotes from books with page numbers.
@@ -58,8 +59,8 @@ User --> QML Signal --> BookController (Q_INVOKABLE) --> DatabaseManager --> Pos
 ```
 
 - **DatabaseManager** — Singleton. PostgreSQL connection, schema init with idempotent migrations, all CRUD operations.
-- **Book** — Plain struct (19 fields), serialization via `toVariantMap()` / `fromVariantMap()`.
-- **BookModel** — `QAbstractListModel` with 19 roles, registered as `QML_ELEMENT`.
+- **Book** — Plain struct (23 fields), serialization via `toVariantMap()` / `fromVariantMap()`.
+- **BookModel** — `QAbstractListModel` with 22 roles, registered as `QML_ELEMENT`.
 - **BookController** — QML bridge: filtering, search, CSV import/export, tag/quote/challenge management.
 - **StatisticsProvider** — Computes reading stats exposed as QML properties.
 - **Theme.qml** — Singleton managing colors, fonts, spacing, and translations via `tr()` function.
@@ -89,8 +90,8 @@ BookWorm/
 │   ├── database/
 │   │   └── databasemanager.h/.cpp   # Singleton PostgreSQL manager
 │   ├── models/
-│   │   ├── book.h/.cpp              # Book struct (19 fields)
-│   │   └── bookmodel.h/.cpp         # QAbstractListModel
+│   │   ├── book.h/.cpp              # Book struct (23 fields)
+│   │   └── bookmodel.h/.cpp         # QAbstractListModel (22 roles)
 │   ├── controllers/
 │   │   └── bookcontroller.h/.cpp    # QML bridge
 │   ├── statistics/

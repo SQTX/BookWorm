@@ -72,6 +72,7 @@ var _pl = {
     "Comics": "Komiksy",
     "Mangas": "Mangi",
     "Theses": "Prace naukowe",
+    "Workbooks": "Ćwiczenia",
     "Others": "Inne",
 
     // ── Type labels (singular, for badges) ──
@@ -82,6 +83,7 @@ var _pl = {
     "Comic": "Komiks",
     "Manga": "Manga",
     "Thesis": "Praca naukowa",
+    "Workbook": "Ćwiczenia",
     "Other": "Inne",
 
     // ── BookForm ──
@@ -91,6 +93,9 @@ var _pl = {
     "Author *": "Autor *",
     "Type:": "Typ:",
     "Technical book / Textbook": "Książka techniczna / Podręcznik",
+    "Standard": "Standardowa",
+    "Audiobook": "Audiobook",
+    "Audiobook Support": "Wsparcie audiobookiem",
     "Bad": "Słaba",
     "Weak": "Kiepska",
     "Average": "Przeciętna",

@@ -12,6 +12,7 @@ Dialog {
     property var editData: null
     property var bookData: ({})
     property string coverPath: ""
+    property string audioModeSelection: "none"
 
     // Helper: is status "read"?
     readonly property bool isRead: statusCombo.currentIndex === 1
@@ -23,6 +24,7 @@ Dialog {
 
     title: ""
     modal: true
+    closePolicy: Dialog.NoAutoClose
     standardButtons: Dialog.NoButton
     width: Math.min(620, parent.width - 48)
     height: Math.min(780, parent.height - 48)
@@ -141,6 +143,7 @@ Dialog {
             var itIdx = itemTypeCombo.model.indexOf(editData.itemType || "book");
             itemTypeCombo.currentIndex = itIdx >= 0 ? itIdx : 0;
             nonFictionCheck.checked = editData.isNonFiction || false;
+            audioModeSelection = editData.audioMode || "none";
             currentPageField.value = editData.currentPage || 0;
 
             // Select matching genre
@@ -213,6 +216,10 @@ Dialog {
         return result.join(", ");
     }
 
+    function selectedAudioMode() {
+        return audioModeSelection;
+    }
+
     function collectData() {
         bookData = {
             id:              mode === "edit" && editData ? editData.id : -1,
@@ -234,6 +241,7 @@ Dialog {
             coverImagePath:  coverPath,
             itemType:        itemTypeCombo.model[itemTypeCombo.currentIndex],
             isNonFiction:    nonFictionCheck.checked,
+            audioMode:       selectedAudioMode(),
             currentPage:     currentPageField.value
         };
     }
@@ -254,6 +262,7 @@ Dialog {
         coverPath            = "";
         itemTypeCombo.currentIndex = 0;
         nonFictionCheck.checked = false;
+        audioModeSelection = "none";
         currentPageField.value = 0;
 
         for (var i = 0; i < genreTagModel.count; i++)
@@ -532,7 +541,7 @@ Dialog {
                                 id: itemTypeCombo
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: fieldHeight
-                                model: ["book", "article", "newspaper", "magazine", "comic", "manga", "thesis", "other"]
+                                model: ["book", "article", "newspaper", "magazine", "comic", "manga", "thesis", "workbook", "other"]
                                 Material.accent: Theme.primary
                                 font.pixelSize: Theme.fontSizeSmall
                             }
@@ -556,6 +565,49 @@ Dialog {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: nonFictionCheck.checked = !nonFictionCheck.checked
+                                }
+                            }
+                        }
+
+                        // Audiobook mode chips
+                        Row {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSmall
+
+                            Repeater {
+                                model: [
+                                    { key: "Standard",          value: "none" },
+                                    { key: "Audiobook",         value: "audiobook" },
+                                    { key: "Audiobook Support", value: "audiobook_support" }
+                                ]
+
+                                Rectangle {
+                                    required property var modelData
+                                    required property int index
+
+                                    property bool isSelected: formDialog.audioModeSelection === modelData.value
+
+                                    width: audioChipText.implicitWidth + Theme.spacingLarge * 2
+                                    height: 28
+                                    radius: 14
+                                    color: isSelected ? Theme.secondary : "transparent"
+                                    border.width: 1
+                                    border.color: isSelected ? "transparent" : Theme.divider
+
+                                    Text {
+                                        id: audioChipText
+                                        anchors.centerIn: parent
+                                        text: Theme.tr(modelData.key)
+                                        color: isSelected ? "#000000" : Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.bold: isSelected
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: formDialog.audioModeSelection = modelData.value
+                                    }
                                 }
                             }
                         }
@@ -774,6 +826,7 @@ Dialog {
                                         padding: 6
                                         modal: false
                                         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                                        onOpened: genreFilterInput.forceActiveFocus()
 
                                         background: Rectangle {
                                             radius: Theme.radiusMedium

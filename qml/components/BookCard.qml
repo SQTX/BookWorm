@@ -15,6 +15,8 @@ Rectangle {
     required property string genre
     required property int pageCount
     required property int currentPage
+    required property bool isNonFiction
+    required property string audioMode
     required property string tags
 
     signal clicked()
@@ -61,17 +63,25 @@ Rectangle {
 
             Row {
                 anchors.centerIn: parent
-                spacing: 4
+                spacing: 3
 
-                Text {
-                    text: card.status === "read" ? "\u2714"
-                        : card.status === "reading" ? "\u25CF"
-                        : card.status === "abandoned" ? "\u2715"
-                        : "\u2026"
-                    color: "#000000"
-                    font.pixelSize: 10
-                    font.bold: true
+                ToolButton {
+                    width: 16; height: 16
                     anchors.verticalCenter: parent.verticalCenter
+                    focusPolicy: Qt.NoFocus
+                    icon.source: {
+                        switch (card.status) {
+                            case "reading":   return "qrc:/qt/qml/BookWorm/src/img/icons/status-reading.svg";
+                            case "read":      return "qrc:/qt/qml/BookWorm/src/img/icons/status-read.svg";
+                            case "abandoned": return "qrc:/qt/qml/BookWorm/src/img/icons/status-abondoned.svg";
+                            default:          return "qrc:/qt/qml/BookWorm/src/img/icons/status-planed.svg";
+                        }
+                    }
+                    icon.width: 12; icon.height: 12
+                    icon.color: "#000000"
+                    padding: 0
+                    background: Item {}
+                    onClicked: card.clicked()
                 }
 
                 Text {
@@ -79,6 +89,42 @@ Rectangle {
                     color: "#000000"
                     font.pixelSize: 11
                     font.bold: true
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+
+            // ── Feature icons (right side) ──
+            Row {
+                anchors.right: parent.right
+                anchors.rightMargin: 2
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 0
+                layoutDirection: Qt.RightToLeft
+
+                ToolButton {
+                    width: 18; height: 18
+                    visible: card.isNonFiction
+                    focusPolicy: Qt.NoFocus
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/techbook.svg"
+                    icon.width: 14; icon.height: 14
+                    icon.color: "#000000"
+                    padding: 0
+                    background: Item {}
+                    onClicked: card.clicked()
+                }
+
+                ToolButton {
+                    width: 18; height: 18
+                    visible: card.audioMode === "audiobook" || card.audioMode === "audiobook_support"
+                    focusPolicy: Qt.NoFocus
+                    icon.source: card.audioMode === "audiobook"
+                        ? "qrc:/qt/qml/BookWorm/src/img/icons/audiobook.svg"
+                        : "qrc:/qt/qml/BookWorm/src/img/icons/audobook-support.svg"
+                    icon.width: 14; icon.height: 14
+                    icon.color: "#000000"
+                    padding: 0
+                    background: Item {}
+                    onClicked: card.clicked()
                 }
             }
         }

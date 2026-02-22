@@ -25,6 +25,7 @@ struct Book {
     QString coverImagePath;
     QString itemType = QStringLiteral("book");
     bool isNonFiction = false;
+    QString audioMode = QStringLiteral("none"); // "none", "audiobook", "audiobook_support"
     int currentPage = 0;
     QString series;
     QString summary;

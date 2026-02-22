@@ -115,6 +115,7 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS publication_date DATE");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS summary TEXT");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS review TEXT");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS audio_mode VARCHAR(32) DEFAULT 'none'");
 
     // Update rating constraint to allow 1-6 instead of 1-10
     q.exec("UPDATE books SET rating = LEAST(rating, 6) WHERE rating > 6");
@@ -204,11 +205,11 @@ int DatabaseManager::insertBook(const Book &book)
     q.prepare(
         "INSERT INTO books (title, author, genre, page_count, start_date, end_date, "
         "  rating, status, notes, isbn, publisher, publication_year, language, "
-        "  cover_image_path, item_type, is_non_fiction, current_page, series, "
+        "  cover_image_path, item_type, is_non_fiction, audio_mode, current_page, series, "
         "  publication_date, summary, review) "
         "VALUES (:title, :author, :genre, :pageCount, :startDate, :endDate, "
         "  :rating, :status, :notes, :isbn, :publisher, :pubYear, :language, "
-        "  :coverPath, :itemType, :isNonFiction, :currentPage, :series, "
+        "  :coverPath, :itemType, :isNonFiction, :audioMode, :currentPage, :series, "
         "  :pubDate, :summary, :review) "
         "RETURNING id"
     );
@@ -229,6 +230,7 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":coverPath",    book.coverImagePath.isEmpty() ? QVariant() : book.coverImagePath);
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
+    q.bindValue(":audioMode",    book.audioMode);
     q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
     q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
@@ -252,7 +254,8 @@ bool DatabaseManager::updateBook(const Book &book)
         "  rating = :rating, status = :status, notes = :notes, isbn = :isbn, "
         "  publisher = :publisher, publication_year = :pubYear, language = :language, "
         "  cover_image_path = :coverPath, item_type = :itemType, "
-        "  is_non_fiction = :isNonFiction, current_page = :currentPage, "
+        "  is_non_fiction = :isNonFiction, audio_mode = :audioMode, "
+        "  current_page = :currentPage, "
         "  series = :series, publication_date = :pubDate, "
         "  summary = :summary, review = :review, updated_at = NOW() "
         "WHERE id = :id"
@@ -275,6 +278,7 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":coverPath",    book.coverImagePath.isEmpty() ? QVariant() : book.coverImagePath);
     q.bindValue(":itemType",     book.itemType);
     q.bindValue(":isNonFiction", book.isNonFiction);
+    q.bindValue(":audioMode",    book.audioMode);
     q.bindValue(":currentPage",  book.currentPage > 0 ? book.currentPage : QVariant());
     q.bindValue(":series",       book.series.isEmpty() ? QVariant() : book.series);
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());

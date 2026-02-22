@@ -38,6 +38,7 @@ QVariant BookModel::data(const QModelIndex &index, int role) const
     case CoverImagePathRole:  return book.coverImagePath;
     case ItemTypeRole:        return book.itemType;
     case IsNonFictionRole:    return book.isNonFiction;
+    case AudioModeRole:       return book.audioMode;
     case CurrentPageRole:     return book.currentPage;
     case SeriesRole:          return book.series;
     case TagsRole:            return book.tags.join(", ");
@@ -67,6 +68,7 @@ QHash<int, QByteArray> BookModel::roleNames() const
         { CoverImagePathRole,  "coverImagePath" },
         { ItemTypeRole,        "itemType" },
         { IsNonFictionRole,    "isNonFiction" },
+        { AudioModeRole,       "audioMode" },
         { CurrentPageRole,     "currentPage" },
         { SeriesRole,          "series" },
         { TagsRole,            "tags" }

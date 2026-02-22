@@ -546,7 +546,7 @@ bool BookController::exportToCsv(const QString &filePath)
 
     // Header
     out << "title,author,genre,page_count,start_date,end_date,rating,status,"
-           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,current_page,tags\n";
+           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,audio_mode,current_page,tags\n";
 
     const auto allBooks = DatabaseManager::instance().fetchAllBooks();
     for (const Book &book : allBooks) {
@@ -565,6 +565,7 @@ bool BookController::exportToCsv(const QString &filePath)
             << escapeCsvField(book.language) << ','
             << escapeCsvField(book.itemType) << ','
             << (book.isNonFiction ? "true" : "false") << ','
+            << escapeCsvField(book.audioMode) << ','
             << book.currentPage << ','
             << escapeCsvField(book.tags.join(", ")) << '\n';
     }
@@ -619,12 +620,17 @@ int BookController::importFromCsv(const QString &filePath)
         book.language        = parseCsvField(fields[12]);
         book.itemType        = parseCsvField(fields[13]);
         book.isNonFiction    = fields[14].trimmed().toLower() == "true";
-        // current_page at index 15 (if present), tags at 16
-        if (fields.size() >= 17) {
-            book.currentPage = fields[15].trimmed().toInt();
+        // audio_mode at index 15 (if present)
+        if (fields.size() >= 16) {
+            book.audioMode = parseCsvField(fields[15]);
+            if (book.audioMode.isEmpty()) book.audioMode = QStringLiteral("none");
+        }
+        // current_page at index 16 (if present), tags at 17
+        if (fields.size() >= 18) {
+            book.currentPage = fields[16].trimmed().toInt();
         }
 
-        const QString tagsStr = parseCsvField(fields.size() >= 17 ? fields[16] : fields[15]);
+        const QString tagsStr = parseCsvField(fields.size() >= 18 ? fields[17] : (fields.size() >= 17 ? fields[16] : fields[15]));
         if (!tagsStr.isEmpty()) {
             const auto parts = tagsStr.split(',');
             for (const auto &part : parts) {
@@ -716,6 +722,12 @@ void BookController::sortBooks(QVector<Book> &books)
             int pa = statusPriority(a.status);
             int pb = statusPriority(b.status);
             if (pa != pb) return pa < pb;
+
+            if (a.status == QStringLiteral("reading") && b.status == QStringLiteral("reading")) {
+                double pctA = a.pageCount > 0 ? static_cast<double>(a.currentPage) / a.pageCount : 0.0;
+                double pctB = b.pageCount > 0 ? static_cast<double>(b.currentPage) / b.pageCount : 0.0;
+                if (pctA != pctB) return pctA > pctB;
+            }
 
             QDate da = effectiveDate(a);
             QDate db = effectiveDate(b);

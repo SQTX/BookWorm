@@ -298,6 +298,8 @@ Item {
                     required property string genre
                     required property int pageCount
                     required property int currentPage
+                    required property bool isNonFiction
+                    required property string audioMode
                     required property string tags
 
                     BookCard {
@@ -316,6 +318,8 @@ Item {
                         genre: cellDelegate.genre
                         pageCount: cellDelegate.pageCount
                         currentPage: cellDelegate.currentPage
+                        isNonFiction: cellDelegate.isNonFiction
+                        audioMode: cellDelegate.audioMode
                         tags: cellDelegate.tags
                         onClicked: bookListPage.bookSelected(cellDelegate.bookId)
                         onRightClicked: (mx, my) => {
