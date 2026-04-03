@@ -14,7 +14,7 @@
 int main(int argc, char *argv[])
 {
     // Ensure Homebrew Qt plugins and QML modules are found
-    QCoreApplication::addLibraryPath(QStringLiteral("/opt/homebrew/Cellar/qtbase/6.10.2/share/qt/plugins"));
+    QCoreApplication::addLibraryPath(QStringLiteral("/opt/homebrew/Cellar/qtbase/6.11.0/share/qt/plugins"));
     QCoreApplication::addLibraryPath(QStringLiteral("/opt/homebrew/share/qt/plugins"));
 
     QApplication app(argc, argv);
