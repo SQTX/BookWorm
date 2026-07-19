@@ -29,6 +29,11 @@ ApplicationWindow {
         property alias language: root.appLanguage
         property alias cardsPerRow: root.libraryCardsPerRow
         property alias priorityEnabled: root.libraryPriorityEnabled
+        property alias backupFolder: root.backupFolder
+        property alias backupAutomatic: root.backupAutomatic
+        property alias backupIntervalValue: root.backupIntervalValue
+        property alias backupIntervalUnit: root.backupIntervalUnit
+        property alias backupLastRun: root.backupLastRun
     }
 
     Component.onCompleted: {
@@ -444,6 +449,11 @@ ApplicationWindow {
     property string appLanguage: Qt.locale().name.substring(0,2) === "pl" ? "pl" : "en"
     property int libraryCardsPerRow: 6  // default: 6 cards per row (0 = auto)
     property bool libraryPriorityEnabled: true  // default: priority hoisting on
+    property string backupFolder: ""
+    property bool backupAutomatic: false
+    property int backupIntervalValue: 7
+    property string backupIntervalUnit: "D"   // "D", "M" or "Y"
+    property string backupLastRun: ""          // ISO date of the last successful run
 
     Popup {
         id: settingsPopup
@@ -688,6 +698,141 @@ ApplicationWindow {
                 color: Theme.error
                 font.pixelSize: Theme.fontSizeSmall
                 wrapMode: Text.WordWrap
+            }
+
+            // Chosen backup folder + picker
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingMedium
+                spacing: Theme.spacingSmall
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.backupFolder !== "" ? root.backupFolder : Theme.tr("No folder chosen")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                    elide: Text.ElideMiddle
+                }
+
+                Button {
+                    text: Theme.tr("Choose Backup Folder")
+                    flat: true
+                    Material.foreground: Theme.primary
+                    onClicked: backupFolderDialog.open()
+                }
+            }
+
+            // Automatic backup toggle
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                spacing: Theme.spacingMedium
+
+                Text {
+                    Layout.fillWidth: true
+                    text: Theme.tr("Automatic backup")
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeMedium
+                }
+
+                Switch {
+                    checked: root.backupAutomatic
+                    enabled: root.backupFolder !== ""
+                    Material.accent: Theme.primary
+                    onToggled: root.backupAutomatic = checked
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                visible: root.backupFolder === ""
+                text: Theme.tr("Choose a folder to enable automatic backup")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+
+            // Interval
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                spacing: Theme.spacingSmall
+
+                Text {
+                    text: Theme.tr("Every")
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeMedium
+                }
+
+                SpinBox {
+                    id: backupIntervalSpinBox
+                    from: 1
+                    to: 99
+                    editable: false
+                    value: root.backupIntervalValue
+                    Material.accent: Theme.primary
+                    onValueModified: root.backupIntervalValue = value
+                }
+
+                Row {
+                    spacing: Theme.spacingSmall
+
+                    Repeater {
+                        model: [
+                            { key: "D" },
+                            { key: "M" },
+                            { key: "Y" }
+                        ]
+
+                        Rectangle {
+                            required property var modelData
+
+                            readonly property bool isSelected: root.backupIntervalUnit === modelData.key
+
+                            width: unitText.implicitWidth + Theme.spacingLarge
+                            height: 28
+                            radius: 14
+                            color: isSelected ? Theme.primary : Theme.surfaceVariant
+                            border.width: 1
+                            border.color: isSelected ? "transparent" : Theme.divider
+
+                            Text {
+                                id: unitText
+                                anchors.centerIn: parent
+                                text: modelData.key
+                                color: parent.isSelected ? Theme.textOnPrimary : Theme.textSecondary
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.bold: parent.isSelected
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.backupIntervalUnit = modelData.key
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                text: root.backupLastRun !== ""
+                      ? Theme.tr("Last backup") + ": " + Qt.formatDateTime(new Date(root.backupLastRun), "yyyy-MM-dd hh:mm")
+                      : Theme.tr("No backup yet")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
             }
 
             Item { Layout.preferredHeight: Theme.spacingSmall }
@@ -1196,6 +1341,12 @@ ApplicationWindow {
         currentFile: "file:///bookworm-" + Qt.formatDate(new Date(), "yyyy-MM-dd") + ".zip"
 
         onAccepted: backupManager.backupTo(selectedFile)
+    }
+
+    FolderDialog {
+        id: backupFolderDialog
+        title: Theme.tr("Choose Backup Folder")
+        onAccepted: root.backupFolder = selectedFolder
     }
 
     Connections {
