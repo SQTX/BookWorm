@@ -19,6 +19,7 @@ Item {
     property string contextBookTitle: ""
     property int contextBookPageCount: 0
     property int contextBookCurrentPage: 0
+    property bool contextBookIsPriority: false
 
     onPriorityEnabledChanged: bookController.priorityEnabled = priorityEnabled
 
@@ -82,6 +83,7 @@ Item {
                     bookListPage.contextBookTitle = cellDelegate.title
                     bookListPage.contextBookPageCount = cellDelegate.pageCount
                     bookListPage.contextBookCurrentPage = cellDelegate.currentPage
+                    bookListPage.contextBookIsPriority = cellDelegate.isPriority
                     var pos = bookCard.mapToItem(bookListPage, mx, my)
                     contextMenu.x = pos.x
                     contextMenu.y = pos.y
@@ -492,6 +494,24 @@ Item {
             visible: bookListPage.contextBookStatus === "planned" || bookListPage.contextBookStatus === "reading"
             height: visible ? implicitHeight : 0
         }
+
+        // ── Priority toggle — all statuses ──
+        MenuItem {
+            text: bookListPage.contextBookIsPriority
+                  ? Theme.tr("Remove Priority")
+                  : Theme.tr("Set Priority")
+            icon.source: bookListPage.contextBookIsPriority
+                         ? "qrc:/qt/qml/BookWorm/src/img/icons/star-empty.svg"
+                         : "qrc:/qt/qml/BookWorm/src/img/icons/star-full.svg"
+            icon.color: Theme.priority
+            onTriggered: {
+                var data = bookController.getBookDetails(bookListPage.contextBookId);
+                data["isPriority"] = !bookListPage.contextBookIsPriority;
+                bookController.updateBook(data);
+            }
+        }
+
+        MenuSeparator { }
 
         // ── "Edit" — all statuses ──
         MenuItem {
