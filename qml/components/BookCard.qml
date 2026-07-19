@@ -16,6 +16,7 @@ Rectangle {
     required property int pageCount
     required property int currentPage
     required property bool isNonFiction
+    required property bool isPriority
     required property string audioMode
     required property string tags
 
@@ -292,7 +293,8 @@ Rectangle {
         radius: Theme.radiusMedium
         color: "transparent"
         border.width: 2
-        border.color: mouseArea.containsMouse ? Theme.statusColor(card.status) : "transparent"
+        border.color: mouseArea.containsMouse ? Theme.statusColor(card.status)
+                    : (card.isPriority ? Theme.priority : "transparent")
 
         Behavior on border.color { ColorAnimation { duration: 150 } }
     }

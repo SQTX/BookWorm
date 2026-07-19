@@ -185,6 +185,17 @@ QtObject {
         }
     }
 
+    // ── Priority ──
+
+    property color priority: {
+        switch (currentTheme) {
+            case "minimalist_dark":  return "#D08A45";
+            case "minimalist_light": return "#C1702A";
+            case "classic":          return "#C87A32";
+            default:                 return "#D08A45";
+        }
+    }
+
     // ── Typography ──
 
     readonly property int fontSizeSmall:  12
