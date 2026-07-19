@@ -733,6 +733,8 @@ void BookController::sortBooks(QVector<Book> &books)
 {
     if (m_sortMode == QStringLiteral("default")) {
         std::stable_sort(books.begin(), books.end(), [this](const Book &a, const Book &b) {
+            // Priority hoisting applies to the default sort only. The other modes are
+            // orderings the user asked for explicitly, so they deliberately ignore isPriority.
             if (m_priorityEnabled && a.isPriority != b.isPriority)
                 return a.isPriority;
 
