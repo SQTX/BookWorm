@@ -95,6 +95,8 @@ var _pl = {
     "Type:": "Typ:",
     "Technical book / Textbook": "Książka techniczna / Podręcznik",
     "Priority": "Priorytet",
+    "Set Priority": "Ustaw priorytet",
+    "Remove Priority": "Usuń priorytet",
     "Standard": "Standardowa",
     "Audiobook": "Audiobook",
     "Audiobook Support": "Wsparcie audiobookiem",
