@@ -10,6 +10,7 @@ Item {
     signal bookSelected(int bookId)
 
     property int userCardsPerRow: 6  // persisted from Main.qml Settings
+    property bool priorityEnabled: true  // persisted from Main.qml Settings
     property var availableYears: []
 
     // Context menu state
@@ -19,8 +20,11 @@ Item {
     property int contextBookPageCount: 0
     property int contextBookCurrentPage: 0
 
+    onPriorityEnabledChanged: bookController.priorityEnabled = priorityEnabled
+
     Component.onCompleted: {
         availableYears = bookController.getAvailableYears();
+        bookController.priorityEnabled = priorityEnabled;
     }
 
     Connections {
@@ -299,6 +303,7 @@ Item {
                     required property int pageCount
                     required property int currentPage
                     required property bool isNonFiction
+                    required property bool isPriority
                     required property string audioMode
                     required property string tags
 
@@ -319,6 +324,7 @@ Item {
                         pageCount: cellDelegate.pageCount
                         currentPage: cellDelegate.currentPage
                         isNonFiction: cellDelegate.isNonFiction
+                        isPriority: cellDelegate.isPriority
                         audioMode: cellDelegate.audioMode
                         tags: cellDelegate.tags
                         onClicked: bookListPage.bookSelected(cellDelegate.bookId)
@@ -824,6 +830,26 @@ Item {
                                 bookListPage.userCardsPerRow -= 1;
                         }
                     }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingMedium
+
+                Text {
+                    Layout.fillWidth: true
+                    text: Theme.tr("Prioritize books")
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeMedium
+                }
+
+                Switch {
+                    checked: bookListPage.priorityEnabled
+                    Material.accent: Theme.primary
+                    onToggled: bookListPage.priorityEnabled = checked
                 }
             }
         }
