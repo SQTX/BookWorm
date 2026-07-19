@@ -26,6 +26,10 @@ QtObject {
         return Translations.monthLabels(language);
     }
 
+    function getDayLabels() {
+        return Translations.dayLabels(language);
+    }
+
     // Helper for Material.theme binding in Main.qml
     property bool isDark: currentTheme !== "minimalist_light"
 

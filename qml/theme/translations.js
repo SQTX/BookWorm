@@ -192,6 +192,21 @@ var _pl = {
     "Genre Distribution": "Rozkład gatunków",
     "No genre data yet": "Brak danych o gatunkach",
 
+    // ── StatisticsView: tabs ──
+    "Overview": "Przegląd",
+    "Sessions": "Sesje",
+
+    // ── StatisticsSessions ──
+    "Current streak": "Aktualna seria",
+    "Longest streak": "Najdłuższa seria",
+    "Pages read": "Przeczytane strony",
+    "Pages per reading day": "Stron na dzień czytania",
+    "Pages per day": "Strony dziennie",
+    "By weekday": "Wg dnia tygodnia",
+    "Recent sessions": "Ostatnie sesje",
+    "No reading sessions yet": "Brak sesji czytania",
+    "Sessions are recorded when you add pages": "Sesje są zapisywane, gdy dodajesz strony",
+
     // ── ChallengesView ──
     "Completed": "Ukończone",
     "Expired": "Wygasłe",
@@ -278,4 +293,11 @@ function monthLabels(lang) {
     if (lang === "pl")
         return ["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"];
     return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+}
+
+// Weekday labels, Monday-first (index 0 = Monday ... 6 = Sunday)
+function dayLabels(lang) {
+    if (lang === "pl")
+        return ["Pon","Wt","Śr","Czw","Pt","Sob","Nd"];
+    return ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 }
