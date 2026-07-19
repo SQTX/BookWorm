@@ -22,6 +22,7 @@ QVariantMap Book::toVariantMap() const
     map["coverImagePath"]  = coverImagePath;
     map["itemType"]        = itemType;
     map["isNonFiction"]    = isNonFiction;
+    map["isPriority"]      = isPriority;
     map["audioMode"]       = audioMode;
     map["currentPage"]     = currentPage;
     map["series"]          = series;
@@ -52,6 +53,7 @@ Book Book::fromVariantMap(const QVariantMap &map)
     b.coverImagePath  = map.value("coverImagePath").toString();
     b.itemType        = map.value("itemType", "book").toString();
     b.isNonFiction    = map.value("isNonFiction", false).toBool();
+    b.isPriority      = map.value("isPriority", false).toBool();
     b.audioMode       = map.value("audioMode", "none").toString();
     b.currentPage     = map.value("currentPage", 0).toInt();
     b.series          = map.value("series").toString().trimmed();
@@ -93,6 +95,7 @@ Book Book::fromSqlRecord(const QSqlRecord &record)
     b.itemType        = record.value("item_type").toString();
     if (b.itemType.isEmpty()) b.itemType = QStringLiteral("book");
     b.isNonFiction    = record.value("is_non_fiction").toBool();
+    b.isPriority      = record.value("is_priority").toBool();
     b.audioMode       = record.value("audio_mode").toString();
     if (b.audioMode.isEmpty()) b.audioMode = QStringLiteral("none");
     b.currentPage     = record.value("current_page").toInt();
