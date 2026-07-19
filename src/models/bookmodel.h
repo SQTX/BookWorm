@@ -34,7 +34,8 @@ public:
         AudioModeRole,
         CurrentPageRole,
         SeriesRole,
-        TagsRole
+        TagsRole,
+        IsPriorityRole
     };
 
     explicit BookModel(QObject *parent = nullptr);
