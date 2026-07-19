@@ -41,6 +41,11 @@ var _pl = {
     "Safety backup will be written to": "Kopia bezpieczeństwa trafi do",
     "Type %1 to confirm": "Wpisz %1, aby potwierdzić",
     "RESTORE": "ODTWÓRZ",
+    "Restoring…": "Przywracanie…",
+    "Restore failed": "Przywracanie nie powiodło się",
+    "Safety backup path": "Ścieżka kopii bezpieczeństwa",
+    "Copy": "Kopiuj",
+    "Close": "Zamknij",
 
     "Reset All Data": "Resetuj dane",
     "Reset Data": "Resetowanie danych",

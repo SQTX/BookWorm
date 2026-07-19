@@ -528,9 +528,13 @@ QVariantMap BackupManager::inspectArchive(const QString &filePath)
         return result;
     }
 
+    // Mirrors verifyArchive()'s standard for what a well-formed archive contains:
+    // both the dump and the manifest must be present in the listing. A dump with no
+    // manifest is not an archive this app ever produced.
     const QString listing = QString::fromUtf8(list.readAllStandardOutput());
-    if (!listing.contains(QStringLiteral("database.sql"))) {
-        result["error"] = QStringLiteral("Archive does not contain database.sql");
+    if (!listing.contains(QStringLiteral("database.sql"))
+        || !listing.contains(QStringLiteral("manifest.json"))) {
+        result["error"] = QStringLiteral("Archive is missing database.sql or manifest.json");
         return result;
     }
     result["hasCovers"] = listing.contains(QStringLiteral("covers/"));
@@ -551,7 +555,29 @@ QVariantMap BackupManager::inspectArchive(const QString &filePath)
         return result;
     }
 
-    // 3. Trial load into a scratch database. This is the moment a corrupt dump is
+    // 3. Require the dump to actually hold book data before spending a trial load on
+    //    it. verifyArchive() (used when writing a backup) demands a COPY block for
+    //    every table that currently exists, but inspectArchive() only requires
+    //    "books" — the one table that has existed since the very first backup format.
+    //    An archive made before "challenges" or "reading_sessions" existed is still a
+    //    legitimate, restorable BookWorm backup and must not be rejected for lacking
+    //    tables its own app version never wrote. Anything lacking book data at all,
+    //    though, is not a BookWorm backup regardless of vintage.
+    const QString dumpPath = temp.filePath(QStringLiteral("database.sql"));
+    QFile dumpFile(dumpPath);
+    if (!dumpFile.open(QIODevice::ReadOnly)) {
+        result["error"] = QStringLiteral("Could not read database.sql after unpacking");
+        return result;
+    }
+    const QString dumpContents = QString::fromUtf8(dumpFile.readAll());
+    dumpFile.close();
+    if (!dumpContents.contains(QStringLiteral("COPY public.books "))) {
+        result["error"] =
+            QStringLiteral("Archive does not contain book data (no COPY public.books block)");
+        return result;
+    }
+
+    // 4. Trial load into a scratch database. This is the moment a corrupt dump is
     //    caught, and it happens while the real database is still untouched.
     const QString scratch = QStringLiteral("wormbook_restore_check");
     dropScratchDatabase(scratch);   // in case a previous run died mid-way
@@ -562,13 +588,18 @@ QVariantMap BackupManager::inspectArchive(const QString &filePath)
         return result;
     }
 
+    // --single-transaction mirrors the real load in restoreFrom(): the trial should
+    // behave exactly like the load it is standing in for. It costs nothing extra
+    // here either way — the scratch database is dropped a few lines down regardless
+    // of whether the load fully succeeded or partially landed before an error.
     const bool loaded = runProcess(
         m_psqlPath,
         connectionArgs()
             << QStringLiteral("--quiet")
+            << QStringLiteral("--single-transaction")
             << QStringLiteral("--set=ON_ERROR_STOP=1")
             << QStringLiteral("--dbname=") + scratch
-            << QStringLiteral("--file=") + temp.filePath(QStringLiteral("database.sql")),
+            << QStringLiteral("--file=") + dumpPath,
         &error);
 
     if (!loaded) {
@@ -577,7 +608,7 @@ QVariantMap BackupManager::inspectArchive(const QString &filePath)
         return result;
     }
 
-    // 4. Count what arrived.
+    // 5. Count what arrived.
     result["bookCount"] = scratchBookCount(scratch);
     dropScratchDatabase(scratch);
     result["valid"] = true;
@@ -595,6 +626,22 @@ bool BackupManager::restoreFrom(const QString &filePath)
     QString path = filePath;
     if (path.startsWith(QStringLiteral("file://")))
         path = QUrl(path).toLocalFile();
+
+    // 0. Prove the archive loads cleanly into a scratch database before this function
+    //    does anything else. The QML flow already calls inspectArchive() itself
+    //    (dialog "Restore from Backup" → inspect → confirm → restoreFrom), but this
+    //    function must not depend on a caller having done that — the guiding
+    //    invariant is "the current database is not touched until the archive has
+    //    been proven to load", and that has to hold no matter who calls restoreFrom().
+    //    Calling inspectArchive() here means the dump gets loaded a third time before
+    //    this is done (inspect dialog, this check, the real load below) — a few extra
+    //    seconds against the guarantee that a corrupt archive can never reach the
+    //    DROP SCHEMA further down. That trade is accepted.
+    const QVariantMap inspection = inspectArchive(filePath);
+    if (!inspection.value(QStringLiteral("valid")).toBool()) {
+        emit restoreFinished(false, inspection.value(QStringLiteral("error")).toString());
+        return false;
+    }
 
     if (m_psqlPath.isEmpty()) {
         emit restoreFinished(false, QStringLiteral("psql not found — restore unavailable"));
@@ -664,17 +711,24 @@ bool BackupManager::restoreFrom(const QString &filePath)
     // 4. Load the dump. This is the one window where the schema has already been
     //    dropped and the new data has not yet landed, so a failure here can leave
     //    wormbook empty — the message leads with the safety backup path rather than
-    //    burying it.
+    //    burying it. --single-transaction wraps the whole dump in one transaction:
+    //    plain-text pg_dump output is not one transaction by default, so without this
+    //    flag a failure partway through leaves some tables committed and others not —
+    //    an arbitrary partial state. With it, any failure rolls back to the empty
+    //    schema CREATE SCHEMA left in step 3, so there is exactly one well-defined
+    //    recovery state instead of an unknown mixture.
     if (!runProcess(m_psqlPath,
                     connectionArgs()
                         << QStringLiteral("--quiet")
+                        << QStringLiteral("--single-transaction")
                         << QStringLiteral("--set=ON_ERROR_STOP=1")
                         << QStringLiteral("--dbname=") + QString::fromLatin1(BookWorm::Config::DB_NAME)
                         << QStringLiteral("--file=") + dumpFile,
                     &error)) {
         emit restoreFinished(false, QStringLiteral(
-            "SAFETY BACKUP: %1\n\nThe archive failed to load and the database may now "
-            "be empty or partial: %2. Restore the safety backup above by hand as soon "
+            "SAFETY BACKUP: %1\n\nThe archive failed to load: %2. Because the load runs "
+            "as a single transaction, it was rolled back — the database is now empty "
+            "(not partially restored). Restore the safety backup above by hand as soon "
             "as possible.").arg(safetyPath, error));
         return false;
     }

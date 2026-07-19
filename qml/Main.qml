@@ -1625,8 +1625,205 @@ ApplicationWindow {
                     onClicked: {
                         var path = restoreConfirmDialog.archivePath;
                         restoreConfirmDialog.close();
-                        backupManager.restoreFrom(path);
+                        // Show the overlay, then yield to the event loop before making
+                        // the blocking restoreFrom() call — setting visible: true and
+                        // calling restoreFrom() on the same line would never paint,
+                        // because the event loop never runs between them. The 50ms
+                        // delay gives the (separate) render thread a chance to actually
+                        // draw and present the frame before the GUI thread freezes for
+                        // the duration of the restore.
+                        restoreOverlay.visible = true;
+                        restoreStartTimer.pendingPath = path;
+                        restoreStartTimer.start();
                     }
+                }
+            }
+        }
+    }
+
+    // Deferred start for restoreFrom() — see the comment on restoreOverlay.visible
+    // above for why this can't just be a direct call.
+    Timer {
+        id: restoreStartTimer
+        interval: 50
+        repeat: false
+        property string pendingPath: ""
+        onTriggered: backupManager.restoreFrom(pendingPath)
+    }
+
+    // ── Restore progress overlay ──
+    // restoreFrom() runs synchronously on the GUI thread (a background-thread
+    // pipeline is a larger change than this warrants). That means once the call
+    // starts, the event loop cannot process anything else, including this
+    // BusyIndicator's own animation — it will appear frozen for the duration rather
+    // than spinning. What matters is that this whole overlay, including the
+    // "Restoring…" label, has already been painted (via restoreStartTimer's 50ms
+    // yield above) before that freeze begins, so a user watching it does not conclude
+    // the app has hung and force-quit mid-load.
+    Rectangle {
+        id: restoreOverlay
+        anchors.fill: parent
+        z: 9999
+        color: "#B3000000"
+        visible: false
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {}
+        }
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: Theme.spacingMedium
+
+            BusyIndicator {
+                Layout.alignment: Qt.AlignHCenter
+                running: restoreOverlay.visible
+            }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: Theme.tr("Restoring…")
+                color: "#FFFFFF"
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+        }
+    }
+
+    // ── Restore failure dialog ──
+    // Failure messages here (especially the SAFETY BACKUP one) are the user's only
+    // path back to their data if the load fails after the schema has already been
+    // dropped. A toast fades in ~2.5s and clips multi-line text — this dialog stays
+    // open until dismissed, wraps text, and exposes the safety backup path (when the
+    // message carries one) in a selectable, copyable field.
+    Dialog {
+        id: restoreFailureDialog
+        title: ""
+        modal: true
+        standardButtons: Dialog.NoButton
+        closePolicy: Dialog.NoAutoClose
+        anchors.centerIn: parent
+        width: Math.min(520, parent.width - 48)
+        padding: 0
+
+        property string message: ""
+        // Recognizes every path-bearing failure message restoreFrom() emits:
+        // "SAFETY BACKUP: <path>", "(safety backup: <path>)", "(attempted: <path>)".
+        // Messages with no recoverable path (e.g. "psql not found") leave this empty
+        // and the copy field below simply does not appear.
+        readonly property string safetyPath: {
+            var m = message.match(/SAFETY BACKUP:\s*(.+?)(?:\n|$)/);
+            if (m) return m[1].trim();
+            m = message.match(/\(safety backup:\s*(.+?)\)/);
+            if (m) return m[1].trim();
+            m = message.match(/\(attempted:\s*(.+?)\)/);
+            if (m) return m[1].trim();
+            return "";
+        }
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: Theme.tr("Restore failed")
+                color: "#D32F2F"
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingXL
+                spacing: Theme.spacingSmall
+
+                Flickable {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(failureMessageText.implicitHeight, 220)
+                    clip: true
+                    contentWidth: width
+                    contentHeight: failureMessageText.implicitHeight
+                    ScrollBar.vertical: ScrollBar {}
+
+                    Text {
+                        id: failureMessageText
+                        width: parent.width
+                        text: restoreFailureDialog.message
+                        color: Theme.textOnSurface
+                        font.pixelSize: Theme.fontSizeMedium
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingMedium
+                    spacing: Theme.spacingSmall
+                    visible: restoreFailureDialog.safetyPath !== ""
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: Theme.tr("Safety backup path")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSmall
+
+                        TextField {
+                            id: safetyPathField
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: restoreFailureDialog.safetyPath
+                            font.pixelSize: Theme.fontSizeSmall
+                            Material.accent: Theme.primary
+                        }
+
+                        Button {
+                            text: Theme.tr("Copy")
+                            flat: true
+                            onClicked: {
+                                safetyPathField.selectAll();
+                                safetyPathField.copy();
+                                safetyPathField.deselect();
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: Theme.tr("Close")
+                    Material.background: Theme.primary
+                    Material.foreground: "#FFFFFF"
+                    onClicked: restoreFailureDialog.close()
                 }
             }
         }
@@ -1640,10 +1837,14 @@ ApplicationWindow {
                 root.backupLastRun = new Date().toISOString();
         }
         function onRestoreFinished(ok, message) {
-            csvToast.show(message);
+            restoreOverlay.visible = false;
             if (ok) {
+                csvToast.show(message);
                 bookController.loadBooks();
                 statsProvider.refresh();
+            } else {
+                restoreFailureDialog.message = message;
+                restoreFailureDialog.open();
             }
         }
     }
