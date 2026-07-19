@@ -416,7 +416,7 @@ Item {
                     interactive: false
                     cellWidth: bookListPage.cellWidthFor(width)
                     cellHeight: cellWidth * (316 / 196)
-                    model: bookController.model
+                    model: bookController.standardModel
                     delegate: bookCellDelegate
                 }
             }

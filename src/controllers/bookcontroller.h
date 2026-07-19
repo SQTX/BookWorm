@@ -12,6 +12,7 @@ class BookController : public QObject
 
     Q_PROPERTY(BookModel* model READ model CONSTANT)
     Q_PROPERTY(BookModel* priorityModel READ priorityModel CONSTANT)
+    Q_PROPERTY(BookModel* standardModel READ standardModel CONSTANT)
     Q_PROPERTY(QString filterStatus READ filterStatus WRITE setFilterStatus NOTIFY filterStatusChanged)
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
     Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
@@ -24,6 +25,7 @@ public:
 
     BookModel *model() const;
     BookModel *priorityModel() const;
+    BookModel *standardModel() const;
 
     Q_INVOKABLE void loadBooks();
     Q_INVOKABLE bool addBook(const QVariantMap &bookData);
@@ -96,6 +98,7 @@ private:
 
     BookModel *m_model;
     BookModel *m_priorityModel;
+    BookModel *m_standardModel;
     QVector<Book> m_allBooks;
     QString m_filterStatus;
     QString m_searchQuery;
