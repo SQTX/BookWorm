@@ -904,6 +904,50 @@ ApplicationWindow {
                 font.pixelSize: Theme.fontSizeSmall
             }
 
+            // ── Restore button ──
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 40
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingMedium
+                radius: Theme.radiusSmall
+                color: restoreMouse.containsMouse ? "#D32F2F" : "#B71C1C"
+                opacity: backupManager.psqlPath() === "" ? 0.4 : 1.0
+
+                Text {
+                    anchors.centerIn: parent
+                    text: Theme.tr("Restore from Backup")
+                    color: "#FFFFFF"
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: restoreMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: backupManager.psqlPath() !== ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        settingsPopup.close();
+                        restoreOpenDialog.open();
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                visible: backupManager.psqlPath() === ""
+                text: Theme.tr("psql not found — restore unavailable")
+                color: Theme.error
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+
             Item { Layout.preferredHeight: Theme.spacingSmall }
 
             // ── Separator ──
@@ -1429,12 +1473,178 @@ ApplicationWindow {
         onAccepted: root.backupFolder = selectedFolder.toString().replace("file://", "")
     }
 
+    // ── Restore ──
+
+    FileDialog {
+        id: restoreOpenDialog
+        title: Theme.tr("Restore from Backup")
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["ZIP archive (*.zip)"]
+        // "file:///name" is the filesystem ROOT — see backupSaveDialog above. Default
+        // to the configured backup folder, falling back to Documents.
+        currentFolder: root.backupFolder !== ""
+                       ? "file://" + root.backupFolder.replace(/\/+$/, "")
+                       : StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+
+        onAccepted: {
+            var info = backupManager.inspectArchive(selectedFile);
+            if (!info.valid) {
+                csvToast.show(info.error);
+                return;
+            }
+            restoreConfirmDialog.archivePath = selectedFile;
+            restoreConfirmDialog.archiveBooks = info.bookCount;
+            restoreConfirmDialog.open();
+        }
+    }
+
+    // ── Restore confirmation dialog ──
+    Dialog {
+        id: restoreConfirmDialog
+        title: ""
+        modal: true
+        standardButtons: Dialog.NoButton
+        closePolicy: Dialog.NoAutoClose
+        anchors.centerIn: parent
+        width: Math.min(440, parent.width - 48)
+        padding: 0
+
+        // Declared here on the Dialog root — properties nested inside the layout
+        // below are unreachable from these handlers, the way BookForm.qml learned.
+        property string archivePath: ""
+        property int archiveBooks: 0
+        property string confirmText: ""
+
+        onOpened: confirmText = ""
+        onRejected: confirmText = ""
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: Theme.tr("Restore replaces everything")
+                color: "#D32F2F"
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingXL
+                spacing: Theme.spacingSmall
+
+                Text {
+                    Layout.fillWidth: true
+                    text: Theme.tr("Every book currently in your library will be permanently replaced by the contents of this archive. This action cannot be undone.")
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeMedium
+                    wrapMode: Text.Wrap
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingSmall
+                    text: Theme.tr("Books now") + ": " + bookController.model.count
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: Theme.tr("Books in archive") + ": " + restoreConfirmDialog.archiveBooks
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingSmall
+                    text: Theme.tr("Safety backup will be written to") + ": " + backupManager.safetyBackupDir()
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WrapAnywhere
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingMedium
+                    text: Theme.tr("Type %1 to confirm").replace("%1", Theme.tr("RESTORE"))
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                TextField {
+                    id: restoreConfirmField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    topPadding: 4; bottomPadding: 4
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                    text: restoreConfirmDialog.confirmText
+                    onTextChanged: restoreConfirmDialog.confirmText = text
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: Theme.tr("Cancel")
+                    flat: true
+                    Material.foreground: Theme.textSecondary
+                    onClicked: restoreConfirmDialog.reject()
+                }
+
+                Button {
+                    text: Theme.tr("Restore from Backup")
+                    enabled: restoreConfirmDialog.confirmText === Theme.tr("RESTORE")
+                    opacity: enabled ? 1.0 : 0.4
+                    Material.background: "#B71C1C"
+                    Material.foreground: "#FFFFFF"
+                    onClicked: {
+                        var path = restoreConfirmDialog.archivePath;
+                        restoreConfirmDialog.close();
+                        backupManager.restoreFrom(path);
+                    }
+                }
+            }
+        }
+    }
+
     Connections {
         target: backupManager
         function onBackupFinished(ok, message) {
             csvToast.show(message);
             if (ok)
                 root.backupLastRun = new Date().toISOString();
+        }
+        function onRestoreFinished(ok, message) {
+            csvToast.show(message);
+            if (ok) {
+                bookController.loadBooks();
+                statsProvider.refresh();
+            }
         }
     }
 
