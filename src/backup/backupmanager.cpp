@@ -21,12 +21,29 @@
 BackupManager::BackupManager(QObject *parent)
     : QObject(parent)
     , m_pgDumpPath(locatePgDump())
+    , m_psqlPath(locatePsql())
 {
 }
 
 QString BackupManager::pgDumpPath() const
 {
     return m_pgDumpPath;
+}
+
+QString BackupManager::psqlPath() const
+{
+    return m_psqlPath;
+}
+
+// <AppDataLocation>/safety-backups. Created on demand so a fresh install has
+// somewhere to put the pre-restore safety copy without a separate setup step.
+QString BackupManager::safetyBackupDir() const
+{
+    const QString base =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    const QString dir = base + QStringLiteral("/safety-backups");
+    QDir().mkpath(dir);
+    return dir;
 }
 
 // PATH first, then the Homebrew locations this machine actually uses. Hardcoding a
@@ -43,6 +60,29 @@ QString BackupManager::locatePgDump() const
         QStringLiteral("/opt/homebrew/bin/pg_dump"),
         QStringLiteral("/usr/local/bin/pg_dump"),
         QStringLiteral("/usr/bin/pg_dump")
+    };
+
+    for (const QString &candidate : candidates) {
+        if (QFileInfo(candidate).isExecutable())
+            return candidate;
+    }
+
+    return {};
+}
+
+// Mirrors locatePgDump(): PATH first, then the same Homebrew locations pg_dump is
+// found at, since all four postgresql@16 client binaries live side by side.
+QString BackupManager::locatePsql() const
+{
+    const QString fromPath = QStandardPaths::findExecutable(QStringLiteral("psql"));
+    if (!fromPath.isEmpty())
+        return fromPath;
+
+    const QStringList candidates = {
+        QStringLiteral("/opt/homebrew/opt/postgresql@16/bin/psql"),
+        QStringLiteral("/opt/homebrew/bin/psql"),
+        QStringLiteral("/usr/local/bin/psql"),
+        QStringLiteral("/usr/bin/psql")
     };
 
     for (const QString &candidate : candidates) {
