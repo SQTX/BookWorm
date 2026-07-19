@@ -36,9 +36,42 @@ ApplicationWindow {
         property alias backupLastRun: root.backupLastRun
     }
 
+    // Returns true when an automatic backup is enabled, a folder is chosen, and the
+    // configured interval has elapsed since the last successful run.
+    function backupIsDue() {
+        if (!root.backupAutomatic || root.backupFolder === "")
+            return false;
+        if (root.backupLastRun === "")
+            return true;
+
+        var last = new Date(root.backupLastRun);
+        if (isNaN(last.getTime()))
+            return true;   // unreadable timestamp — treat as never backed up
+
+        var due = new Date(last);
+        if (root.backupIntervalUnit === "D")
+            due.setDate(due.getDate() + root.backupIntervalValue);
+        else if (root.backupIntervalUnit === "M")
+            due.setMonth(due.getMonth() + root.backupIntervalValue);
+        else
+            due.setFullYear(due.getFullYear() + root.backupIntervalValue);
+
+        return new Date() >= due;
+    }
+
+    function runAutomaticBackup() {
+        var folder = root.backupFolder.toString().replace("file://", "");
+        var stamp = new Date().toISOString().substring(0, 10);
+        var path = folder + "/bookworm-" + stamp + ".zip";
+        backupManager.backupTo(path);
+    }
+
     Component.onCompleted: {
         Theme.setTheme(root.appStyle);
         Theme.language = root.appLanguage;
+
+        if (backupIsDue())
+            runAutomaticBackup();
     }
 
     onAppLanguageChanged: Theme.language = root.appLanguage
@@ -1353,6 +1386,8 @@ ApplicationWindow {
         target: backupManager
         function onBackupFinished(ok, message) {
             csvToast.show(message);
+            if (ok)
+                root.backupLastRun = new Date().toISOString();
         }
     }
 
