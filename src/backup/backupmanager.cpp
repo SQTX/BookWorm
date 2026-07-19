@@ -144,6 +144,15 @@ QString BackupManager::locateDropdb() const
     return {};
 }
 
+QStringList BackupManager::connectionArgs() const
+{
+    return {
+        QStringLiteral("--host=%1").arg(QString::fromLatin1(BookWorm::Config::DB_HOST)),
+        QStringLiteral("--port=%1").arg(BookWorm::Config::DB_PORT),
+        QStringLiteral("--username=%1").arg(QString::fromLatin1(BookWorm::Config::DB_USER))
+    };
+}
+
 bool BackupManager::runProcess(const QString &program, const QStringList &arguments,
                                QString *errorOut)
 {
@@ -449,7 +458,7 @@ void BackupManager::dropScratchDatabase(const QString &name)
     }
 
     QString error;
-    if (!runProcess(m_dropdbPath, {QStringLiteral("--if-exists"), name}, &error))
+    if (!runProcess(m_dropdbPath, connectionArgs() << QStringLiteral("--if-exists") << name, &error))
         qWarning() << "dropScratchDatabase failed for" << name << ":" << error;
 }
 
@@ -548,17 +557,18 @@ QVariantMap BackupManager::inspectArchive(const QString &filePath)
     dropScratchDatabase(scratch);   // in case a previous run died mid-way
 
     QString error;
-    if (!runProcess(m_createdbPath, {scratch}, &error)) {
+    if (!runProcess(m_createdbPath, connectionArgs() << scratch, &error)) {
         result["error"] = QStringLiteral("Could not create a scratch database: ") + error;
         return result;
     }
 
     const bool loaded = runProcess(
         m_psqlPath,
-        {QStringLiteral("--quiet"),
-         QStringLiteral("--set=ON_ERROR_STOP=1"),
-         QStringLiteral("--dbname=") + scratch,
-         QStringLiteral("--file=") + temp.filePath(QStringLiteral("database.sql"))},
+        connectionArgs()
+            << QStringLiteral("--quiet")
+            << QStringLiteral("--set=ON_ERROR_STOP=1")
+            << QStringLiteral("--dbname=") + scratch
+            << QStringLiteral("--file=") + temp.filePath(QStringLiteral("database.sql")),
         &error);
 
     if (!loaded) {

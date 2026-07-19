@@ -42,6 +42,11 @@ private:
     QString locateCreatedb() const;
     QString locateDropdb() const;
 
+    // Host/port/user, passed explicitly to every libpq tool. The app can be launched
+    // from Finder, where none of the PG* variables a terminal shell provides exist —
+    // relying on ambient defaults works in development and fails for the user.
+    QStringList connectionArgs() const;
+
     bool runProcess(const QString &program, const QStringList &arguments, QString *errorOut);
     bool copyCovers(const QString &coversDir, QVariantList *entries, int *missing);
     bool writeManifest(const QString &path, const QVariantList &covers, int missing);
