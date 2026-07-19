@@ -11,6 +11,7 @@ BookController::BookController(QObject *parent)
     : QObject(parent)
     , m_model(new BookModel(this))
     , m_priorityModel(new BookModel(this))
+    , m_standardModel(new BookModel(this))
 {
 }
 
@@ -22,6 +23,11 @@ BookModel *BookController::model() const
 BookModel *BookController::priorityModel() const
 {
     return m_priorityModel;
+}
+
+BookModel *BookController::standardModel() const
+{
+    return m_standardModel;
 }
 
 void BookController::loadBooks()
@@ -722,22 +728,26 @@ void BookController::applyFilters()
 
     sortBooks(filtered);
 
-    // Flagged books get their own section above the grid, so they are split out of
-    // the main model. Only in the default sort — an explicit sort stays one list.
+    // `model` always holds every filtered book — the Table view and anything else
+    // that wants the whole list reads it. The Library grid instead reads the two
+    // split models below, so flagged books can render in their own section.
+    m_model->setBooks(filtered);
+
+    // Split only in the default sort — an explicit sort stays one list.
     if (m_priorityEnabled && m_sortMode == QStringLiteral("default")) {
         QVector<Book> prioritized;
-        QVector<Book> rest;
+        QVector<Book> standard;
         for (const Book &book : filtered) {
             if (book.isPriority)
                 prioritized.append(book);
             else
-                rest.append(book);
+                standard.append(book);
         }
         m_priorityModel->setBooks(prioritized);
-        m_model->setBooks(rest);
+        m_standardModel->setBooks(standard);
     } else {
         m_priorityModel->setBooks({});
-        m_model->setBooks(filtered);
+        m_standardModel->setBooks(filtered);
     }
 }
 
