@@ -147,6 +147,18 @@ bool DatabaseManager::initializeSchema()
            "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"
            ")");
 
+    // Reading sessions table
+    q.exec("CREATE TABLE IF NOT EXISTS reading_sessions ("
+           "  id SERIAL PRIMARY KEY,"
+           "  book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,"
+           "  session_date DATE NOT NULL,"
+           "  page_start INTEGER NOT NULL,"
+           "  page_end INTEGER NOT NULL,"
+           "  source VARCHAR(16) NOT NULL DEFAULT 'manual',"
+           "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),"
+           "  UNIQUE (book_id, session_date, source)"
+           ")");
+
     // Indexes (safe to call multiple times)
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_status ON books(status)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_genre ON books(genre)");
@@ -155,6 +167,8 @@ bool DatabaseManager::initializeSchema()
     q.exec("CREATE INDEX IF NOT EXISTS idx_favorite_quotes_book_id ON favorite_quotes(book_id)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_challenges_deadline ON challenges(deadline)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_highlights_book_id ON highlights(book_id)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_reading_sessions_book_id ON reading_sessions(book_id)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_reading_sessions_date ON reading_sessions(session_date)");
 
     // Tags: add color column
     q.exec("ALTER TABLE tags ADD COLUMN IF NOT EXISTS color VARCHAR(9) DEFAULT '#808080'");
@@ -651,6 +665,47 @@ QVariantList DatabaseManager::fetchBooksForChallenge(int challengeId)
         }
     }
     return result;
+}
+
+// ─── Reading sessions ───────────────────────────────────────
+
+bool DatabaseManager::recordSession(int bookId, int pageStart, int pageEnd, const QString &source)
+{
+    // Nothing was read — a correction, or a no-op save.
+    if (pageEnd <= pageStart)
+        return false;
+
+    QSqlQuery q(m_db);
+    q.prepare(
+        "INSERT INTO reading_sessions (book_id, session_date, page_start, page_end, source) "
+        "VALUES (:bookId, CURRENT_DATE, :pageStart, :pageEnd, :source) "
+        "ON CONFLICT (book_id, session_date, source) DO UPDATE SET "
+        "  page_start = LEAST(reading_sessions.page_start, EXCLUDED.page_start), "
+        "  page_end = GREATEST(reading_sessions.page_end, EXCLUDED.page_end)"
+    );
+    q.bindValue(":bookId",    bookId);
+    q.bindValue(":pageStart", pageStart);
+    q.bindValue(":pageEnd",   pageEnd);
+    q.bindValue(":source",    source);
+
+    if (!q.exec()) {
+        qWarning() << "recordSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteSession(int sessionId)
+{
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM reading_sessions WHERE id = :id");
+    q.bindValue(":id", sessionId);
+
+    if (!q.exec()) {
+        qWarning() << "deleteSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
 }
 
 // ─── Reset ──────────────────────────────────────────────────

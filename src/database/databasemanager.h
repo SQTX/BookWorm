@@ -52,6 +52,10 @@ public:
     bool deleteChallenge(int id);
     QVariantList fetchBooksForChallenge(int challengeId);
 
+    // Reading sessions
+    bool recordSession(int bookId, int pageStart, int pageEnd, const QString &source);
+    bool deleteSession(int sessionId);
+
     // Reset
     bool resetAllData();
 
