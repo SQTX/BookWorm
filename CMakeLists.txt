@@ -50,6 +50,8 @@ qt_add_qml_module(BookWorm
         qml/components/BookListView.qml
         qml/components/BookTableView.qml
         qml/components/StatisticsView.qml
+        qml/components/StatisticsOverview.qml
+        qml/components/StatisticsSessions.qml
         qml/components/ChallengesView.qml
     RESOURCES
         src/img/png/main_icon.png
