@@ -819,14 +819,36 @@ ApplicationWindow {
                     font.pixelSize: Theme.fontSizeMedium
                 }
 
+                // Sized to match the D/M/Y chips beside it; the Material default is
+                // roughly twice their height.
                 SpinBox {
                     id: backupIntervalSpinBox
                     from: 1
                     to: 99
                     editable: false
                     value: root.backupIntervalValue
+                    implicitWidth: 92
+                    implicitHeight: 28
+                    topPadding: 0
+                    bottomPadding: 0
+                    font.pixelSize: Theme.fontSizeSmall
                     Material.accent: Theme.primary
                     onValueModified: root.backupIntervalValue = value
+
+                    contentItem: Text {
+                        text: backupIntervalSpinBox.value
+                        color: Theme.textOnSurface
+                        font: backupIntervalSpinBox.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        radius: 14
+                        color: Theme.surfaceVariant
+                        border.width: 1
+                        border.color: Theme.divider
+                    }
                 }
 
                 Row {
@@ -1350,7 +1372,10 @@ ApplicationWindow {
         fileMode: FileDialog.SaveFile
         nameFilters: ["CSV files (*.csv)"]
         defaultSuffix: "csv"
-        currentFile: "file:///bookworm_export.csv"
+        // "file:///name" is the filesystem ROOT, which macOS does not let us write to.
+        // Default into Documents instead.
+        currentFolder: StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+        currentFile: currentFolder + "/bookworm_export.csv"
 
         onAccepted: {
             if (bookController.exportToCsv(selectedFile)) {
@@ -1385,7 +1410,13 @@ ApplicationWindow {
         fileMode: FileDialog.SaveFile
         nameFilters: ["ZIP archive (*.zip)"]
         defaultSuffix: "zip"
-        currentFile: "file:///bookworm-" + Qt.formatDate(new Date(), "yyyy-MM-dd") + ".zip"
+        // "file:///name" is the filesystem ROOT, which macOS does not let us write to —
+        // the save appeared to work and then failed. Prefer the configured backup
+        // folder, falling back to Documents.
+        currentFolder: root.backupFolder !== ""
+                       ? "file://" + root.backupFolder.replace(/\/+$/, "")
+                       : StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+        currentFile: currentFolder + "/bookworm-" + Qt.formatDate(new Date(), "yyyy-MM-dd") + ".zip"
 
         onAccepted: backupManager.backupTo(selectedFile)
     }
