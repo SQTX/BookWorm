@@ -32,7 +32,8 @@ public:
     Q_INVOKABLE bool updateBook(const QVariantMap &bookData);
     Q_INVOKABLE bool deleteBook(int id);
     Q_INVOKABLE QVariantMap getBookDetails(int id);
-    Q_INVOKABLE bool addPages(int bookId, int newCurrentPage);
+    // Sets the current page to an absolute value; it does not add a delta.
+    Q_INVOKABLE bool updateReadingProgress(int bookId, int newCurrentPage);
     Q_INVOKABLE bool markAsRead(int bookId, int rating, const QString &review);
     Q_INVOKABLE bool deleteReadingSession(int sessionId);
 
@@ -98,6 +99,7 @@ signals:
 private:
     void applyFilters();
     void sortBooks(QVector<Book> &books);
+    void updateCachedBook(const Book &book);
 
     BookModel *m_model;
     BookModel *m_priorityModel;

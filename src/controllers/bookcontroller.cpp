@@ -122,7 +122,7 @@ QVariantMap BookController::getBookDetails(int id)
     return book->toVariantMap();
 }
 
-bool BookController::addPages(int bookId, int newCurrentPage)
+bool BookController::updateReadingProgress(int bookId, int newCurrentPage)
 {
     auto existing = DatabaseManager::instance().fetchBookById(bookId);
     if (!existing.has_value()) {
@@ -143,8 +143,7 @@ bool BookController::addPages(int bookId, int newCurrentPage)
     DatabaseManager::instance().recordSession(bookId, previousPage, newCurrentPage,
                                               QStringLiteral("manual"));
 
-    loadBooks();
-    emit booksChanged();
+    updateCachedBook(book);
     return true;
 }
 
@@ -181,9 +180,24 @@ bool BookController::markAsRead(int bookId, int rating, const QString &review)
     DatabaseManager::instance().recordSession(bookId, previousPage, book.pageCount,
                                               QStringLiteral("completion"));
 
-    loadBooks();
-    emit booksChanged();
+    updateCachedBook(book);
     return true;
+}
+
+// Patch one book in the in-memory cache and refresh the views. Cheaper and more
+// predictable than loadBooks(), which refetches everything and reorders m_allBooks
+// by updated_at, quietly changing tie-breaks in the less specific sort modes.
+void BookController::updateCachedBook(const Book &book)
+{
+    for (int i = 0; i < m_allBooks.size(); ++i) {
+        if (m_allBooks[i].id == book.id) {
+            m_allBooks[i] = book;
+            break;
+        }
+    }
+
+    applyFilters();
+    emit booksChanged();
 }
 
 bool BookController::deleteReadingSession(int sessionId)

@@ -648,7 +648,7 @@ Item {
         onAccepted: {
             // Force-commit typed text (editable SpinBox doesn't update value until Enter/focus-loss)
             addPagesSpinBox.value = addPagesSpinBox.valueFromText(addPagesSpinBox.contentItem.text, addPagesSpinBox.locale);
-            bookController.addPages(bookListPage.contextBookId, addPagesSpinBox.value);
+            bookController.updateReadingProgress(bookListPage.contextBookId, addPagesSpinBox.value);
         }
     }
 
