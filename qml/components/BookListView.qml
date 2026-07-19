@@ -22,6 +22,86 @@ Item {
 
     onPriorityEnabledChanged: bookController.priorityEnabled = priorityEnabled
 
+    // Shared by both grids so the card layout stays identical in each.
+    function cellWidthFor(gridWidth) {
+        if (bookListPage.userCardsPerRow > 0)
+            return Math.floor(gridWidth / bookListPage.userCardsPerRow);
+        // Auto: fit as many ~196px cards as possible
+        var cols = Math.max(1, Math.floor(gridWidth / 196));
+        return Math.floor(gridWidth / cols);
+    }
+
+    Component {
+        id: bookCellDelegate
+
+        Item {
+            id: cellDelegate
+            width: GridView.view.cellWidth
+            height: GridView.view.cellHeight
+
+            readonly property var ownerGrid: GridView.view
+
+            required property int bookId
+            required property string title
+            required property string author
+            required property int rating
+            required property string status
+            required property string coverImagePath
+            required property string genre
+            required property int pageCount
+            required property int currentPage
+            required property bool isNonFiction
+            required property bool isPriority
+            required property string audioMode
+            required property string tags
+
+            BookCard {
+                id: bookCard
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: 8
+                width: cellDelegate.width - 16
+                height: cellDelegate.height - 16
+                bookId: cellDelegate.bookId
+                title: cellDelegate.title
+                author: cellDelegate.author
+                rating: cellDelegate.rating
+                status: cellDelegate.status
+                coverImagePath: cellDelegate.coverImagePath
+                genre: cellDelegate.genre
+                pageCount: cellDelegate.pageCount
+                currentPage: cellDelegate.currentPage
+                isNonFiction: cellDelegate.isNonFiction
+                isPriority: cellDelegate.isPriority
+                audioMode: cellDelegate.audioMode
+                tags: cellDelegate.tags
+                onClicked: bookListPage.bookSelected(cellDelegate.bookId)
+                onRightClicked: (mx, my) => {
+                    bookListPage.contextBookId = cellDelegate.bookId
+                    bookListPage.contextBookStatus = cellDelegate.status
+                    bookListPage.contextBookTitle = cellDelegate.title
+                    bookListPage.contextBookPageCount = cellDelegate.pageCount
+                    bookListPage.contextBookCurrentPage = cellDelegate.currentPage
+                    var pos = bookCard.mapToItem(bookListPage, mx, my)
+                    contextMenu.x = pos.x
+                    contextMenu.y = pos.y
+                    contextMenu.open()
+                }
+            }
+
+            // Row separator — full width, drawn only from first cell in row
+            Rectangle {
+                anchors.bottom: parent.bottom
+                x: -cellDelegate.x
+                width: cellDelegate.ownerGrid ? cellDelegate.ownerGrid.width : 0
+                height: 1
+                color: Theme.divider
+                opacity: 0.3
+                visible: cellDelegate.x < cellDelegate.width
+            }
+        }
+    }
+
     Component.onCompleted: {
         availableYears = bookController.getAvailableYears();
         bookController.priorityEnabled = priorityEnabled;
@@ -266,101 +346,86 @@ Item {
             }
         }
 
-        // Book grid
-        ScrollView {
+        // Book grid — priority section on top, then the rest.
+        // Flickable + ScrollBar directly (nesting a Flickable in a ScrollView double-scrolls).
+        Flickable {
+            id: gridFlickable
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
+            contentWidth: width
+            contentHeight: gridColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
 
-            GridView {
-                id: gridView
-                anchors.fill: parent
+            ScrollBar.vertical: ScrollBar { }
 
-                cellWidth: {
-                    if (bookListPage.userCardsPerRow > 0) {
-                        return Math.floor(width / bookListPage.userCardsPerRow);
-                    }
-                    // Auto: fit as many ~196px cards as possible
-                    var cols = Math.max(1, Math.floor(width / 196));
-                    return Math.floor(width / cols);
-                }
-                cellHeight: cellWidth * (316 / 196)
+            Column {
+                id: gridColumn
+                width: gridFlickable.width
 
-                model: bookController.model
+                // ── Priority section ──
+                Item {
+                    width: parent.width
+                    height: visible ? priorityLabel.implicitHeight + Theme.spacingSmall : 0
+                    visible: bookController.priorityModel.count > 0
 
-                delegate: Item {
-                    id: cellDelegate
-                    width: gridView.cellWidth
-                    height: gridView.cellHeight
-
-                    required property int bookId
-                    required property string title
-                    required property string author
-                    required property int rating
-                    required property string status
-                    required property string coverImagePath
-                    required property string genre
-                    required property int pageCount
-                    required property int currentPage
-                    required property bool isNonFiction
-                    required property bool isPriority
-                    required property string audioMode
-                    required property string tags
-
-                    BookCard {
-                        id: bookCard
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    Text {
+                        id: priorityLabel
+                        anchors.left: parent.left
                         anchors.top: parent.top
-                        anchors.topMargin: 8
-                        width: gridView.cellWidth - 16
-                        height: gridView.cellHeight - 16
-                        bookId: cellDelegate.bookId
-                        title: cellDelegate.title
-                        author: cellDelegate.author
-                        rating: cellDelegate.rating
-                        status: cellDelegate.status
-                        coverImagePath: cellDelegate.coverImagePath
-                        genre: cellDelegate.genre
-                        pageCount: cellDelegate.pageCount
-                        currentPage: cellDelegate.currentPage
-                        isNonFiction: cellDelegate.isNonFiction
-                        isPriority: cellDelegate.isPriority
-                        audioMode: cellDelegate.audioMode
-                        tags: cellDelegate.tags
-                        onClicked: bookListPage.bookSelected(cellDelegate.bookId)
-                        onRightClicked: (mx, my) => {
-                            bookListPage.contextBookId = cellDelegate.bookId
-                            bookListPage.contextBookStatus = cellDelegate.status
-                            bookListPage.contextBookTitle = cellDelegate.title
-                            bookListPage.contextBookPageCount = cellDelegate.pageCount
-                            bookListPage.contextBookCurrentPage = cellDelegate.currentPage
-                            var pos = bookCard.mapToItem(bookListPage, mx, my)
-                            contextMenu.x = pos.x
-                            contextMenu.y = pos.y
-                            contextMenu.open()
-                        }
-                    }
-
-                    // Row separator — full width, drawn only from first cell in row
-                    Rectangle {
-                        anchors.bottom: parent.bottom
-                        x: -cellDelegate.x
-                        width: gridView.width
-                        height: 1
-                        color: Theme.divider
-                        opacity: 0.3
-                        visible: cellDelegate.x < gridView.cellWidth
+                        text: Theme.tr("Priority")
+                        color: Theme.priority
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.bold: true
                     }
                 }
 
-                // Empty state
-                Text {
-                    anchors.centerIn: parent
-                    visible: gridView.count === 0
-                    text: searchField.text ? Theme.tr("No books match your search") : Theme.tr("No books yet. Click + to add one!")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeLarge
+                GridView {
+                    id: priorityGrid
+                    width: parent.width
+                    height: visible ? contentHeight : 0
+                    visible: bookController.priorityModel.count > 0
+                    interactive: false
+                    cellWidth: bookListPage.cellWidthFor(width)
+                    cellHeight: cellWidth * (316 / 196)
+                    model: bookController.priorityModel
+                    delegate: bookCellDelegate
                 }
+
+                // Separator closing the priority section
+                Rectangle {
+                    width: parent.width
+                    height: visible ? 1 : 0
+                    visible: bookController.priorityModel.count > 0
+                    color: Theme.priority
+                    opacity: 0.5
+                }
+
+                Item {
+                    width: parent.width
+                    height: bookController.priorityModel.count > 0 ? Theme.spacingLarge : 0
+                }
+
+                // ── Everything else ──
+                GridView {
+                    id: gridView
+                    width: parent.width
+                    height: contentHeight
+                    interactive: false
+                    cellWidth: bookListPage.cellWidthFor(width)
+                    cellHeight: cellWidth * (316 / 196)
+                    model: bookController.model
+                    delegate: bookCellDelegate
+                }
+            }
+
+            // Empty state
+            Text {
+                anchors.centerIn: parent
+                visible: gridView.count === 0 && priorityGrid.count === 0
+                text: searchField.text ? Theme.tr("No books match your search") : Theme.tr("No books yet. Click + to add one!")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeLarge
             }
         }
     }

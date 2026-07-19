@@ -11,6 +11,7 @@ class BookController : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(BookModel* model READ model CONSTANT)
+    Q_PROPERTY(BookModel* priorityModel READ priorityModel CONSTANT)
     Q_PROPERTY(QString filterStatus READ filterStatus WRITE setFilterStatus NOTIFY filterStatusChanged)
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
     Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
@@ -22,6 +23,7 @@ public:
     explicit BookController(QObject *parent = nullptr);
 
     BookModel *model() const;
+    BookModel *priorityModel() const;
 
     Q_INVOKABLE void loadBooks();
     Q_INVOKABLE bool addBook(const QVariantMap &bookData);
@@ -93,6 +95,7 @@ private:
     void sortBooks(QVector<Book> &books);
 
     BookModel *m_model;
+    BookModel *m_priorityModel;
     QVector<Book> m_allBooks;
     QString m_filterStatus;
     QString m_searchQuery;
