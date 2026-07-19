@@ -30,6 +30,18 @@ var _pl = {
     "No backup yet": "Brak kopii",
     "pg_dump not found — backup unavailable": "Nie znaleziono pg_dump — kopia niedostępna",
 
+    // ── Restore ──
+    "Restore from Backup": "Przywróć z kopii",
+    "psql not found — restore unavailable": "Nie znaleziono psql — przywracanie niedostępne",
+    "Restore replaces everything": "Przywracanie zastąpi wszystko",
+    "Every book currently in your library will be permanently replaced by the contents of this archive. This action cannot be undone.":
+        "Każda książka w Twojej bibliotece zostanie trwale zastąpiona zawartością tej kopii. Ta operacja jest nieodwracalna.",
+    "Books now": "Książek teraz",
+    "Books in archive": "Książek w kopii",
+    "Safety backup will be written to": "Kopia bezpieczeństwa trafi do",
+    "Type %1 to confirm": "Wpisz %1, aby potwierdzić",
+    "RESTORE": "ODTWÓRZ",
+
     "Reset All Data": "Resetuj dane",
     "Reset Data": "Resetowanie danych",
     "Are you sure you want to delete all data? This action cannot be undone.":
