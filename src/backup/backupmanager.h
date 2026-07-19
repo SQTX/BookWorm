@@ -4,6 +4,7 @@
 #include <QQmlEngine>
 #include <QString>
 #include <QVariantList>
+#include <QVariantMap>
 
 class BackupManager : public QObject
 {
@@ -27,18 +28,36 @@ public:
     // describing what happened, and returns the same success value.
     Q_INVOKABLE bool backupTo(const QString &filePath);
 
+    // Validates an archive and trial-loads it into a scratch database to find out
+    // what it holds. Never touches the live database. Returns:
+    //   valid (bool), error (QString), bookCount (int), hasCovers (bool)
+    Q_INVOKABLE QVariantMap inspectArchive(const QString &filePath);
+
 signals:
     void backupFinished(bool ok, const QString &message);
 
 private:
     QString locatePgDump() const;
     QString locatePsql() const;
+    QString locateCreatedb() const;
+    QString locateDropdb() const;
 
     bool runProcess(const QString &program, const QStringList &arguments, QString *errorOut);
     bool copyCovers(const QString &coversDir, QVariantList *entries, int *missing);
     bool writeManifest(const QString &path, const QVariantList &covers, int missing);
     bool verifyArchive(const QString &zipPath, int expectedCovers, QString *errorOut);
 
+    // Best-effort cleanup of a scratch database created for inspection. Never fatal —
+    // "--if-exists" means this is safe to call whether or not the database was ever
+    // created, including on early-exit paths.
+    void dropScratchDatabase(const QString &name);
+
+    // Opens a short-lived QSqlDatabase connection under a name distinct from the
+    // application's default connection, counts books, then closes and removes it.
+    int scratchBookCount(const QString &name);
+
     QString m_pgDumpPath;
     QString m_psqlPath;
+    QString m_createdbPath;
+    QString m_dropdbPath;
 };

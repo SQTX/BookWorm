@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QProcess>
+#include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
@@ -22,6 +23,8 @@ BackupManager::BackupManager(QObject *parent)
     : QObject(parent)
     , m_pgDumpPath(locatePgDump())
     , m_psqlPath(locatePsql())
+    , m_createdbPath(locateCreatedb())
+    , m_dropdbPath(locateDropdb())
 {
 }
 
@@ -83,6 +86,54 @@ QString BackupManager::locatePsql() const
         QStringLiteral("/opt/homebrew/bin/psql"),
         QStringLiteral("/usr/local/bin/psql"),
         QStringLiteral("/usr/bin/psql")
+    };
+
+    for (const QString &candidate : candidates) {
+        if (QFileInfo(candidate).isExecutable())
+            return candidate;
+    }
+
+    return {};
+}
+
+// Mirrors locatePgDump(). createdb is used (rather than
+// "psql --command=CREATE DATABASE ... postgres") so scratch-database creation goes
+// through the same discovery/runProcess pattern as every other tool call here,
+// instead of introducing a special-cased connection to the "postgres" database.
+QString BackupManager::locateCreatedb() const
+{
+    const QString fromPath = QStandardPaths::findExecutable(QStringLiteral("createdb"));
+    if (!fromPath.isEmpty())
+        return fromPath;
+
+    const QStringList candidates = {
+        QStringLiteral("/opt/homebrew/opt/postgresql@16/bin/createdb"),
+        QStringLiteral("/opt/homebrew/bin/createdb"),
+        QStringLiteral("/usr/local/bin/createdb"),
+        QStringLiteral("/usr/bin/createdb")
+    };
+
+    for (const QString &candidate : candidates) {
+        if (QFileInfo(candidate).isExecutable())
+            return candidate;
+    }
+
+    return {};
+}
+
+// Mirrors locatePgDump(). dropdb is needed alongside createdb to clean up the
+// scratch database inspectArchive() creates.
+QString BackupManager::locateDropdb() const
+{
+    const QString fromPath = QStandardPaths::findExecutable(QStringLiteral("dropdb"));
+    if (!fromPath.isEmpty())
+        return fromPath;
+
+    const QStringList candidates = {
+        QStringLiteral("/opt/homebrew/opt/postgresql@16/bin/dropdb"),
+        QStringLiteral("/opt/homebrew/bin/dropdb"),
+        QStringLiteral("/usr/local/bin/dropdb"),
+        QStringLiteral("/usr/bin/dropdb")
     };
 
     for (const QString &candidate : candidates) {
@@ -388,4 +439,138 @@ bool BackupManager::backupTo(const QString &filePath)
 
     emit backupFinished(true, message);
     return true;
+}
+
+void BackupManager::dropScratchDatabase(const QString &name)
+{
+    if (m_dropdbPath.isEmpty()) {
+        qWarning() << "dropScratchDatabase: dropdb not found, cannot drop" << name;
+        return;
+    }
+
+    QString error;
+    if (!runProcess(m_dropdbPath, {QStringLiteral("--if-exists"), name}, &error))
+        qWarning() << "dropScratchDatabase failed for" << name << ":" << error;
+}
+
+// Opens a throwaway QSqlDatabase connection under a name distinct from the
+// application's default connection ("qt_sql_default_connection"), so this can never
+// displace DatabaseManager's live connection to wormbook. The QSqlDatabase value
+// itself must go out of scope before removeDatabase() is called, or Qt warns that
+// the connection is still in use — hence the inner block.
+int BackupManager::scratchBookCount(const QString &name)
+{
+    const QString connectionName = QStringLiteral("restore_check");
+    int count = 0;
+
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(
+            QString::fromLatin1(BookWorm::Config::DB_DRIVER), connectionName);
+        db.setHostName(QString::fromLatin1(BookWorm::Config::DB_HOST));
+        db.setPort(BookWorm::Config::DB_PORT);
+        db.setDatabaseName(name);
+        db.setUserName(QString::fromLatin1(BookWorm::Config::DB_USER));
+        db.setPassword(QString::fromLatin1(BookWorm::Config::DB_PASSWORD));
+
+        if (db.open()) {
+            QSqlQuery q(db);
+            if (q.exec(QStringLiteral("SELECT count(*) FROM books")) && q.next())
+                count = q.value(0).toInt();
+            else
+                qWarning() << "scratchBookCount query failed:" << q.lastError().text();
+        } else {
+            qWarning() << "scratchBookCount could not open" << name << ":" << db.lastError().text();
+        }
+    }
+
+    QSqlDatabase::removeDatabase(connectionName);
+    return count;
+}
+
+// Validates an archive and trial-loads it into a scratch database purely to find out
+// what it holds. Every exit path — including every failure — drops the scratch
+// database before returning, so this never leaves state behind and never touches
+// wormbook.
+QVariantMap BackupManager::inspectArchive(const QString &filePath)
+{
+    QVariantMap result;
+    result["valid"]     = false;
+    result["bookCount"] = 0;
+    result["hasCovers"] = false;
+
+    QString path = filePath;
+    if (path.startsWith(QStringLiteral("file://")))
+        path = QUrl(path).toLocalFile();
+
+    if (m_psqlPath.isEmpty()) {
+        result["error"] = QStringLiteral("psql not found — restore unavailable");
+        return result;
+    }
+    if (m_createdbPath.isEmpty()) {
+        result["error"] = QStringLiteral("createdb not found — restore unavailable");
+        return result;
+    }
+
+    // 1. The archive opens and holds what it must.
+    QProcess list;
+    list.start(QStringLiteral("/usr/bin/unzip"), {QStringLiteral("-l"), path});
+    if (!list.waitForFinished(30000) || list.exitCode() != 0) {
+        result["error"] = QStringLiteral("File is not a readable ZIP archive");
+        return result;
+    }
+
+    const QString listing = QString::fromUtf8(list.readAllStandardOutput());
+    if (!listing.contains(QStringLiteral("database.sql"))) {
+        result["error"] = QStringLiteral("Archive does not contain database.sql");
+        return result;
+    }
+    result["hasCovers"] = listing.contains(QStringLiteral("covers/"));
+
+    // 2. Unpack to a temporary directory.
+    QTemporaryDir temp;
+    if (!temp.isValid()) {
+        result["error"] = QStringLiteral("Could not create a temporary directory");
+        return result;
+    }
+
+    QString unpackError;
+    if (!runProcess(QStringLiteral("/usr/bin/unzip"),
+                    {QStringLiteral("-q"), QStringLiteral("-o"), path,
+                     QStringLiteral("-d"), temp.path()},
+                    &unpackError)) {
+        result["error"] = QStringLiteral("Archive could not be unpacked");
+        return result;
+    }
+
+    // 3. Trial load into a scratch database. This is the moment a corrupt dump is
+    //    caught, and it happens while the real database is still untouched.
+    const QString scratch = QStringLiteral("wormbook_restore_check");
+    dropScratchDatabase(scratch);   // in case a previous run died mid-way
+
+    QString error;
+    if (!runProcess(m_createdbPath, {scratch}, &error)) {
+        result["error"] = QStringLiteral("Could not create a scratch database: ") + error;
+        return result;
+    }
+
+    const bool loaded = runProcess(
+        m_psqlPath,
+        {QStringLiteral("--quiet"),
+         QStringLiteral("--set=ON_ERROR_STOP=1"),
+         QStringLiteral("--dbname=") + scratch,
+         QStringLiteral("--file=") + temp.filePath(QStringLiteral("database.sql"))},
+        &error);
+
+    if (!loaded) {
+        dropScratchDatabase(scratch);
+        result["error"] = QStringLiteral("Archive could not be loaded: ") + error;
+        return result;
+    }
+
+    // 4. Count what arrived.
+    result["bookCount"] = scratchBookCount(scratch);
+    dropScratchDatabase(scratch);
+    result["valid"] = true;
+    result["error"] = QString();
+    return result;
 }
