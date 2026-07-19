@@ -735,16 +735,29 @@ QVariantList DatabaseManager::pagesPerDay(int year, int lastNDays)
 {
     QVariantList result;
     QSqlQuery q(m_db);
-    q.prepare(
-        "SELECT session_date, SUM(page_end - page_start) AS pages "
-        "FROM reading_sessions "
-        "WHERE source = 'manual' "
-        "  AND (:year = 0 OR EXTRACT(YEAR FROM session_date) = :year) "
-        "  AND session_date >= CURRENT_DATE - :days::integer "
-        "GROUP BY session_date ORDER BY session_date"
-    );
-    q.bindValue(":year", year);
-    q.bindValue(":days", lastNDays);
+
+    // The rolling window is anchored to today, so it only makes sense for "all time".
+    // With a year selected, that window would exclude every day of any past year and
+    // the chart would silently come back empty — the year itself is the scope instead.
+    if (year > 0) {
+        q.prepare(
+            "SELECT session_date, SUM(page_end - page_start) AS pages "
+            "FROM reading_sessions "
+            "WHERE source = 'manual' "
+            "  AND EXTRACT(YEAR FROM session_date) = :year "
+            "GROUP BY session_date ORDER BY session_date"
+        );
+        q.bindValue(":year", year);
+    } else {
+        q.prepare(
+            "SELECT session_date, SUM(page_end - page_start) AS pages "
+            "FROM reading_sessions "
+            "WHERE source = 'manual' "
+            "  AND session_date >= CURRENT_DATE - :days::integer "
+            "GROUP BY session_date ORDER BY session_date"
+        );
+        q.bindValue(":days", lastNDays);
+    }
 
     if (!q.exec()) {
         qWarning() << "pagesPerDay error:" << q.lastError().text();
@@ -858,6 +871,7 @@ bool DatabaseManager::resetAllData()
     bool ok = true;
     ok = q.exec("DELETE FROM favorite_quotes") && ok;
     ok = q.exec("DELETE FROM highlights") && ok;
+    ok = q.exec("DELETE FROM reading_sessions") && ok;
     ok = q.exec("DELETE FROM book_tags") && ok;
     ok = q.exec("DELETE FROM challenges") && ok;
     ok = q.exec("DELETE FROM books") && ok;
