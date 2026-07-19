@@ -708,6 +708,147 @@ bool DatabaseManager::deleteSession(int sessionId)
     return true;
 }
 
+// ─── Reading session statistics ────────────────────────────
+
+QVariantList DatabaseManager::sessionDates(int year)
+{
+    QVariantList dates;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT DISTINCT session_date FROM reading_sessions "
+        "WHERE source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM session_date) = :year) "
+        "ORDER BY session_date DESC"
+    );
+    q.bindValue(":year", year);
+
+    if (!q.exec()) {
+        qWarning() << "sessionDates error:" << q.lastError().text();
+        return dates;
+    }
+    while (q.next())
+        dates.append(q.value(0).toDate());
+    return dates;
+}
+
+QVariantList DatabaseManager::pagesPerDay(int year, int lastNDays)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT session_date, SUM(page_end - page_start) AS pages "
+        "FROM reading_sessions "
+        "WHERE source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM session_date) = :year) "
+        "  AND session_date >= CURRENT_DATE - :days::integer "
+        "GROUP BY session_date ORDER BY session_date"
+    );
+    q.bindValue(":year", year);
+    q.bindValue(":days", lastNDays);
+
+    if (!q.exec()) {
+        qWarning() << "pagesPerDay error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap entry;
+        entry["date"]  = q.value(0).toDate();
+        entry["pages"] = q.value(1).toInt();
+        result.append(entry);
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::pagesByWeekday(int year)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT EXTRACT(DOW FROM session_date) AS dow, SUM(page_end - page_start) AS pages "
+        "FROM reading_sessions "
+        "WHERE source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM session_date) = :year) "
+        "GROUP BY dow ORDER BY dow"
+    );
+    q.bindValue(":year", year);
+
+    if (!q.exec()) {
+        qWarning() << "pagesByWeekday error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap entry;
+        entry["weekday"] = q.value(0).toInt();  // 0 = Sunday
+        entry["pages"]   = q.value(1).toInt();
+        result.append(entry);
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::recentSessions(int year, int limit)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT s.id, s.session_date, s.page_start, s.page_end, s.source, b.title, b.author "
+        "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+        "WHERE (:year = 0 OR EXTRACT(YEAR FROM s.session_date) = :year) "
+        "ORDER BY s.session_date DESC, s.id DESC LIMIT :limit"
+    );
+    q.bindValue(":year",  year);
+    q.bindValue(":limit", limit);
+
+    if (!q.exec()) {
+        qWarning() << "recentSessions error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap entry;
+        entry["id"]     = q.value(0).toInt();
+        entry["date"]   = q.value(1).toDate();
+        entry["pages"]  = q.value(3).toInt() - q.value(2).toInt();
+        entry["source"] = q.value(4).toString();
+        entry["title"]  = q.value(5).toString();
+        entry["author"] = q.value(6).toString();
+        result.append(entry);
+    }
+    return result;
+}
+
+int DatabaseManager::totalSessionPages(int year)
+{
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT COALESCE(SUM(page_end - page_start), 0) FROM reading_sessions "
+        "WHERE source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM session_date) = :year)"
+    );
+    q.bindValue(":year", year);
+
+    if (!q.exec() || !q.next()) {
+        qWarning() << "totalSessionPages error:" << q.lastError().text();
+        return 0;
+    }
+    return q.value(0).toInt();
+}
+
+int DatabaseManager::readingDayCount(int year)
+{
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT COUNT(DISTINCT session_date) FROM reading_sessions "
+        "WHERE source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM session_date) = :year)"
+    );
+    q.bindValue(":year", year);
+
+    if (!q.exec() || !q.next()) {
+        qWarning() << "readingDayCount error:" << q.lastError().text();
+        return 0;
+    }
+    return q.value(0).toInt();
+}
+
 // ─── Reset ──────────────────────────────────────────────────
 
 bool DatabaseManager::resetAllData()

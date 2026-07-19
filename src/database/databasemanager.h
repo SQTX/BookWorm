@@ -59,6 +59,14 @@ public:
     bool recordSession(int bookId, int pageStart, int pageEnd, const QString &source);
     bool deleteSession(int sessionId);
 
+    // Reading session statistics (year = 0 means all years)
+    QVariantList sessionDates(int year = 0);
+    QVariantList pagesPerDay(int year = 0, int lastNDays = 30);
+    QVariantList pagesByWeekday(int year = 0);
+    QVariantList recentSessions(int year = 0, int limit = 30);
+    int totalSessionPages(int year = 0);
+    int readingDayCount(int year = 0);
+
     // Reset
     bool resetAllData();
 
