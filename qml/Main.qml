@@ -29,11 +29,63 @@ ApplicationWindow {
         property alias language: root.appLanguage
         property alias cardsPerRow: root.libraryCardsPerRow
         property alias priorityEnabled: root.libraryPriorityEnabled
+        property alias backupFolder: root.backupFolder
+        property alias backupAutomatic: root.backupAutomatic
+        property alias backupIntervalValue: root.backupIntervalValue
+        property alias backupIntervalUnit: root.backupIntervalUnit
+        property alias backupLastRun: root.backupLastRun
+    }
+
+    // Returns true when an automatic backup is enabled, a folder is chosen, and the
+    // configured interval has elapsed since the last successful run.
+    function backupIsDue() {
+        if (!root.backupAutomatic || root.backupFolder === "")
+            return false;
+        if (root.backupLastRun === "")
+            return true;
+
+        var last = new Date(root.backupLastRun);
+        if (isNaN(last.getTime()))
+            return true;   // unreadable timestamp — treat as never backed up
+
+        var due = new Date(last);
+        if (root.backupIntervalUnit === "D") {
+            due.setDate(due.getDate() + root.backupIntervalValue);
+        } else {
+            // setMonth/setFullYear do not clamp the day, so 31 January + 1 month
+            // rolls over into 3 March and quietly delays the backup. Clamp the day
+            // to the target month's length instead.
+            var day = due.getDate();
+            due.setDate(1);
+            if (root.backupIntervalUnit === "M")
+                due.setMonth(due.getMonth() + root.backupIntervalValue);
+            else
+                due.setFullYear(due.getFullYear() + root.backupIntervalValue);
+            var daysInMonth = new Date(due.getFullYear(), due.getMonth() + 1, 0).getDate();
+            due.setDate(Math.min(day, daysInMonth));
+        }
+
+        // A clock set forward and later corrected leaves a timestamp in the future,
+        // which would suppress backups until real time caught up. Treat that as due.
+        if (last.getTime() > Date.now())
+            return true;
+
+        return new Date() >= due;
+    }
+
+    function runAutomaticBackup() {
+        var folder = root.backupFolder.toString().replace("file://", "");
+        var stamp = new Date().toISOString().substring(0, 10);
+        var path = folder + "/bookworm-" + stamp + ".zip";
+        backupManager.backupTo(path);
     }
 
     Component.onCompleted: {
         Theme.setTheme(root.appStyle);
         Theme.language = root.appLanguage;
+
+        if (backupIsDue())
+            runAutomaticBackup();
     }
 
     onAppLanguageChanged: Theme.language = root.appLanguage
@@ -444,6 +496,11 @@ ApplicationWindow {
     property string appLanguage: Qt.locale().name.substring(0,2) === "pl" ? "pl" : "en"
     property int libraryCardsPerRow: 6  // default: 6 cards per row (0 = auto)
     property bool libraryPriorityEnabled: true  // default: priority hoisting on
+    property string backupFolder: ""
+    property bool backupAutomatic: false
+    property int backupIntervalValue: 7
+    property string backupIntervalUnit: "D"   // "D", "M" or "Y"
+    property string backupLastRun: ""          // ISO date of the last successful run
 
     Popup {
         id: settingsPopup
@@ -632,6 +689,226 @@ ApplicationWindow {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: Theme.spacingMedium
+                height: 1
+                color: Theme.divider
+            }
+
+            // ── Backup section ──
+            Text {
+                Layout.topMargin: Theme.spacingMedium
+                Layout.leftMargin: Theme.spacingLarge
+                text: Theme.tr("BACKUP")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+                font.bold: true
+                font.letterSpacing: 1
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                height: 40
+                radius: Theme.radiusSmall
+                color: backupMouse.containsMouse ? Theme.primaryVariant : Theme.primary
+                opacity: backupManager.pgDumpPath() === "" ? 0.4 : 1.0
+
+                Text {
+                    anchors.centerIn: parent
+                    text: Theme.tr("Back Up Now")
+                    color: Theme.textOnPrimary
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: backupMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: backupManager.pgDumpPath() !== ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        settingsPopup.close();
+                        backupSaveDialog.open();
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                visible: backupManager.pgDumpPath() === ""
+                text: Theme.tr("pg_dump not found — backup unavailable")
+                color: Theme.error
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+
+            // Chosen backup folder + picker
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingMedium
+                spacing: Theme.spacingSmall
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.backupFolder !== "" ? root.backupFolder : Theme.tr("No folder chosen")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                    elide: Text.ElideMiddle
+                }
+
+                Button {
+                    text: Theme.tr("Choose Backup Folder")
+                    flat: true
+                    Material.foreground: Theme.primary
+                    onClicked: backupFolderDialog.open()
+                }
+            }
+
+            // Automatic backup toggle
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                spacing: Theme.spacingMedium
+
+                Text {
+                    Layout.fillWidth: true
+                    text: Theme.tr("Automatic backup")
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeMedium
+                }
+
+                Switch {
+                    checked: root.backupAutomatic
+                    enabled: root.backupFolder !== ""
+                    Material.accent: Theme.primary
+                    onToggled: root.backupAutomatic = checked
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                visible: root.backupFolder === ""
+                text: Theme.tr("Choose a folder to enable automatic backup")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+
+            // Interval
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                spacing: Theme.spacingSmall
+
+                Text {
+                    text: Theme.tr("Every")
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeMedium
+                }
+
+                // Sized to match the D/M/Y chips beside it; the Material default is
+                // roughly twice their height.
+                SpinBox {
+                    id: backupIntervalSpinBox
+                    from: 1
+                    to: 99
+                    editable: false
+                    value: root.backupIntervalValue
+                    implicitWidth: 92
+                    implicitHeight: 28
+                    topPadding: 0
+                    bottomPadding: 0
+                    font.pixelSize: Theme.fontSizeSmall
+                    Material.accent: Theme.primary
+                    onValueModified: root.backupIntervalValue = value
+
+                    contentItem: Text {
+                        text: backupIntervalSpinBox.value
+                        color: Theme.textOnSurface
+                        font: backupIntervalSpinBox.font
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    background: Rectangle {
+                        radius: 14
+                        color: Theme.surfaceVariant
+                        border.width: 1
+                        border.color: Theme.divider
+                    }
+                }
+
+                Row {
+                    spacing: Theme.spacingSmall
+
+                    Repeater {
+                        model: [
+                            { key: "D" },
+                            { key: "M" },
+                            { key: "Y" }
+                        ]
+
+                        Rectangle {
+                            required property var modelData
+
+                            readonly property bool isSelected: root.backupIntervalUnit === modelData.key
+
+                            width: unitText.implicitWidth + Theme.spacingLarge
+                            height: 28
+                            radius: 14
+                            color: isSelected ? Theme.primary : Theme.surfaceVariant
+                            border.width: 1
+                            border.color: isSelected ? "transparent" : Theme.divider
+
+                            Text {
+                                id: unitText
+                                anchors.centerIn: parent
+                                text: modelData.key
+                                color: parent.isSelected ? Theme.textOnPrimary : Theme.textSecondary
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.bold: parent.isSelected
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.backupIntervalUnit = modelData.key
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                text: root.backupLastRun !== ""
+                      ? Theme.tr("Last backup") + ": " + Qt.formatDateTime(new Date(root.backupLastRun), "yyyy-MM-dd hh:mm")
+                      : Theme.tr("No backup yet")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingSmall }
+
+            // ── Separator ──
+            Rectangle {
+                Layout.fillWidth: true
                 height: 1
                 color: Theme.divider
             }
@@ -1095,7 +1372,10 @@ ApplicationWindow {
         fileMode: FileDialog.SaveFile
         nameFilters: ["CSV files (*.csv)"]
         defaultSuffix: "csv"
-        currentFile: "file:///bookworm_export.csv"
+        // "file:///name" is the filesystem ROOT, which macOS does not let us write to.
+        // Default into Documents instead.
+        currentFolder: StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+        currentFile: currentFolder + "/bookworm_export.csv"
 
         onAccepted: {
             if (bookController.exportToCsv(selectedFile)) {
@@ -1119,6 +1399,42 @@ ApplicationWindow {
             } else {
                 csvToast.show(Theme.tr("Import failed"));
             }
+        }
+    }
+
+    // ── Backup ──
+
+    FileDialog {
+        id: backupSaveDialog
+        title: Theme.tr("Save Backup")
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["ZIP archive (*.zip)"]
+        defaultSuffix: "zip"
+        // "file:///name" is the filesystem ROOT, which macOS does not let us write to —
+        // the save appeared to work and then failed. Prefer the configured backup
+        // folder, falling back to Documents.
+        currentFolder: root.backupFolder !== ""
+                       ? "file://" + root.backupFolder.replace(/\/+$/, "")
+                       : StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+        currentFile: currentFolder + "/bookworm-" + Qt.formatDate(new Date(), "yyyy-MM-dd") + ".zip"
+
+        onAccepted: backupManager.backupTo(selectedFile)
+    }
+
+    FolderDialog {
+        id: backupFolderDialog
+        title: Theme.tr("Choose Backup Folder")
+        // Strip the scheme once here, the way the CSV paths are handled, so the
+        // settings row shows a plain path instead of file:///Users/...
+        onAccepted: root.backupFolder = selectedFolder.toString().replace("file://", "")
+    }
+
+    Connections {
+        target: backupManager
+        function onBackupFinished(ok, message) {
+            csvToast.show(message);
+            if (ok)
+                root.backupLastRun = new Date().toISOString();
         }
     }
 

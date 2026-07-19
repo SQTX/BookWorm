@@ -35,6 +35,8 @@ qt_add_executable(BookWorm
     src/controllers/bookcontroller.cpp
     src/statistics/statisticsprovider.h
     src/statistics/statisticsprovider.cpp
+    src/backup/backupmanager.h
+    src/backup/backupmanager.cpp
 )
 
 qt_add_qml_module(BookWorm
@@ -85,6 +87,7 @@ target_include_directories(BookWorm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/controllers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/statistics
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backup
 )
 
 target_link_libraries(BookWorm PRIVATE
