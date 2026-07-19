@@ -52,6 +52,23 @@ public:
     bool deleteChallenge(int id);
     QVariantList fetchBooksForChallenge(int challengeId);
 
+    // Reading sessions
+    // Returns false both when the page did not advance (nothing to record) and when
+    // the write fails. Callers treat it as fire-and-forget; do not build error
+    // reporting on the return value without splitting those two cases first.
+    bool recordSession(int bookId, int pageStart, int pageEnd, const QString &source);
+    bool deleteSession(int sessionId);
+
+    // Reading session statistics.
+    // year = 0 means all years; an empty audioMode means any mode. The mode is matched
+    // against the book's current audio_mode, not a value stored on the session.
+    QVariantList sessionDates(int year = 0, const QString &audioMode = QString());
+    QVariantList pagesPerDay(int year = 0, const QString &audioMode = QString(), int lastNDays = 30);
+    QVariantList pagesByWeekday(int year = 0, const QString &audioMode = QString());
+    QVariantList recentSessions(int year = 0, const QString &audioMode = QString(), int limit = 30);
+    int totalSessionPages(int year = 0, const QString &audioMode = QString());
+    int readingDayCount(int year = 0, const QString &audioMode = QString());
+
     // Reset
     bool resetAllData();
 

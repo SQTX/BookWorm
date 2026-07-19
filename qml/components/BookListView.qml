@@ -648,9 +648,7 @@ Item {
         onAccepted: {
             // Force-commit typed text (editable SpinBox doesn't update value until Enter/focus-loss)
             addPagesSpinBox.value = addPagesSpinBox.valueFromText(addPagesSpinBox.contentItem.text, addPagesSpinBox.locale);
-            var data = bookController.getBookDetails(bookListPage.contextBookId);
-            data["currentPage"] = addPagesSpinBox.value;
-            bookController.updateBook(data);
+            bookController.updateReadingProgress(bookListPage.contextBookId, addPagesSpinBox.value);
         }
     }
 
@@ -766,14 +764,9 @@ Item {
         }
 
         onAccepted: {
-            var data = bookController.getBookDetails(bookListPage.contextBookId);
-            data["status"] = "read";
-            data["endDate"] = new Date().toISOString().substring(0, 10);
-            data["rating"] = markStarRating.selectedRating;
-            data["currentPage"] = data["pageCount"];
-            bookController.updateBook(data);
-            if (markReviewField.text.trim())
-                bookController.updateReview(bookListPage.contextBookId, markReviewField.text.trim());
+            bookController.markAsRead(bookListPage.contextBookId,
+                                      markStarRating.selectedRating,
+                                      markReviewField.text);
         }
     }
 

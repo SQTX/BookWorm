@@ -122,6 +122,89 @@ QVariantMap BookController::getBookDetails(int id)
     return book->toVariantMap();
 }
 
+bool BookController::updateReadingProgress(int bookId, int newCurrentPage)
+{
+    auto existing = DatabaseManager::instance().fetchBookById(bookId);
+    if (!existing.has_value()) {
+        emit errorOccurred("Book not found");
+        return false;
+    }
+
+    Book book = existing.value();
+    const int previousPage = book.currentPage;
+    book.currentPage = newCurrentPage;
+
+    if (!DatabaseManager::instance().updateBook(book)) {
+        emit errorOccurred("Failed to update progress");
+        return false;
+    }
+
+    // Skipped automatically when the page did not advance.
+    DatabaseManager::instance().recordSession(bookId, previousPage, newCurrentPage,
+                                              QStringLiteral("manual"));
+
+    updateCachedBook(book);
+    return true;
+}
+
+bool BookController::markAsRead(int bookId, int rating, const QString &review)
+{
+    auto existing = DatabaseManager::instance().fetchBookById(bookId);
+    if (!existing.has_value()) {
+        emit errorOccurred("Book not found");
+        return false;
+    }
+
+    Book book = existing.value();
+    const int previousPage = book.currentPage;
+
+    book.status = QStringLiteral("read");
+    book.endDate = QDate::currentDate();
+    book.rating = rating;
+    book.currentPage = book.pageCount;
+
+    // DatabaseManager::updateBook() is what BookController::updateReview() ultimately
+    // delegates to (fetch -> set review -> updateBook); folding the review into this
+    // same object/write avoids a second redundant round trip. Only touched when
+    // non-empty, matching the old QML behavior of leaving the review untouched otherwise.
+    const QString trimmedReview = review.trimmed();
+    if (!trimmedReview.isEmpty())
+        book.review = trimmedReview;
+
+    if (!DatabaseManager::instance().updateBook(book)) {
+        emit errorOccurred("Failed to update book");
+        return false;
+    }
+
+    // Closing session, tagged separately so it does not distort pace averages.
+    DatabaseManager::instance().recordSession(bookId, previousPage, book.pageCount,
+                                              QStringLiteral("completion"));
+
+    updateCachedBook(book);
+    return true;
+}
+
+// Patch one book in the in-memory cache and refresh the views. Cheaper and more
+// predictable than loadBooks(), which refetches everything and reorders m_allBooks
+// by updated_at, quietly changing tie-breaks in the less specific sort modes.
+void BookController::updateCachedBook(const Book &book)
+{
+    for (int i = 0; i < m_allBooks.size(); ++i) {
+        if (m_allBooks[i].id == book.id) {
+            m_allBooks[i] = book;
+            break;
+        }
+    }
+
+    applyFilters();
+    emit booksChanged();
+}
+
+bool BookController::deleteReadingSession(int sessionId)
+{
+    return DatabaseManager::instance().deleteSession(sessionId);
+}
+
 QVariantMap BookController::getTypeDistribution()
 {
     QVariantMap dist;

@@ -147,6 +147,18 @@ bool DatabaseManager::initializeSchema()
            "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"
            ")");
 
+    // Reading sessions table
+    q.exec("CREATE TABLE IF NOT EXISTS reading_sessions ("
+           "  id SERIAL PRIMARY KEY,"
+           "  book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,"
+           "  session_date DATE NOT NULL,"
+           "  page_start INTEGER NOT NULL,"
+           "  page_end INTEGER NOT NULL,"
+           "  source VARCHAR(16) NOT NULL DEFAULT 'manual',"
+           "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),"
+           "  UNIQUE (book_id, session_date, source)"
+           ")");
+
     // Indexes (safe to call multiple times)
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_status ON books(status)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_books_genre ON books(genre)");
@@ -155,6 +167,8 @@ bool DatabaseManager::initializeSchema()
     q.exec("CREATE INDEX IF NOT EXISTS idx_favorite_quotes_book_id ON favorite_quotes(book_id)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_challenges_deadline ON challenges(deadline)");
     q.exec("CREATE INDEX IF NOT EXISTS idx_highlights_book_id ON highlights(book_id)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_reading_sessions_book_id ON reading_sessions(book_id)");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_reading_sessions_date ON reading_sessions(session_date)");
 
     // Tags: add color column
     q.exec("ALTER TABLE tags ADD COLUMN IF NOT EXISTS color VARCHAR(9) DEFAULT '#808080'");
@@ -653,6 +667,221 @@ QVariantList DatabaseManager::fetchBooksForChallenge(int challengeId)
     return result;
 }
 
+// ─── Reading sessions ───────────────────────────────────────
+
+bool DatabaseManager::recordSession(int bookId, int pageStart, int pageEnd, const QString &source)
+{
+    // Nothing was read — a correction, or a no-op save.
+    if (pageEnd <= pageStart)
+        return false;
+
+    QSqlQuery q(m_db);
+    q.prepare(
+        "INSERT INTO reading_sessions (book_id, session_date, page_start, page_end, source) "
+        "VALUES (:bookId, CURRENT_DATE, :pageStart, :pageEnd, :source) "
+        "ON CONFLICT (book_id, session_date, source) DO UPDATE SET "
+        "  page_start = LEAST(reading_sessions.page_start, EXCLUDED.page_start), "
+        "  page_end = GREATEST(reading_sessions.page_end, EXCLUDED.page_end)"
+    );
+    q.bindValue(":bookId",    bookId);
+    q.bindValue(":pageStart", pageStart);
+    q.bindValue(":pageEnd",   pageEnd);
+    q.bindValue(":source",    source);
+
+    if (!q.exec()) {
+        qWarning() << "recordSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteSession(int sessionId)
+{
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM reading_sessions WHERE id = :id");
+    q.bindValue(":id", sessionId);
+
+    if (!q.exec()) {
+        qWarning() << "deleteSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+// ─── Reading session statistics ────────────────────────────
+
+// The audio mode is read from the book on every query rather than stored on the
+// session, so relabelling a book also corrects its past statistics. COALESCE guards
+// both a NULL column and a NULL bind, either of which would otherwise make the
+// predicate NULL and quietly filter everything out.
+QVariantList DatabaseManager::sessionDates(int year, const QString &audioMode)
+{
+    QVariantList dates;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT DISTINCT s.session_date "
+        "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+        "WHERE s.source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM s.session_date) = :year) "
+        "  AND (COALESCE(:audio, '') = '' OR COALESCE(b.audio_mode, 'none') = :audio) "
+        "ORDER BY s.session_date DESC"
+    );
+    q.bindValue(":year", year);
+    q.bindValue(":audio", audioMode);
+
+    if (!q.exec()) {
+        qWarning() << "sessionDates error:" << q.lastError().text();
+        return dates;
+    }
+    while (q.next())
+        dates.append(q.value(0).toDate());
+    return dates;
+}
+
+QVariantList DatabaseManager::pagesPerDay(int year, const QString &audioMode, int lastNDays)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+
+    // The rolling window is anchored to today, so it only makes sense for "all time".
+    // With a year selected, that window would exclude every day of any past year and
+    // the chart would silently come back empty — the year itself is the scope instead.
+    if (year > 0) {
+        q.prepare(
+            "SELECT s.session_date, SUM(s.page_end - s.page_start) AS pages "
+            "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+            "WHERE s.source = 'manual' "
+            "  AND EXTRACT(YEAR FROM s.session_date) = :year "
+            "  AND (COALESCE(:audio, '') = '' OR COALESCE(b.audio_mode, 'none') = :audio) "
+            "GROUP BY s.session_date ORDER BY s.session_date"
+        );
+        q.bindValue(":year", year);
+    } else {
+        q.prepare(
+            "SELECT s.session_date, SUM(s.page_end - s.page_start) AS pages "
+            "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+            "WHERE s.source = 'manual' "
+            "  AND s.session_date >= CURRENT_DATE - :days::integer "
+            "  AND (COALESCE(:audio, '') = '' OR COALESCE(b.audio_mode, 'none') = :audio) "
+            "GROUP BY s.session_date ORDER BY s.session_date"
+        );
+        q.bindValue(":days", lastNDays);
+    }
+    q.bindValue(":audio", audioMode);
+
+    if (!q.exec()) {
+        qWarning() << "pagesPerDay error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap entry;
+        entry["date"]  = q.value(0).toDate();
+        entry["pages"] = q.value(1).toInt();
+        result.append(entry);
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::pagesByWeekday(int year, const QString &audioMode)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT EXTRACT(DOW FROM s.session_date) AS dow, SUM(s.page_end - s.page_start) AS pages "
+        "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+        "WHERE s.source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM s.session_date) = :year) "
+        "  AND (COALESCE(:audio, '') = '' OR COALESCE(b.audio_mode, 'none') = :audio) "
+        "GROUP BY dow ORDER BY dow"
+    );
+    q.bindValue(":year", year);
+    q.bindValue(":audio", audioMode);
+
+    if (!q.exec()) {
+        qWarning() << "pagesByWeekday error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap entry;
+        entry["weekday"] = q.value(0).toInt();  // 0 = Sunday
+        entry["pages"]   = q.value(1).toInt();
+        result.append(entry);
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::recentSessions(int year, const QString &audioMode, int limit)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT s.id, s.session_date, s.page_start, s.page_end, s.source, b.title, b.author "
+        "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+        "WHERE (:year = 0 OR EXTRACT(YEAR FROM s.session_date) = :year) "
+        "  AND (COALESCE(:audio, '') = '' OR COALESCE(b.audio_mode, 'none') = :audio) "
+        "ORDER BY s.session_date DESC, s.id DESC LIMIT :limit"
+    );
+    q.bindValue(":year",  year);
+    q.bindValue(":audio", audioMode);
+    q.bindValue(":limit", limit);
+
+    if (!q.exec()) {
+        qWarning() << "recentSessions error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap entry;
+        entry["id"]     = q.value(0).toInt();
+        entry["date"]   = q.value(1).toDate();
+        entry["pages"]  = q.value(3).toInt() - q.value(2).toInt();
+        entry["source"] = q.value(4).toString();
+        entry["title"]  = q.value(5).toString();
+        entry["author"] = q.value(6).toString();
+        result.append(entry);
+    }
+    return result;
+}
+
+int DatabaseManager::totalSessionPages(int year, const QString &audioMode)
+{
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT COALESCE(SUM(s.page_end - s.page_start), 0) "
+        "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+        "WHERE s.source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM s.session_date) = :year) "
+        "  AND (COALESCE(:audio, '') = '' OR COALESCE(b.audio_mode, 'none') = :audio)"
+    );
+    q.bindValue(":year", year);
+    q.bindValue(":audio", audioMode);
+
+    if (!q.exec() || !q.next()) {
+        qWarning() << "totalSessionPages error:" << q.lastError().text();
+        return 0;
+    }
+    return q.value(0).toInt();
+}
+
+int DatabaseManager::readingDayCount(int year, const QString &audioMode)
+{
+    QSqlQuery q(m_db);
+    q.prepare(
+        "SELECT COUNT(DISTINCT s.session_date) "
+        "FROM reading_sessions s JOIN books b ON b.id = s.book_id "
+        "WHERE s.source = 'manual' "
+        "  AND (:year = 0 OR EXTRACT(YEAR FROM s.session_date) = :year) "
+        "  AND (COALESCE(:audio, '') = '' OR COALESCE(b.audio_mode, 'none') = :audio)"
+    );
+    q.bindValue(":year", year);
+    q.bindValue(":audio", audioMode);
+
+    if (!q.exec() || !q.next()) {
+        qWarning() << "readingDayCount error:" << q.lastError().text();
+        return 0;
+    }
+    return q.value(0).toInt();
+}
+
 // ─── Reset ──────────────────────────────────────────────────
 
 bool DatabaseManager::resetAllData()
@@ -662,6 +891,7 @@ bool DatabaseManager::resetAllData()
     bool ok = true;
     ok = q.exec("DELETE FROM favorite_quotes") && ok;
     ok = q.exec("DELETE FROM highlights") && ok;
+    ok = q.exec("DELETE FROM reading_sessions") && ok;
     ok = q.exec("DELETE FROM book_tags") && ok;
     ok = q.exec("DELETE FROM challenges") && ok;
     ok = q.exec("DELETE FROM books") && ok;

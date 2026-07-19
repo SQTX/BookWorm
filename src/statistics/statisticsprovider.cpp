@@ -36,6 +36,64 @@ QVariantList StatisticsProvider::booksPerMonthCurrentYear() const { return m_boo
 QVariantList StatisticsProvider::booksPerMonthPreviousYear() const { return m_booksPerMonthPreviousYear; }
 QVariantMap StatisticsProvider::statusDistribution() const { return m_statusDistribution; }
 
+// Reading sessions getters
+QString StatisticsProvider::sessionAudioFilter() const { return m_sessionAudioFilter; }
+
+void StatisticsProvider::setSessionAudioFilter(const QString &mode)
+{
+    if (m_sessionAudioFilter != mode) {
+        m_sessionAudioFilter = mode;
+        emit sessionAudioFilterChanged();
+        refresh();
+    }
+}
+
+int StatisticsProvider::currentStreak() const { return m_currentStreak; }
+int StatisticsProvider::longestStreak() const { return m_longestStreak; }
+int StatisticsProvider::sessionPagesTotal() const { return m_sessionPagesTotal; }
+double StatisticsProvider::meanPagesPerReadingDay() const { return m_meanPagesPerReadingDay; }
+QVariantList StatisticsProvider::pagesPerDay() const { return m_pagesPerDay; }
+QVariantList StatisticsProvider::pagesByWeekday() const { return m_pagesByWeekday; }
+QVariantList StatisticsProvider::recentSessions() const { return m_recentSessions; }
+
+void StatisticsProvider::computeStreaks(const QVariantList &dates)
+{
+    m_currentStreak = 0;
+    m_longestStreak = 0;
+
+    if (dates.isEmpty())
+        return;
+
+    // Current streak counts back from today, or from yesterday if today has no
+    // session yet — an evening reader should not see their streak reset each morning.
+    const QDate today = QDate::currentDate();
+    const QDate newest = dates.first().toDate();
+    if (newest == today || newest == today.addDays(-1)) {
+        QDate expected = newest;
+        for (const QVariant &value : dates) {
+            if (value.toDate() != expected)
+                break;
+            ++m_currentStreak;
+            expected = expected.addDays(-1);
+        }
+    }
+
+    // Longest streak: walk the whole list looking for consecutive runs.
+    int run = 1;
+    m_longestStreak = 1;
+    for (int i = 1; i < dates.size(); ++i) {
+        const QDate previous = dates.at(i - 1).toDate();
+        const QDate current  = dates.at(i).toDate();
+        if (current == previous.addDays(-1)) {
+            ++run;
+        } else {
+            run = 1;
+        }
+        if (run > m_longestStreak)
+            m_longestStreak = run;
+    }
+}
+
 void StatisticsProvider::refresh()
 {
     auto &db = DatabaseManager::instance();
@@ -63,6 +121,20 @@ void StatisticsProvider::refresh()
     int chartYear = (yr > 0) ? yr : QDate::currentDate().year();
     m_booksPerMonthCurrentYear   = db.booksPerMonthForYear(chartYear);
     m_booksPerMonthPreviousYear  = db.booksPerMonthForYear(chartYear - 1);
+
+    // Reading sessions (year- and audio-mode-filtered)
+    const QString audio = m_sessionAudioFilter;
+    m_sessionPagesTotal = db.totalSessionPages(yr, audio);
+    m_pagesPerDay        = db.pagesPerDay(yr, audio);
+    m_pagesByWeekday     = db.pagesByWeekday(yr, audio);
+    m_recentSessions     = db.recentSessions(yr, audio);
+
+    const int readingDays = db.readingDayCount(yr, audio);
+    m_meanPagesPerReadingDay = readingDays > 0
+        ? static_cast<double>(m_sessionPagesTotal) / readingDays
+        : 0.0;
+
+    computeStreaks(db.sessionDates(yr, audio));
 
     emit dataChanged();
 }
