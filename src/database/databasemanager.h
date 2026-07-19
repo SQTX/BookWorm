@@ -53,6 +53,9 @@ public:
     QVariantList fetchBooksForChallenge(int challengeId);
 
     // Reading sessions
+    // Returns false both when the page did not advance (nothing to record) and when
+    // the write fails. Callers treat it as fire-and-forget; do not build error
+    // reporting on the return value without splitting those two cases first.
     bool recordSession(int bookId, int pageStart, int pageEnd, const QString &source);
     bool deleteSession(int sessionId);
 
