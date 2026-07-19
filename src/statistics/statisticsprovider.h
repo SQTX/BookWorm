@@ -31,6 +31,7 @@ class StatisticsProvider : public QObject
     Q_PROPERTY(QVariantMap statusDistribution READ statusDistribution NOTIFY dataChanged)
 
     // Reading sessions
+    Q_PROPERTY(QString sessionAudioFilter READ sessionAudioFilter WRITE setSessionAudioFilter NOTIFY sessionAudioFilterChanged)
     Q_PROPERTY(int currentStreak READ currentStreak NOTIFY dataChanged)
     Q_PROPERTY(int longestStreak READ longestStreak NOTIFY dataChanged)
     Q_PROPERTY(int sessionPagesTotal READ sessionPagesTotal NOTIFY dataChanged)
@@ -64,6 +65,8 @@ public:
     QVariantMap statusDistribution() const;
 
     // Reading sessions
+    QString sessionAudioFilter() const;
+    void setSessionAudioFilter(const QString &mode);
     int currentStreak() const;
     int longestStreak() const;
     int sessionPagesTotal() const;
@@ -77,6 +80,7 @@ public:
 signals:
     void dataChanged();
     void selectedYearChanged();
+    void sessionAudioFilterChanged();
 
 private:
     void computeStreaks(const QVariantList &dates);
@@ -102,6 +106,7 @@ private:
     QVariantMap m_statusDistribution;
 
     // Reading sessions
+    QString m_sessionAudioFilter;  // empty = any audio mode
     int m_currentStreak = 0;
     int m_longestStreak = 0;
     int m_sessionPagesTotal = 0;

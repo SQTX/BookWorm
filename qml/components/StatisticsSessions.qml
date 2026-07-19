@@ -77,6 +77,55 @@ Item {
             spacing: Theme.spacingLarge
 
             // ═══════════════════════════════════
+            // Audio mode filter — always visible, so a filter that matches nothing
+            // can still be cleared without leaving the tab.
+            // ═══════════════════════════════════
+            Row {
+                Layout.leftMargin: Theme.spacingXL
+                Layout.rightMargin: Theme.spacingXL
+                Layout.topMargin: Theme.spacingXL
+                spacing: Theme.spacingSmall
+
+                Repeater {
+                    model: [
+                        { key: "All",               value: "" },
+                        { key: "Standard",          value: "none" },
+                        { key: "Audiobook",         value: "audiobook" },
+                        { key: "Audiobook Support", value: "audiobook_support" }
+                    ]
+
+                    Rectangle {
+                        required property var modelData
+
+                        readonly property bool isSelected:
+                            statsProvider.sessionAudioFilter === modelData.value
+
+                        width: audioFilterText.implicitWidth + Theme.spacingLarge
+                        height: 28
+                        radius: 14
+                        color: isSelected ? Theme.primary : Theme.surfaceVariant
+                        border.width: 1
+                        border.color: isSelected ? "transparent" : Theme.divider
+
+                        Text {
+                            id: audioFilterText
+                            anchors.centerIn: parent
+                            text: Theme.tr(modelData.key)
+                            color: parent.isSelected ? Theme.textOnPrimary : Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                            font.bold: parent.isSelected
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: statsProvider.sessionAudioFilter = modelData.value
+                        }
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════
             // Section 1: Summary Cards
             // ═══════════════════════════════════
             RowLayout {

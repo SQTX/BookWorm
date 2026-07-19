@@ -37,6 +37,17 @@ QVariantList StatisticsProvider::booksPerMonthPreviousYear() const { return m_bo
 QVariantMap StatisticsProvider::statusDistribution() const { return m_statusDistribution; }
 
 // Reading sessions getters
+QString StatisticsProvider::sessionAudioFilter() const { return m_sessionAudioFilter; }
+
+void StatisticsProvider::setSessionAudioFilter(const QString &mode)
+{
+    if (m_sessionAudioFilter != mode) {
+        m_sessionAudioFilter = mode;
+        emit sessionAudioFilterChanged();
+        refresh();
+    }
+}
+
 int StatisticsProvider::currentStreak() const { return m_currentStreak; }
 int StatisticsProvider::longestStreak() const { return m_longestStreak; }
 int StatisticsProvider::sessionPagesTotal() const { return m_sessionPagesTotal; }
@@ -111,18 +122,19 @@ void StatisticsProvider::refresh()
     m_booksPerMonthCurrentYear   = db.booksPerMonthForYear(chartYear);
     m_booksPerMonthPreviousYear  = db.booksPerMonthForYear(chartYear - 1);
 
-    // Reading sessions (year-filtered)
-    m_sessionPagesTotal = db.totalSessionPages(yr);
-    m_pagesPerDay        = db.pagesPerDay(yr);
-    m_pagesByWeekday     = db.pagesByWeekday(yr);
-    m_recentSessions     = db.recentSessions(yr);
+    // Reading sessions (year- and audio-mode-filtered)
+    const QString audio = m_sessionAudioFilter;
+    m_sessionPagesTotal = db.totalSessionPages(yr, audio);
+    m_pagesPerDay        = db.pagesPerDay(yr, audio);
+    m_pagesByWeekday     = db.pagesByWeekday(yr, audio);
+    m_recentSessions     = db.recentSessions(yr, audio);
 
-    const int readingDays = db.readingDayCount(yr);
+    const int readingDays = db.readingDayCount(yr, audio);
     m_meanPagesPerReadingDay = readingDays > 0
         ? static_cast<double>(m_sessionPagesTotal) / readingDays
         : 0.0;
 
-    computeStreaks(db.sessionDates(yr));
+    computeStreaks(db.sessionDates(yr, audio));
 
     emit dataChanged();
 }
