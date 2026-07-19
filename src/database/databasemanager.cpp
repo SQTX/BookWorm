@@ -116,6 +116,7 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS summary TEXT");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS review TEXT");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS audio_mode VARCHAR(32) DEFAULT 'none'");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE");
 
     // Update rating constraint to allow 1-6 instead of 1-10
     q.exec("UPDATE books SET rating = LEAST(rating, 6) WHERE rating > 6");
@@ -206,11 +207,11 @@ int DatabaseManager::insertBook(const Book &book)
         "INSERT INTO books (title, author, genre, page_count, start_date, end_date, "
         "  rating, status, notes, isbn, publisher, publication_year, language, "
         "  cover_image_path, item_type, is_non_fiction, audio_mode, current_page, series, "
-        "  publication_date, summary, review) "
+        "  publication_date, summary, review, is_priority) "
         "VALUES (:title, :author, :genre, :pageCount, :startDate, :endDate, "
         "  :rating, :status, :notes, :isbn, :publisher, :pubYear, :language, "
         "  :coverPath, :itemType, :isNonFiction, :audioMode, :currentPage, :series, "
-        "  :pubDate, :summary, :review) "
+        "  :pubDate, :summary, :review, :isPriority) "
         "RETURNING id"
     );
 
@@ -236,6 +237,7 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
     q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
+    q.bindValue(":isPriority",   book.isPriority);
 
     if (!q.exec() || !q.next()) {
         qWarning() << "insertBook error:" << q.lastError().text();
@@ -257,7 +259,7 @@ bool DatabaseManager::updateBook(const Book &book)
         "  is_non_fiction = :isNonFiction, audio_mode = :audioMode, "
         "  current_page = :currentPage, "
         "  series = :series, publication_date = :pubDate, "
-        "  summary = :summary, review = :review, updated_at = NOW() "
+        "  summary = :summary, review = :review, is_priority = :isPriority, updated_at = NOW() "
         "WHERE id = :id"
     );
 
@@ -284,6 +286,7 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":pubDate",      book.publicationDate.isValid() ? book.publicationDate : QVariant());
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
     q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
+    q.bindValue(":isPriority",   book.isPriority);
 
     if (!q.exec()) {
         qWarning() << "updateBook error:" << q.lastError().text();

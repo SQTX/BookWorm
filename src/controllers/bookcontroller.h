@@ -11,16 +11,19 @@ class BookController : public QObject
     QML_ELEMENT
 
     Q_PROPERTY(BookModel* model READ model CONSTANT)
+    Q_PROPERTY(BookModel* priorityModel READ priorityModel CONSTANT)
     Q_PROPERTY(QString filterStatus READ filterStatus WRITE setFilterStatus NOTIFY filterStatusChanged)
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
     Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
     Q_PROPERTY(QString filterYearMode READ filterYearMode WRITE setFilterYearMode NOTIFY filterYearModeChanged)
     Q_PROPERTY(QString sortMode READ sortMode WRITE setSortMode NOTIFY sortModeChanged)
+    Q_PROPERTY(bool priorityEnabled READ priorityEnabled WRITE setPriorityEnabled NOTIFY priorityEnabledChanged)
 
 public:
     explicit BookController(QObject *parent = nullptr);
 
     BookModel *model() const;
+    BookModel *priorityModel() const;
 
     Q_INVOKABLE void loadBooks();
     Q_INVOKABLE bool addBook(const QVariantMap &bookData);
@@ -74,6 +77,8 @@ public:
     void setFilterYearMode(const QString &mode);
     QString sortMode() const;
     void setSortMode(const QString &mode);
+    bool priorityEnabled() const;
+    void setPriorityEnabled(bool enabled);
 
 signals:
     void filterStatusChanged();
@@ -81,6 +86,7 @@ signals:
     void filterYearChanged();
     void filterYearModeChanged();
     void sortModeChanged();
+    void priorityEnabledChanged();
     void booksChanged();
     void errorOccurred(const QString &message);
 
@@ -89,10 +95,12 @@ private:
     void sortBooks(QVector<Book> &books);
 
     BookModel *m_model;
+    BookModel *m_priorityModel;
     QVector<Book> m_allBooks;
     QString m_filterStatus;
     QString m_searchQuery;
     int m_filterYear = 0;
     QString m_filterYearMode = QStringLiteral("finish");
     QString m_sortMode = QStringLiteral("default");
+    bool m_priorityEnabled = true;
 };

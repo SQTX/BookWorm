@@ -10,12 +10,18 @@
 BookController::BookController(QObject *parent)
     : QObject(parent)
     , m_model(new BookModel(this))
+    , m_priorityModel(new BookModel(this))
 {
 }
 
 BookModel *BookController::model() const
 {
     return m_model;
+}
+
+BookModel *BookController::priorityModel() const
+{
+    return m_priorityModel;
 }
 
 void BookController::loadBooks()
@@ -482,6 +488,20 @@ void BookController::setSortMode(const QString &mode)
     }
 }
 
+bool BookController::priorityEnabled() const
+{
+    return m_priorityEnabled;
+}
+
+void BookController::setPriorityEnabled(bool enabled)
+{
+    if (m_priorityEnabled != enabled) {
+        m_priorityEnabled = enabled;
+        emit priorityEnabledChanged();
+        applyFilters();
+    }
+}
+
 // ─── CSV helpers ────────────────────────────────────────────
 
 static QString escapeCsvField(const QString &field)
@@ -546,7 +566,7 @@ bool BookController::exportToCsv(const QString &filePath)
 
     // Header
     out << "title,author,genre,page_count,start_date,end_date,rating,status,"
-           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,audio_mode,current_page,tags\n";
+           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,audio_mode,current_page,tags,is_priority\n";
 
     const auto allBooks = DatabaseManager::instance().fetchAllBooks();
     for (const Book &book : allBooks) {
@@ -567,7 +587,8 @@ bool BookController::exportToCsv(const QString &filePath)
             << (book.isNonFiction ? "true" : "false") << ','
             << escapeCsvField(book.audioMode) << ','
             << book.currentPage << ','
-            << escapeCsvField(book.tags.join(", ")) << '\n';
+            << escapeCsvField(book.tags.join(", ")) << ','
+            << (book.isPriority ? "true" : "false") << '\n';
     }
 
     file.close();
@@ -640,6 +661,10 @@ int BookController::importFromCsv(const QString &filePath)
             }
         }
 
+        // is_priority at index 18 (if present) — absent in files exported before this column existed
+        if (fields.size() >= 19)
+            book.isPriority = fields[18].trimmed().toLower() == "true";
+
         if (book.title.isEmpty() || book.author.isEmpty())
             continue;
 
@@ -696,7 +721,24 @@ void BookController::applyFilters()
     }
 
     sortBooks(filtered);
-    m_model->setBooks(filtered);
+
+    // Flagged books get their own section above the grid, so they are split out of
+    // the main model. Only in the default sort — an explicit sort stays one list.
+    if (m_priorityEnabled && m_sortMode == QStringLiteral("default")) {
+        QVector<Book> prioritized;
+        QVector<Book> rest;
+        for (const Book &book : filtered) {
+            if (book.isPriority)
+                prioritized.append(book);
+            else
+                rest.append(book);
+        }
+        m_priorityModel->setBooks(prioritized);
+        m_model->setBooks(rest);
+    } else {
+        m_priorityModel->setBooks({});
+        m_model->setBooks(filtered);
+    }
 }
 
 static int statusPriority(const QString &s)
@@ -718,7 +760,12 @@ static QDate effectiveDate(const Book &book)
 void BookController::sortBooks(QVector<Book> &books)
 {
     if (m_sortMode == QStringLiteral("default")) {
-        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+        std::stable_sort(books.begin(), books.end(), [this](const Book &a, const Book &b) {
+            // Priority hoisting applies to the default sort only. The other modes are
+            // orderings the user asked for explicitly, so they deliberately ignore isPriority.
+            if (m_priorityEnabled && a.isPriority != b.isPriority)
+                return a.isPriority;
+
             int pa = statusPriority(a.status);
             int pb = statusPriority(b.status);
             if (pa != pb) return pa < pb;

@@ -22,7 +22,7 @@ Resolved during brainstorming:
 | Question | Decision |
 | --- | --- |
 | Flag or levels? | Boolean flag, on/off. |
-| Dedicated section in the grid? | No. Hoisting via sort order only — same mechanism the status grouping already uses. The Library is a flat `GridView`; the horizontal lines are per-row separators, not section headers. |
+| Dedicated section in the grid? | **Revised 2026-07-19 after seeing it running:** yes. Hoisting via sort order alone left flagged books sharing a row with unflagged ones, so they did not read as separate. Implemented as a second model rendered in its own labelled grid above the main one. See "Revision" at the end. |
 | Priority vs status ordering | Priority outranks status. Flagged books lead the list regardless of status. |
 | Ordering inside the priority group | Unchanged existing rules: status rank → completion % → date → author. |
 | Other sort modes (title, rating, pages…) | Priority is ignored. Explicit sorts stay pure. Border still renders. |
@@ -123,6 +123,29 @@ Two keys added to the `_pl` object in `translations.js`:
 ## Out of Scope
 
 - Priority levels or ranking beyond the boolean.
-- A dedicated grid section with its own header.
 - Priority in the Table view.
 - Priority as a chip on the status filter bar.
+
+## Revision — dedicated section (2026-07-19)
+
+The original decision was to hoist flagged books via sort order only. In use that
+turned out to be too weak: with six cards per row, two flagged books simply led the
+first row and the remaining four cells filled with unflagged ones, so the group did
+not read as separate.
+
+Replaced with a real section:
+
+- `BookController` exposes a second model, `priorityModel`. `applyFilters()` sorts as
+  before, then splits the result — flagged books into `priorityModel`, the rest into
+  `model`. A book is in exactly one, so nothing renders twice.
+- The split applies only when `priorityEnabled` is true AND the sort mode is `default`.
+  Explicit sorts collapse back to a single grid, unchanged.
+- `BookListView` renders a "Priority" label, the priority grid, an orange separator,
+  a gap, then the main grid.
+- The outer `ScrollView` became a `Flickable` with an explicit `ScrollBar.vertical`:
+  two grids inside a `ScrollView` would double-scroll. Both grids use
+  `interactive: false` and `height: contentHeight`, so the page scrolls as one.
+- The delegate moved into a shared `Component` used by both grids, with
+  `GridView.view` replacing the hard-coded `gridView` references.
+
+Everything else in this spec still holds.

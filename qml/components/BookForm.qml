@@ -143,6 +143,7 @@ Dialog {
             var itIdx = itemTypeCombo.model.indexOf(editData.itemType || "book");
             itemTypeCombo.currentIndex = itIdx >= 0 ? itIdx : 0;
             nonFictionCheck.checked = editData.isNonFiction || false;
+            priorityCheck.checked = editData.isPriority || false;
             audioModeSelection = editData.audioMode || "none";
             currentPageField.value = editData.currentPage || 0;
 
@@ -241,6 +242,7 @@ Dialog {
             coverImagePath:  coverPath,
             itemType:        itemTypeCombo.model[itemTypeCombo.currentIndex],
             isNonFiction:    nonFictionCheck.checked,
+            isPriority:      priorityCheck.checked,
             audioMode:       selectedAudioMode(),
             currentPage:     currentPageField.value,
             publicationDate: mode === "edit" && editData ? (editData.publicationDate || "") : "",
@@ -265,6 +267,7 @@ Dialog {
         coverPath            = "";
         itemTypeCombo.currentIndex = 0;
         nonFictionCheck.checked = false;
+        priorityCheck.checked = false;
         audioModeSelection = "none";
         currentPageField.value = 0;
 
@@ -568,6 +571,25 @@ Dialog {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: nonFictionCheck.checked = !nonFictionCheck.checked
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            CheckBox {
+                                id: priorityCheck
+                                Material.accent: Theme.priority
+                            }
+
+                            Text {
+                                text: Theme.tr("Priority")
+                                color: Theme.textOnSurface
+                                font.pixelSize: Theme.fontSizeMedium
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: priorityCheck.checked = !priorityCheck.checked
                                 }
                             }
                         }
