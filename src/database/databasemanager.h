@@ -18,6 +18,11 @@ public:
     void disconnect();
     bool isConnected() const;
 
+    // Read-only access to the underlying connection for callers that need to run
+    // their own queries (e.g. BackupManager). Do not open a second connection to
+    // the same database — QPSQL only needs one.
+    QSqlDatabase database() const { return m_db; }
+
     bool initializeSchema();
 
     // Book CRUD
