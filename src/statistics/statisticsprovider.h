@@ -30,6 +30,15 @@ class StatisticsProvider : public QObject
     Q_PROPERTY(QVariantList booksPerMonthPreviousYear READ booksPerMonthPreviousYear NOTIFY dataChanged)
     Q_PROPERTY(QVariantMap statusDistribution READ statusDistribution NOTIFY dataChanged)
 
+    // Reading sessions
+    Q_PROPERTY(int currentStreak READ currentStreak NOTIFY dataChanged)
+    Q_PROPERTY(int longestStreak READ longestStreak NOTIFY dataChanged)
+    Q_PROPERTY(int sessionPagesTotal READ sessionPagesTotal NOTIFY dataChanged)
+    Q_PROPERTY(double meanPagesPerReadingDay READ meanPagesPerReadingDay NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList pagesPerDay READ pagesPerDay NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList pagesByWeekday READ pagesByWeekday NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList recentSessions READ recentSessions NOTIFY dataChanged)
+
 public:
     explicit StatisticsProvider(QObject *parent = nullptr);
 
@@ -54,6 +63,15 @@ public:
     QVariantList booksPerMonthPreviousYear() const;
     QVariantMap statusDistribution() const;
 
+    // Reading sessions
+    int currentStreak() const;
+    int longestStreak() const;
+    int sessionPagesTotal() const;
+    double meanPagesPerReadingDay() const;
+    QVariantList pagesPerDay() const;
+    QVariantList pagesByWeekday() const;
+    QVariantList recentSessions() const;
+
     Q_INVOKABLE void refresh();
 
 signals:
@@ -61,6 +79,8 @@ signals:
     void selectedYearChanged();
 
 private:
+    void computeStreaks(const QVariantList &dates);
+
     // Year filter
     int m_selectedYear = 0;  // 0 = all years
     QVariantList m_availableYears;
@@ -80,4 +100,13 @@ private:
     QVariantList m_booksPerMonthCurrentYear;
     QVariantList m_booksPerMonthPreviousYear;
     QVariantMap m_statusDistribution;
+
+    // Reading sessions
+    int m_currentStreak = 0;
+    int m_longestStreak = 0;
+    int m_sessionPagesTotal = 0;
+    double m_meanPagesPerReadingDay = 0.0;
+    QVariantList m_pagesPerDay;
+    QVariantList m_pagesByWeekday;
+    QVariantList m_recentSessions;
 };
