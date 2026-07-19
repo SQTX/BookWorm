@@ -33,8 +33,13 @@ public:
     //   valid (bool), error (QString), bookCount (int), hasCovers (bool)
     Q_INVOKABLE QVariantMap inspectArchive(const QString &filePath);
 
+    // Replaces the current database with the archive's contents. Takes a safety
+    // backup first and refuses to proceed if that fails.
+    Q_INVOKABLE bool restoreFrom(const QString &filePath);
+
 signals:
     void backupFinished(bool ok, const QString &message);
+    void restoreFinished(bool ok, const QString &message);
 
 private:
     QString locatePgDump() const;
@@ -60,6 +65,12 @@ private:
     // Opens a short-lived QSqlDatabase connection under a name distinct from the
     // application's default connection, counts books, then closes and removes it.
     int scratchBookCount(const QString &name);
+
+    // Copies each covers/<id>.<ext> found under unpackedDir into
+    // <AppDataLocation>/covers and points the matching book at it. Never aborts on a
+    // per-file failure — the database is already restored by the time this runs, so a
+    // bad cover must only be counted, not allowed to look like the whole restore failed.
+    void restoreCoversFromArchive(const QString &unpackedDir, int *restored, int *failed);
 
     QString m_pgDumpPath;
     QString m_psqlPath;

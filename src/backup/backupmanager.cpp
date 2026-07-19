@@ -584,3 +584,205 @@ QVariantMap BackupManager::inspectArchive(const QString &filePath)
     result["error"] = QString();
     return result;
 }
+
+// Replaces wormbook with the contents of an archive. This is the one operation in
+// the app that can destroy the user's library, so the order below is deliberate and
+// must not be reordered: a safety copy is on disk, verified, before anything is
+// dropped, and every failure message from that point on carries its path so a bad
+// run is always recoverable by hand even if the UI is gone.
+bool BackupManager::restoreFrom(const QString &filePath)
+{
+    QString path = filePath;
+    if (path.startsWith(QStringLiteral("file://")))
+        path = QUrl(path).toLocalFile();
+
+    if (m_psqlPath.isEmpty()) {
+        emit restoreFinished(false, QStringLiteral("psql not found — restore unavailable"));
+        return false;
+    }
+
+    // 1. Safety backup FIRST. If this fails, nothing destructive has happened and we
+    //    must not proceed — restoring without a fresh, verified copy of the current
+    //    library would mean a bad archive could destroy data with no way back.
+    const QString timestamp =
+        QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"));
+    const QString safetyPath =
+        safetyBackupDir() + QStringLiteral("/before-restore-%1.zip").arg(timestamp);
+    if (!backupTo(safetyPath)) {
+        const QString message = QStringLiteral(
+            "Could not create a safety backup before restoring — restore aborted, "
+            "nothing was changed. (attempted: %1)").arg(safetyPath);
+        emit restoreFinished(false, message);
+        return false;
+    }
+
+    QString error;
+
+    // 2. Unpack the archive.
+    QTemporaryDir temp;
+    if (!temp.isValid()) {
+        emit restoreFinished(false, QStringLiteral(
+            "Could not create a temporary directory — nothing was changed. "
+            "(safety backup: %1)").arg(safetyPath));
+        return false;
+    }
+
+    if (!runProcess(QStringLiteral("/usr/bin/unzip"),
+                    {QStringLiteral("-q"), QStringLiteral("-o"), path,
+                     QStringLiteral("-d"), temp.path()},
+                    &error)) {
+        emit restoreFinished(false, QStringLiteral(
+            "Archive could not be unpacked — nothing was changed: %1 "
+            "(safety backup: %2)").arg(error, safetyPath));
+        return false;
+    }
+
+    const QString dumpFile = temp.filePath(QStringLiteral("database.sql"));
+    if (!QFileInfo::exists(dumpFile)) {
+        emit restoreFinished(false, QStringLiteral(
+            "Archive does not contain database.sql — nothing was changed. "
+            "(safety backup: %1)").arg(safetyPath));
+        return false;
+    }
+
+    // 3. Drop and recreate the schema. psql sends "DROP ...; CREATE ...;" as a single
+    //    simple-query message, which Postgres runs as one implicit transaction — if
+    //    this fails, the drop is rolled back and wormbook is untouched.
+    if (!runProcess(m_psqlPath,
+                    connectionArgs()
+                        << QStringLiteral("--quiet")
+                        << QStringLiteral("--set=ON_ERROR_STOP=1")
+                        << QStringLiteral("--dbname=") + QString::fromLatin1(BookWorm::Config::DB_NAME)
+                        << QStringLiteral("--command=DROP SCHEMA public CASCADE; CREATE SCHEMA public;"),
+                    &error)) {
+        emit restoreFinished(false, QStringLiteral(
+            "Could not reset the database schema, so nothing was changed: %1 "
+            "(safety backup: %2)").arg(error, safetyPath));
+        return false;
+    }
+
+    // 4. Load the dump. This is the one window where the schema has already been
+    //    dropped and the new data has not yet landed, so a failure here can leave
+    //    wormbook empty — the message leads with the safety backup path rather than
+    //    burying it.
+    if (!runProcess(m_psqlPath,
+                    connectionArgs()
+                        << QStringLiteral("--quiet")
+                        << QStringLiteral("--set=ON_ERROR_STOP=1")
+                        << QStringLiteral("--dbname=") + QString::fromLatin1(BookWorm::Config::DB_NAME)
+                        << QStringLiteral("--file=") + dumpFile,
+                    &error)) {
+        emit restoreFinished(false, QStringLiteral(
+            "SAFETY BACKUP: %1\n\nThe archive failed to load and the database may now "
+            "be empty or partial: %2. Restore the safety backup above by hand as soon "
+            "as possible.").arg(safetyPath, error));
+        return false;
+    }
+
+    // 5. The app's QSqlDatabase connection was opened before the schema was dropped
+    //    and recreated underneath it. Tested against a scratch database: a plain,
+    //    unprepared query on the still-open connection kept working after an
+    //    external DROP/CREATE SCHEMA + reload from a second session (Postgres does
+    //    not tie a simple-query-protocol SELECT to cached relation OIDs the way a
+    //    server-side prepared statement can be). That doesn't cover every query this
+    //    app runs — DatabaseManager also issues parameterized, prepared queries
+    //    elsewhere — so rather than trust an untested case, the connection is closed
+    //    and reopened here. Reconnecting was tested the same way and also worked.
+    DatabaseManager::instance().disconnect();
+    if (!DatabaseManager::instance().connect()) {
+        emit restoreFinished(false, QStringLiteral(
+            "The archive was loaded, but the app could not reconnect to the database "
+            "afterwards. Restart BookWorm to continue. (safety backup: %1)").arg(safetyPath));
+        return false;
+    }
+
+    // 6. Bring the schema up to date. Safe to call on a populated database — every
+    //    statement in initializeSchema() is IF NOT EXISTS / IF EXISTS guarded, since
+    //    it already runs unconditionally on every normal launch.
+    DatabaseManager::instance().initializeSchema();
+
+    // 7. Restore covers. Never aborts: the database itself is already fully restored
+    //    by this point, so a bad cover file must only be counted, not treated as a
+    //    reason to report failure.
+    int coversRestored = 0;
+    int coversFailed = 0;
+    restoreCoversFromArchive(temp.path(), &coversRestored, &coversFailed);
+
+    int bookCount = 0;
+    {
+        QSqlQuery q(DatabaseManager::instance().database());
+        if (q.exec(QStringLiteral("SELECT count(*) FROM books")) && q.next())
+            bookCount = q.value(0).toInt();
+        else
+            qWarning() << "restoreFrom: post-restore book count query failed:" << q.lastError().text();
+    }
+
+    QString message = QStringLiteral("Restored %1 books").arg(bookCount);
+    if (coversRestored > 0)
+        message += QStringLiteral(", %1 covers").arg(coversRestored);
+    if (coversFailed > 0)
+        message += QStringLiteral(" (%1 covers could not be restored)").arg(coversFailed);
+    message += QStringLiteral(". Safety backup saved to %1").arg(safetyPath);
+
+    emit restoreFinished(true, message);
+    return true;
+}
+
+// Archived covers are named "<bookId>.<ext>" by copyCovers() in backupTo(), so the
+// book id can be recovered from the file name alone without reading the manifest.
+void BackupManager::restoreCoversFromArchive(const QString &unpackedDir, int *restored, int *failed)
+{
+    *restored = 0;
+    *failed = 0;
+
+    const QString coversSrcDir = unpackedDir + QStringLiteral("/covers");
+    QDir srcDir(coversSrcDir);
+    if (!srcDir.exists())
+        return; // Archive had no covers section; that is not a failure.
+
+    const QString coversDestDir =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+        + QStringLiteral("/covers");
+    if (!QDir().mkpath(coversDestDir)) {
+        qWarning() << "restoreCoversFromArchive could not create" << coversDestDir;
+        *failed = srcDir.entryList(QDir::Files).size();
+        return;
+    }
+
+    const QSqlDatabase db = DatabaseManager::instance().database();
+    const QStringList entries = srcDir.entryList(QDir::Files, QDir::Name);
+
+    for (const QString &fileName : entries) {
+        const int dot = fileName.lastIndexOf(QLatin1Char('.'));
+        const QString stem = dot >= 0 ? fileName.left(dot) : fileName;
+
+        bool ok = false;
+        const int bookId = stem.toInt(&ok);
+        if (!ok) {
+            qWarning() << "restoreCoversFromArchive: unexpected file name" << fileName;
+            ++(*failed);
+            continue;
+        }
+
+        const QString destPath = coversDestDir + QLatin1Char('/') + fileName;
+        QFile::remove(destPath); // Overwrite anything left behind by a previous restore.
+        if (!QFile::copy(coversSrcDir + QLatin1Char('/') + fileName, destPath)) {
+            qWarning() << "restoreCoversFromArchive could not copy" << fileName;
+            ++(*failed);
+            continue;
+        }
+
+        QSqlQuery q(db);
+        q.prepare(QStringLiteral("UPDATE books SET cover_image_path = :path WHERE id = :id"));
+        q.bindValue(QStringLiteral(":path"), destPath);
+        q.bindValue(QStringLiteral(":id"), bookId);
+        if (!q.exec()) {
+            qWarning() << "restoreCoversFromArchive UPDATE failed for book" << bookId
+                       << ":" << q.lastError().text();
+            ++(*failed);
+            continue;
+        }
+
+        ++(*restored);
+    }
+}
