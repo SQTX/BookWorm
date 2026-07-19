@@ -17,6 +17,19 @@ var _pl = {
     "Minimalist Light": "Minimalistyczny jasny",
     "Minimalist Dark": "Minimalistyczny ciemny",
     "Classic": "Klasyczny",
+    // ── Backup ──
+    "BACKUP": "KOPIA ZAPASOWA",
+    "Back Up Now": "Wykonaj kopię",
+    "Save Backup": "Zapisz kopię zapasową",
+    "Choose Backup Folder": "Wybierz folder kopii",
+    "No folder chosen": "Nie wybrano folderu",
+    "Automatic backup": "Kopia automatyczna",
+    "Choose a folder to enable automatic backup": "Wskaż folder, aby włączyć kopie automatyczne",
+    "Every": "Co",
+    "Last backup": "Ostatnia kopia",
+    "No backup yet": "Brak kopii",
+    "pg_dump not found — backup unavailable": "Nie znaleziono pg_dump — kopia niedostępna",
+
     "Reset All Data": "Resetuj dane",
     "Reset Data": "Resetowanie danych",
     "Are you sure you want to delete all data? This action cannot be undone.":
