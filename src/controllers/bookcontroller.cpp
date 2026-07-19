@@ -560,7 +560,7 @@ bool BookController::exportToCsv(const QString &filePath)
 
     // Header
     out << "title,author,genre,page_count,start_date,end_date,rating,status,"
-           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,audio_mode,current_page,tags\n";
+           "notes,isbn,publisher,publication_year,language,item_type,is_non_fiction,audio_mode,current_page,tags,is_priority\n";
 
     const auto allBooks = DatabaseManager::instance().fetchAllBooks();
     for (const Book &book : allBooks) {
@@ -581,7 +581,8 @@ bool BookController::exportToCsv(const QString &filePath)
             << (book.isNonFiction ? "true" : "false") << ','
             << escapeCsvField(book.audioMode) << ','
             << book.currentPage << ','
-            << escapeCsvField(book.tags.join(", ")) << '\n';
+            << escapeCsvField(book.tags.join(", ")) << ','
+            << (book.isPriority ? "true" : "false") << '\n';
     }
 
     file.close();
@@ -653,6 +654,10 @@ int BookController::importFromCsv(const QString &filePath)
                     book.tags.append(trimmed);
             }
         }
+
+        // is_priority at index 18 (if present) — absent in files exported before this column existed
+        if (fields.size() >= 19)
+            book.isPriority = fields[18].trimmed().toLower() == "true";
 
         if (book.title.isEmpty() || book.author.isEmpty())
             continue;
