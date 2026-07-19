@@ -636,6 +636,69 @@ ApplicationWindow {
                 color: Theme.divider
             }
 
+            // ── Backup section ──
+            Text {
+                Layout.topMargin: Theme.spacingMedium
+                Layout.leftMargin: Theme.spacingLarge
+                text: Theme.tr("BACKUP")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+                font.bold: true
+                font.letterSpacing: 1
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                height: 40
+                radius: Theme.radiusSmall
+                color: backupMouse.containsMouse ? Theme.primaryVariant : Theme.primary
+                opacity: backupManager.pgDumpPath() === "" ? 0.4 : 1.0
+
+                Text {
+                    anchors.centerIn: parent
+                    text: Theme.tr("Back Up Now")
+                    color: Theme.textOnPrimary
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: backupMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: backupManager.pgDumpPath() !== ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        settingsPopup.close();
+                        backupSaveDialog.open();
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                visible: backupManager.pgDumpPath() === ""
+                text: Theme.tr("pg_dump not found — backup unavailable")
+                color: Theme.error
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+
+            Item { Layout.preferredHeight: Theme.spacingSmall }
+
+            // ── Separator ──
+            Rectangle {
+                Layout.fillWidth: true
+                height: 1
+                color: Theme.divider
+            }
+
             // ── Reset data button ──
             Rectangle {
                 Layout.fillWidth: true
@@ -1119,6 +1182,26 @@ ApplicationWindow {
             } else {
                 csvToast.show(Theme.tr("Import failed"));
             }
+        }
+    }
+
+    // ── Backup ──
+
+    FileDialog {
+        id: backupSaveDialog
+        title: Theme.tr("Save Backup")
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["ZIP archive (*.zip)"]
+        defaultSuffix: "zip"
+        currentFile: "file:///bookworm-" + Qt.formatDate(new Date(), "yyyy-MM-dd") + ".zip"
+
+        onAccepted: backupManager.backupTo(selectedFile)
+    }
+
+    Connections {
+        target: backupManager
+        function onBackupFinished(ok, message) {
+            csvToast.show(message);
         }
     }
 
