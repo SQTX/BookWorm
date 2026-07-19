@@ -187,12 +187,14 @@ QtObject {
 
     // ── Priority ──
 
+    // Kept red-leaning (hue ~20°) so it stays distinct from statusPlanned's
+    // tan (~40°), which a flagged planned book shows on hover.
     property color priority: {
         switch (currentTheme) {
-            case "minimalist_dark":  return "#D08A45";
+            case "minimalist_dark":  return "#DC6938";
             case "minimalist_light": return "#C1702A";
-            case "classic":          return "#C87A32";
-            default:                 return "#D08A45";
+            case "classic":          return "#D5683A";
+            default:                 return "#DC6938";
         }
     }
 
