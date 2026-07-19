@@ -16,6 +16,7 @@ class BookController : public QObject
     Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
     Q_PROPERTY(QString filterYearMode READ filterYearMode WRITE setFilterYearMode NOTIFY filterYearModeChanged)
     Q_PROPERTY(QString sortMode READ sortMode WRITE setSortMode NOTIFY sortModeChanged)
+    Q_PROPERTY(bool priorityEnabled READ priorityEnabled WRITE setPriorityEnabled NOTIFY priorityEnabledChanged)
 
 public:
     explicit BookController(QObject *parent = nullptr);
@@ -74,6 +75,8 @@ public:
     void setFilterYearMode(const QString &mode);
     QString sortMode() const;
     void setSortMode(const QString &mode);
+    bool priorityEnabled() const;
+    void setPriorityEnabled(bool enabled);
 
 signals:
     void filterStatusChanged();
@@ -81,6 +84,7 @@ signals:
     void filterYearChanged();
     void filterYearModeChanged();
     void sortModeChanged();
+    void priorityEnabledChanged();
     void booksChanged();
     void errorOccurred(const QString &message);
 
@@ -95,4 +99,5 @@ private:
     int m_filterYear = 0;
     QString m_filterYearMode = QStringLiteral("finish");
     QString m_sortMode = QStringLiteral("default");
+    bool m_priorityEnabled = true;
 };

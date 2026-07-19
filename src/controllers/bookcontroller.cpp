@@ -482,6 +482,20 @@ void BookController::setSortMode(const QString &mode)
     }
 }
 
+bool BookController::priorityEnabled() const
+{
+    return m_priorityEnabled;
+}
+
+void BookController::setPriorityEnabled(bool enabled)
+{
+    if (m_priorityEnabled != enabled) {
+        m_priorityEnabled = enabled;
+        emit priorityEnabledChanged();
+        applyFilters();
+    }
+}
+
 // ─── CSV helpers ────────────────────────────────────────────
 
 static QString escapeCsvField(const QString &field)
@@ -718,7 +732,10 @@ static QDate effectiveDate(const Book &book)
 void BookController::sortBooks(QVector<Book> &books)
 {
     if (m_sortMode == QStringLiteral("default")) {
-        std::stable_sort(books.begin(), books.end(), [](const Book &a, const Book &b) {
+        std::stable_sort(books.begin(), books.end(), [this](const Book &a, const Book &b) {
+            if (m_priorityEnabled && a.isPriority != b.isPriority)
+                return a.isPriority;
+
             int pa = statusPriority(a.status);
             int pb = statusPriority(b.status);
             if (pa != pb) return pa < pb;
