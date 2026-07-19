@@ -32,6 +32,9 @@ public:
     Q_INVOKABLE bool updateBook(const QVariantMap &bookData);
     Q_INVOKABLE bool deleteBook(int id);
     Q_INVOKABLE QVariantMap getBookDetails(int id);
+    Q_INVOKABLE bool addPages(int bookId, int newCurrentPage);
+    Q_INVOKABLE bool markAsRead(int bookId, int rating, const QString &review);
+    Q_INVOKABLE bool deleteReadingSession(int sessionId);
 
     Q_INVOKABLE QStringList getAllTags();
     Q_INVOKABLE QVariantList getAllTagsWithColors();

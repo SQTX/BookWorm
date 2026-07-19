@@ -122,6 +122,75 @@ QVariantMap BookController::getBookDetails(int id)
     return book->toVariantMap();
 }
 
+bool BookController::addPages(int bookId, int newCurrentPage)
+{
+    auto existing = DatabaseManager::instance().fetchBookById(bookId);
+    if (!existing.has_value()) {
+        emit errorOccurred("Book not found");
+        return false;
+    }
+
+    Book book = existing.value();
+    const int previousPage = book.currentPage;
+    book.currentPage = newCurrentPage;
+
+    if (!DatabaseManager::instance().updateBook(book)) {
+        emit errorOccurred("Failed to update progress");
+        return false;
+    }
+
+    // Skipped automatically when the page did not advance.
+    DatabaseManager::instance().recordSession(bookId, previousPage, newCurrentPage,
+                                              QStringLiteral("manual"));
+
+    loadBooks();
+    emit booksChanged();
+    return true;
+}
+
+bool BookController::markAsRead(int bookId, int rating, const QString &review)
+{
+    auto existing = DatabaseManager::instance().fetchBookById(bookId);
+    if (!existing.has_value()) {
+        emit errorOccurred("Book not found");
+        return false;
+    }
+
+    Book book = existing.value();
+    const int previousPage = book.currentPage;
+
+    book.status = QStringLiteral("read");
+    book.endDate = QDate::currentDate();
+    book.rating = rating;
+    book.currentPage = book.pageCount;
+
+    // DatabaseManager::updateBook() is what BookController::updateReview() ultimately
+    // delegates to (fetch -> set review -> updateBook); folding the review into this
+    // same object/write avoids a second redundant round trip. Only touched when
+    // non-empty, matching the old QML behavior of leaving the review untouched otherwise.
+    const QString trimmedReview = review.trimmed();
+    if (!trimmedReview.isEmpty())
+        book.review = trimmedReview;
+
+    if (!DatabaseManager::instance().updateBook(book)) {
+        emit errorOccurred("Failed to update book");
+        return false;
+    }
+
+    // Closing session, tagged separately so it does not distort pace averages.
+    DatabaseManager::instance().recordSession(bookId, previousPage, book.pageCount,
+                                              QStringLiteral("completion"));
+
+    loadBooks();
+    emit booksChanged();
+    return true;
+}
+
+bool BookController::deleteReadingSession(int sessionId)
+{
+    return DatabaseManager::instance().deleteSession(sessionId);
+}
+
 QVariantMap BookController::getTypeDistribution()
 {
     QVariantMap dist;
