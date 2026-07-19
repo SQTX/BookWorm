@@ -10,6 +10,7 @@
 #include "database/databasemanager.h"
 #include "controllers/bookcontroller.h"
 #include "statistics/statisticsprovider.h"
+#include "backup/backupmanager.h"
 
 int main(int argc, char *argv[])
 {
@@ -39,6 +40,7 @@ int main(int argc, char *argv[])
     // Controllers
     BookController bookController;
     StatisticsProvider statsProvider;
+    BackupManager backupManager;
 
     bookController.loadBooks();
     statsProvider.refresh();
@@ -53,6 +55,7 @@ int main(int argc, char *argv[])
 
     engine.rootContext()->setContextProperty("bookController", &bookController);
     engine.rootContext()->setContextProperty("statsProvider", &statsProvider);
+    engine.rootContext()->setContextProperty("backupManager", &backupManager);
 
     using namespace Qt::StringLiterals;
     const QUrl url(u"qrc:/qt/qml/BookWorm/qml/Main.qml"_s);
