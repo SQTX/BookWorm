@@ -1,6 +1,10 @@
 #include "backupmanager.h"
 
+#include "../constants.h"
 #include "../database/databasemanager.h"
+
+#include <filesystem>
+#include <system_error>
 
 #include <QDateTime>
 #include <QDir>
@@ -85,7 +89,12 @@ bool BackupManager::runProcess(const QString &program, const QStringList &argume
 // the user their database dump.
 bool BackupManager::copyCovers(const QString &coversDir, QVariantList *entries, int *missing)
 {
-    QDir().mkpath(coversDir);
+    if (!QDir().mkpath(coversDir)) {
+        // Without this check every copy below fails and all covers get reported as
+        // "missing", which reads like broken image paths rather than the real cause.
+        qWarning() << "copyCovers could not create" << coversDir;
+        return false;
+    }
     *missing = 0;
 
     QSqlQuery q(DatabaseManager::instance().database());
@@ -113,8 +122,10 @@ bool BackupManager::copyCovers(const QString &coversDir, QVariantList *entries, 
             continue;
         }
 
-        const QString archivedName =
-            QStringLiteral("%1.%2").arg(bookId).arg(info.suffix().toLower());
+        const QString suffix = info.suffix().toLower();
+        const QString archivedName = suffix.isEmpty()
+            ? QString::number(bookId)
+            : QStringLiteral("%1.%2").arg(bookId).arg(suffix);
         if (!QFile::copy(sourcePath, coversDir + QLatin1Char('/') + archivedName)) {
             entry["archived"] = false;
             ++(*missing);
@@ -173,6 +184,44 @@ bool BackupManager::verifyArchive(const QString &zipPath, int expectedCovers, QS
         return false;
     }
 
+    // Checking only that the name appears would pass an archive holding an empty or
+    // wrong dump — pg_dump can exit 0 and still produce nothing useful if it were
+    // ever pointed at the wrong database. Read the dump back out and require a COPY
+    // block for every table, so "verified" means the data is actually in there.
+    QProcess extract;
+    extract.start(QStringLiteral("/usr/bin/unzip"),
+                  {QStringLiteral("-p"), zipPath, QStringLiteral("database.sql")});
+    if (!extract.waitForFinished(60000) || extract.exitCode() != 0) {
+        if (errorOut)
+            *errorOut = QStringLiteral("database.sql could not be read back from the archive");
+        return false;
+    }
+
+    const QString dump = QString::fromUtf8(extract.readAllStandardOutput());
+    if (dump.trimmed().isEmpty()) {
+        if (errorOut)
+            *errorOut = QStringLiteral("database.sql in the archive is empty");
+        return false;
+    }
+
+    const QStringList expectedTables = {
+        QStringLiteral("books"),
+        QStringLiteral("tags"),
+        QStringLiteral("book_tags"),
+        QStringLiteral("favorite_quotes"),
+        QStringLiteral("challenges"),
+        QStringLiteral("highlights"),
+        QStringLiteral("reading_sessions")
+    };
+
+    for (const QString &table : expectedTables) {
+        if (!dump.contains(QStringLiteral("COPY public.%1 ").arg(table))) {
+            if (errorOut)
+                *errorOut = QStringLiteral("Archive is missing table data for %1").arg(table);
+            return false;
+        }
+    }
+
     // `unzip -l` lists one line per entry, including a line for the "covers/"
     // directory itself (created because zip -r archived "." recursively). Each
     // cover file line reads "covers/<name>", so counting occurrences of "covers/"
@@ -215,14 +264,17 @@ bool BackupManager::backupTo(const QString &filePath)
 
     // 1. Database dump
     QString error;
+    // Taken from the same config the app connects with, so the two cannot drift.
+    // Hardcoding them here would let the backup keep dumping the old database after
+    // a connection change, and nothing would say so.
     const QStringList dumpArgs = {
-        QStringLiteral("--host=localhost"),
-        QStringLiteral("--port=5432"),
-        QStringLiteral("--username=sqtx"),
+        QStringLiteral("--host=%1").arg(QString::fromLatin1(BookWorm::Config::DB_HOST)),
+        QStringLiteral("--port=%1").arg(BookWorm::Config::DB_PORT),
+        QStringLiteral("--username=%1").arg(QString::fromLatin1(BookWorm::Config::DB_USER)),
         QStringLiteral("--no-owner"),
         QStringLiteral("--no-privileges"),
         QStringLiteral("--file=") + stagingDir + QStringLiteral("/database.sql"),
-        QStringLiteral("wormbook")
+        QString::fromLatin1(BookWorm::Config::DB_NAME)
     };
     if (!runProcess(m_pgDumpPath, dumpArgs, &error)) {
         emit backupFinished(false, error);
@@ -277,8 +329,14 @@ bool BackupManager::backupTo(const QString &filePath)
         return false;
     }
 
-    QFile::remove(destination);
-    if (!QFile::rename(partPath, destination)) {
+    // std::filesystem::rename replaces the destination atomically. QFile::rename
+    // refuses to overwrite, which would force a remove() first — and if the rename
+    // then failed, the previous good backup would already be gone.
+    std::error_code renameError;
+    std::filesystem::rename(std::filesystem::path(partPath.toStdString()),
+                            std::filesystem::path(destination.toStdString()),
+                            renameError);
+    if (renameError) {
         QFile::remove(partPath);
         emit backupFinished(false, QStringLiteral("Could not write to ") + destination);
         return false;

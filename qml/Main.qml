@@ -49,12 +49,26 @@ ApplicationWindow {
             return true;   // unreadable timestamp — treat as never backed up
 
         var due = new Date(last);
-        if (root.backupIntervalUnit === "D")
+        if (root.backupIntervalUnit === "D") {
             due.setDate(due.getDate() + root.backupIntervalValue);
-        else if (root.backupIntervalUnit === "M")
-            due.setMonth(due.getMonth() + root.backupIntervalValue);
-        else
-            due.setFullYear(due.getFullYear() + root.backupIntervalValue);
+        } else {
+            // setMonth/setFullYear do not clamp the day, so 31 January + 1 month
+            // rolls over into 3 March and quietly delays the backup. Clamp the day
+            // to the target month's length instead.
+            var day = due.getDate();
+            due.setDate(1);
+            if (root.backupIntervalUnit === "M")
+                due.setMonth(due.getMonth() + root.backupIntervalValue);
+            else
+                due.setFullYear(due.getFullYear() + root.backupIntervalValue);
+            var daysInMonth = new Date(due.getFullYear(), due.getMonth() + 1, 0).getDate();
+            due.setDate(Math.min(day, daysInMonth));
+        }
+
+        // A clock set forward and later corrected leaves a timestamp in the future,
+        // which would suppress backups until real time caught up. Treat that as due.
+        if (last.getTime() > Date.now())
+            return true;
 
         return new Date() >= due;
     }
@@ -1379,7 +1393,9 @@ ApplicationWindow {
     FolderDialog {
         id: backupFolderDialog
         title: Theme.tr("Choose Backup Folder")
-        onAccepted: root.backupFolder = selectedFolder
+        // Strip the scheme once here, the way the CSV paths are handled, so the
+        // settings row shows a plain path instead of file:///Users/...
+        onAccepted: root.backupFolder = selectedFolder.toString().replace("file://", "")
     }
 
     Connections {
