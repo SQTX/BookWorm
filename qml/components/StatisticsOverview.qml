@@ -638,7 +638,7 @@ Item {
                         Row {
                             required property var modelData
                             required property int index
-                            width: parent.width
+                            Layout.fillWidth: true
 
                             Text {
                                 width: parent.width * 0.12
@@ -715,6 +715,7 @@ Item {
                     // Header: title + chart-type switcher
                     RowLayout {
                         Layout.fillWidth: true
+                        Layout.bottomMargin: 2
                         spacing: Theme.spacingMedium
 
                         Text {
