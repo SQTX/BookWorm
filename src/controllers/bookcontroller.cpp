@@ -13,6 +13,10 @@ BookController::BookController(QObject *parent)
     , m_model(new BookModel(this))
     , m_priorityModel(new BookModel(this))
     , m_standardModel(new BookModel(this))
+    , m_readingModel(new BookModel(this))
+    , m_plannedModel(new BookModel(this))
+    , m_readModel(new BookModel(this))
+    , m_abandonedModel(new BookModel(this))
 {
 }
 
@@ -30,6 +34,11 @@ BookModel *BookController::standardModel() const
 {
     return m_standardModel;
 }
+
+BookModel *BookController::readingModel() const   { return m_readingModel; }
+BookModel *BookController::plannedModel() const   { return m_plannedModel; }
+BookModel *BookController::readModel() const      { return m_readModel; }
+BookModel *BookController::abandonedModel() const { return m_abandonedModel; }
 
 void BookController::loadBooks()
 {
@@ -832,20 +841,49 @@ void BookController::applyFilters()
     // split models below, so flagged books can render in their own section.
     m_model->setBooks(filtered);
 
-    // Split only in the default sort — an explicit sort stays one list.
-    if (m_priorityEnabled && m_sortMode == QStringLiteral("default")) {
+    // Grouping (priority split + per-status sections) applies only to the default
+    // sort. An explicit sort is an ordering the user asked for, so it stays one flat
+    // list in m_standardModel with every section model emptied.
+    const bool grouped = (m_sortMode == QStringLiteral("default"));
+
+    if (grouped) {
         QVector<Book> prioritized;
         QVector<Book> standard;
-        for (const Book &book : filtered) {
-            if (book.isPriority)
-                prioritized.append(book);
-            else
-                standard.append(book);
+        if (m_priorityEnabled) {
+            for (const Book &book : filtered) {
+                if (book.isPriority)
+                    prioritized.append(book);
+                else
+                    standard.append(book);
+            }
+        } else {
+            standard = filtered;
         }
         m_priorityModel->setBooks(prioritized);
-        m_standardModel->setBooks(standard);
+
+        // Partition the non-priority remainder into one model per status. Each keeps
+        // the already-applied default ordering, so sections stay internally sorted.
+        QVector<Book> reading, planned, read, abandoned;
+        for (const Book &book : standard) {
+            if (book.status == QStringLiteral("reading"))        reading.append(book);
+            else if (book.status == QStringLiteral("planned"))   planned.append(book);
+            else if (book.status == QStringLiteral("read"))      read.append(book);
+            else if (book.status == QStringLiteral("abandoned")) abandoned.append(book);
+            else                                                 read.append(book);
+        }
+        m_readingModel->setBooks(reading);
+        m_plannedModel->setBooks(planned);
+        m_readModel->setBooks(read);
+        m_abandonedModel->setBooks(abandoned);
+
+        // Sections carry the books now; the flat grid stays empty.
+        m_standardModel->setBooks({});
     } else {
         m_priorityModel->setBooks({});
+        m_readingModel->setBooks({});
+        m_plannedModel->setBooks({});
+        m_readModel->setBooks({});
+        m_abandonedModel->setBooks({});
         m_standardModel->setBooks(filtered);
     }
 }

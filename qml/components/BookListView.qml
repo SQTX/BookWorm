@@ -104,6 +104,57 @@ Item {
         }
     }
 
+    // One labelled status section in the Library grid (Reading / Planned / …).
+    // Mirrors the Priority section: a coloured header, its own non-interactive
+    // GridView, and a closing separator. Collapses to nothing when empty.
+    component StatusSection: Column {
+        id: section
+        property var sectionModel: null
+        property string label: ""
+        property color accent: Theme.primary
+        property real gridOpacity: 1.0
+
+        width: parent ? parent.width : 0
+        visible: sectionModel && sectionModel.count > 0
+        height: visible ? implicitHeight : 0
+        spacing: 0
+
+        Item {
+            width: parent.width
+            height: sectionLabel.implicitHeight + Theme.spacingSmall
+
+            Text {
+                id: sectionLabel
+                anchors.left: parent.left
+                anchors.top: parent.top
+                text: section.label
+                color: section.accent
+                font.pixelSize: Theme.fontSizeSmall
+                font.bold: true
+            }
+        }
+
+        GridView {
+            width: parent.width
+            height: contentHeight
+            interactive: false
+            opacity: section.gridOpacity
+            cellWidth: bookListPage.cellWidthFor(width)
+            cellHeight: cellWidth * (316 / 196)
+            model: section.sectionModel
+            delegate: bookCellDelegate
+        }
+
+        Rectangle {
+            width: parent.width
+            height: 1
+            color: section.accent
+            opacity: 0.4
+        }
+
+        Item { width: parent.width; height: Theme.spacingLarge }
+    }
+
     Component.onCompleted: {
         availableYears = bookController.getAvailableYears();
         bookController.priorityEnabled = priorityEnabled;
@@ -408,7 +459,30 @@ Item {
                     height: bookController.priorityModel.count > 0 ? Theme.spacingLarge : 0
                 }
 
-                // ── Everything else ──
+                // ── Status sections (default sort only; models empty otherwise) ──
+                StatusSection {
+                    sectionModel: bookController.readingModel
+                    label: Theme.tr("Reading")
+                    accent: Theme.statusReading
+                }
+                StatusSection {
+                    sectionModel: bookController.plannedModel
+                    label: Theme.tr("Planned")
+                    accent: Theme.statusPlanned
+                }
+                StatusSection {
+                    sectionModel: bookController.readModel
+                    label: Theme.tr("Read")
+                    accent: Theme.statusRead
+                }
+                StatusSection {
+                    sectionModel: bookController.abandonedModel
+                    label: Theme.tr("Abandoned")
+                    accent: Theme.statusColor("abandoned")
+                    gridOpacity: 0.7
+                }
+
+                // ── Flat grid — used only for explicit sorts (empty in default) ──
                 GridView {
                     id: gridView
                     width: parent.width
@@ -424,7 +498,7 @@ Item {
             // Empty state
             Text {
                 anchors.centerIn: parent
-                visible: gridView.count === 0 && priorityGrid.count === 0
+                visible: bookController.model.count === 0
                 text: searchField.text ? Theme.tr("No books match your search") : Theme.tr("No books yet. Click + to add one!")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeLarge

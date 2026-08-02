@@ -13,6 +13,12 @@ class BookController : public QObject
     Q_PROPERTY(BookModel* model READ model CONSTANT)
     Q_PROPERTY(BookModel* priorityModel READ priorityModel CONSTANT)
     Q_PROPERTY(BookModel* standardModel READ standardModel CONSTANT)
+    // Non-priority books split by status, populated only in the default sort so the
+    // Library grid can render one labelled section per status. Empty otherwise.
+    Q_PROPERTY(BookModel* readingModel READ readingModel CONSTANT)
+    Q_PROPERTY(BookModel* plannedModel READ plannedModel CONSTANT)
+    Q_PROPERTY(BookModel* readModel READ readModel CONSTANT)
+    Q_PROPERTY(BookModel* abandonedModel READ abandonedModel CONSTANT)
     Q_PROPERTY(QString filterStatus READ filterStatus WRITE setFilterStatus NOTIFY filterStatusChanged)
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
     Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
@@ -26,6 +32,10 @@ public:
     BookModel *model() const;
     BookModel *priorityModel() const;
     BookModel *standardModel() const;
+    BookModel *readingModel() const;
+    BookModel *plannedModel() const;
+    BookModel *readModel() const;
+    BookModel *abandonedModel() const;
 
     Q_INVOKABLE void loadBooks();
     Q_INVOKABLE bool addBook(const QVariantMap &bookData);
@@ -108,6 +118,10 @@ private:
     BookModel *m_model;
     BookModel *m_priorityModel;
     BookModel *m_standardModel;
+    BookModel *m_readingModel;
+    BookModel *m_plannedModel;
+    BookModel *m_readModel;
+    BookModel *m_abandonedModel;
     QVector<Book> m_allBooks;
     QString m_filterStatus;
     QString m_searchQuery;
