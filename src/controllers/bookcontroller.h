@@ -36,6 +36,10 @@ public:
     Q_INVOKABLE bool updateReadingProgress(int bookId, int newCurrentPage);
     Q_INVOKABLE bool markAsRead(int bookId, int rating, const QString &review);
     Q_INVOKABLE bool deleteReadingSession(int sessionId);
+    // Manual session edit. isoDate is "yyyy-MM-dd". Returns an empty string on
+    // success, otherwise a translation key describing why it was rejected — the UI
+    // runs the result through Theme.tr() and shows it inline without closing.
+    Q_INVOKABLE QString updateReadingSession(int sessionId, const QString &isoDate, int pages);
 
     Q_INVOKABLE QStringList getAllTags();
     Q_INVOKABLE QVariantList getAllTagsWithColors();

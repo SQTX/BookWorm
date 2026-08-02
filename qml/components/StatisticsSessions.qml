@@ -9,6 +9,16 @@ Item {
     id: sessionsPage
 
     readonly property var dayLabels: Theme.getDayLabels()
+
+    // Width of the pages label at its widest (3-digit count), so every row reserves
+    // the same space and the Edit button never shifts with the digit count.
+    readonly property real pagesLabelWidth: pagesLabelMetric.width
+    TextMetrics {
+        id: pagesLabelMetric
+        font.pixelSize: Theme.fontSizeMedium
+        font.bold: true
+        text: "999 " + Theme.tr("pages")
+    }
     // Backend returns weekday as 0 = Sunday ... 6 = Saturday. The UI wants
     // Monday-first order, so this maps display index -> backend weekday.
     readonly property var mondayFirstOrder: [1, 2, 3, 4, 5, 6, 0]
@@ -453,7 +463,27 @@ Item {
                                     }
                                 }
 
+                                ToolButton {
+                                    id: editButton
+                                    text: Theme.tr("Edit")
+                                    onClicked: editSessionDialog.openFor(sessionRow.modelData)
+                                    // No Material hover fill — hover just underlines the label.
+                                    background: Item {}
+                                    contentItem: Text {
+                                        text: editButton.text
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.underline: editButton.hovered
+                                        verticalAlignment: Text.AlignVCenter
+                                        horizontalAlignment: Text.AlignHCenter
+                                    }
+                                }
+
                                 Text {
+                                    // Fixed width sized for a 3-digit count so the Edit button
+                                    // to its left does not shift when the number is 1 or 2 digits.
+                                    Layout.preferredWidth: sessionsPage.pagesLabelWidth
+                                    horizontalAlignment: Text.AlignRight
                                     text: sessionRow.modelData.pages + " " + Theme.tr("pages")
                                     color: Theme.primary
                                     font.pixelSize: Theme.fontSizeMedium
@@ -494,6 +524,139 @@ Item {
 
             // Bottom spacer
             Item { Layout.preferredHeight: Theme.spacingXL }
+        }
+    }
+
+    // ── Edit session dialog ──
+    Dialog {
+        id: editSessionDialog
+
+        property int sessionId: -1
+        property string bookTitle: ""
+
+        anchors.centerIn: Overlay.overlay
+        width: 380
+        modal: true
+        closePolicy: Dialog.NoAutoClose
+        title: Theme.tr("Edit session")
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.background: Theme.surface
+        Material.foreground: Theme.textOnSurface
+
+        // Prefill the fields from a recentSessions entry, then show.
+        function openFor(session) {
+            sessionId = session.id;
+            bookTitle = session.title;
+            dateField.text = Qt.formatDate(session.date, "yyyy-MM-dd");
+            pagesSpin.value = session.pages;
+            errorLabel.text = "";
+            open();
+        }
+
+        ColumnLayout {
+            width: parent.width
+            spacing: Theme.spacingMedium
+
+            Text {
+                Layout.fillWidth: true
+                text: editSessionDialog.bookTitle
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeMedium
+                font.bold: true
+                elide: Text.ElideRight
+            }
+
+            // Date
+            Text {
+                text: Theme.tr("Date")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            TextField {
+                id: dateField
+                Layout.fillWidth: true
+                placeholderText: "yyyy-MM-dd"
+                inputMask: "9999-99-99;_"
+                color: Theme.textOnSurface
+            }
+
+            // Pages
+            Text {
+                text: Theme.tr("Pages read")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSizeSmall
+            }
+            SpinBox {
+                id: pagesSpin
+                Layout.fillWidth: true
+                editable: true
+                from: 0
+                to: 99999
+            }
+
+            // Hint: 0 pages removes the session entirely.
+            Text {
+                Layout.fillWidth: true
+                visible: pagesSpin.value === 0
+                text: Theme.tr("Setting pages to 0 deletes this session")
+                color: Theme.error
+                font.pixelSize: Theme.fontSizeSmall
+                font.italic: true
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                id: errorLabel
+                Layout.fillWidth: true
+                visible: text.length > 0
+                color: Theme.error
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: Theme.spacingSmall
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: Theme.tr("Cancel")
+                    flat: true
+                    onClicked: editSessionDialog.close()
+                }
+
+                Button {
+                    text: Theme.tr("Save")
+                    highlighted: true
+                    onClicked: {
+                        // Editable SpinBox does not commit its text until focus-loss;
+                        // force it before reading .value (see CLAUDE.md gotcha).
+                        pagesSpin.value = pagesSpin.valueFromText(
+                            pagesSpin.contentItem.text, pagesSpin.locale);
+
+                        // 0 pages is a delete, not an edit.
+                        if (pagesSpin.value === 0) {
+                            bookController.deleteReadingSession(editSessionDialog.sessionId);
+                            statsProvider.refresh();
+                            editSessionDialog.close();
+                            return;
+                        }
+
+                        var err = bookController.updateReadingSession(
+                            editSessionDialog.sessionId, dateField.text, pagesSpin.value);
+
+                        if (err === "") {
+                            statsProvider.refresh();
+                            editSessionDialog.close();
+                        } else {
+                            errorLabel.text = Theme.tr(err);
+                        }
+                    }
+                }
+            }
         }
     }
 

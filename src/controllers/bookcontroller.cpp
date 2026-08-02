@@ -3,6 +3,7 @@
 
 #include <QFile>
 #include <QTextStream>
+#include <QDate>
 #include <QUrl>
 #include <QSet>
 #include <algorithm>
@@ -203,6 +204,21 @@ void BookController::updateCachedBook(const Book &book)
 bool BookController::deleteReadingSession(int sessionId)
 {
     return DatabaseManager::instance().deleteSession(sessionId);
+}
+
+QString BookController::updateReadingSession(int sessionId, const QString &isoDate, int pages)
+{
+    const QDate date = QDate::fromString(isoDate, Qt::ISODate);
+    if (!date.isValid() || pages < 1)
+        return QStringLiteral("Invalid session values");
+
+    if (DatabaseManager::instance().sessionDateTaken(sessionId, date))
+        return QStringLiteral("A session for that day already exists");
+
+    if (!DatabaseManager::instance().updateSession(sessionId, date, pages))
+        return QStringLiteral("Failed to update session");
+
+    return QString();
 }
 
 QVariantMap BookController::getTypeDistribution()

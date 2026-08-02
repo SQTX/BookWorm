@@ -63,6 +63,13 @@ public:
     // reporting on the return value without splitting those two cases first.
     bool recordSession(int bookId, int pageStart, int pageEnd, const QString &source);
     bool deleteSession(int sessionId);
+    // Manual edit of a single session. page_start is kept fixed and page_end is
+    // recomputed as page_start + newPages, so the caller only supplies the page
+    // count shown in the UI. Returns false on any failure (including newPages < 1).
+    bool updateSession(int sessionId, const QDate &newDate, int newPages);
+    // True when another session of the same book+source already occupies newDate —
+    // moving this session there would violate UNIQUE (book_id, session_date, source).
+    bool sessionDateTaken(int sessionId, const QDate &newDate);
 
     // Reading session statistics.
     // year = 0 means all years; an empty audioMode means any mode. The mode is matched

@@ -708,6 +708,58 @@ bool DatabaseManager::deleteSession(int sessionId)
     return true;
 }
 
+bool DatabaseManager::sessionDateTaken(int sessionId, const QDate &newDate)
+{
+    QSqlQuery q(m_db);
+    // A conflict is another row sharing this session's book_id AND source that already
+    // sits on newDate. Self-match is excluded so keeping the date is never a conflict.
+    q.prepare(
+        "SELECT 1 FROM reading_sessions o "
+        "JOIN reading_sessions s ON s.book_id = o.book_id AND s.source = o.source "
+        "WHERE s.id = :id AND o.id <> :id AND o.session_date = :date LIMIT 1"
+    );
+    q.bindValue(":id",   sessionId);
+    q.bindValue(":date", newDate);
+
+    if (!q.exec()) {
+        qWarning() << "sessionDateTaken error:" << q.lastError().text();
+        // Fail safe: report "taken" so a failed check never lets a duplicate slip past.
+        return true;
+    }
+    return q.next();
+}
+
+bool DatabaseManager::updateSession(int sessionId, const QDate &newDate, int newPages)
+{
+    if (newPages < 1 || !newDate.isValid())
+        return false;
+
+    // page_start is the anchor; the edited page count only moves page_end.
+    QSqlQuery sel(m_db);
+    sel.prepare("SELECT page_start FROM reading_sessions WHERE id = :id");
+    sel.bindValue(":id", sessionId);
+    if (!sel.exec() || !sel.next()) {
+        qWarning() << "updateSession: session not found" << sessionId;
+        return false;
+    }
+    const int pageStart = sel.value(0).toInt();
+
+    QSqlQuery q(m_db);
+    q.prepare(
+        "UPDATE reading_sessions SET session_date = :date, page_end = :pageEnd "
+        "WHERE id = :id"
+    );
+    q.bindValue(":date",    newDate);
+    q.bindValue(":pageEnd", pageStart + newPages);
+    q.bindValue(":id",      sessionId);
+
+    if (!q.exec()) {
+        qWarning() << "updateSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 // ─── Reading session statistics ────────────────────────────
 
 // The audio mode is read from the book on every query rather than stored on the

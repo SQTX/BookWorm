@@ -236,6 +236,12 @@ var _pl = {
     "Recent sessions": "Ostatnie sesje",
     "No reading sessions yet": "Brak sesji czytania",
     "Sessions are recorded when you add pages": "Sesje są zapisywane, gdy dodajesz strony",
+    "Edit session": "Edytuj sesję",
+    "Date": "Data",
+    "A session for that day already exists": "Sesja na ten dzień już istnieje",
+    "Failed to update session": "Nie udało się zaktualizować sesji",
+    "Invalid session values": "Nieprawidłowe wartości sesji",
+    "Setting pages to 0 deletes this session": "Ustawienie 0 stron usuwa tę sesję",
 
     // ── ChallengesView ──
     "Completed": "Ukończone",
