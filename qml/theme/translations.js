@@ -221,6 +221,9 @@ var _pl = {
     "No yearly data yet": "Brak danych rocznych",
     "Genre Distribution": "Rozkład gatunków",
     "No genre data yet": "Brak danych o gatunkach",
+    "Bars": "Słupki",
+    "Pie": "Kołowy",
+    "Treemap": "Treemap",
 
     // ── StatisticsView: tabs ──
     "Overview": "Przegląd",
