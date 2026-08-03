@@ -53,7 +53,8 @@ public:
 
     // Challenges
     QVariantList fetchAllChallenges();
-    int insertChallenge(const QString &name, int targetBooks, const QDate &deadline);
+    int insertChallenge(const QString &name, const QString &metric, int targetValue,
+                        const QDate &deadline, const QString &periodUnit, int periodCount);
     bool deleteChallenge(int id);
     QVariantList fetchBooksForChallenge(int challengeId);
 

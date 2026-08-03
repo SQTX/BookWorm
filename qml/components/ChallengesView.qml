@@ -21,6 +21,25 @@ Item {
         challenges = bookController.getChallenges();
     }
 
+    // Unit shown next to a challenge's numbers, per metric.
+    function metricUnit(metric) {
+        if (metric === "pages") return Theme.tr("pages");
+        if (metric === "pages_per_day") return Theme.tr("pg/day");
+        return Theme.tr("books");
+    }
+
+    // Current value formatted for display (the per-day average is rounded).
+    function fmtCurrent(md) {
+        return md.metric === "pages_per_day" ? Math.round(md.currentValue) : md.currentValue;
+    }
+
+    // Human label for a metric, used in the card and the create dialog.
+    function metricLabel(metric) {
+        if (metric === "pages") return Theme.tr("Pages read");
+        if (metric === "pages_per_day") return Theme.tr("Pages per day");
+        return Theme.tr("Books read");
+    }
+
     // Timer to refresh elapsed time every minute
     Timer {
         interval: 60000
@@ -162,9 +181,26 @@ Item {
                                 spacing: Theme.spacingMedium
 
                                 Text {
-                                    text: modelData.currentCount + " / " + modelData.targetBooks + " " + Theme.tr("books")
+                                    text: challengesPage.fmtCurrent(modelData) + " / " + modelData.targetValue
+                                          + " " + challengesPage.metricUnit(modelData.metric)
                                     color: Theme.textOnSurface
                                     font.pixelSize: Theme.fontSizeMedium
+                                }
+
+                                // Metric type chip
+                                Rectangle {
+                                    implicitWidth: metricChip.implicitWidth + Theme.spacingMedium
+                                    implicitHeight: 20
+                                    radius: 10
+                                    color: Theme.surfaceVariant
+
+                                    Text {
+                                        id: metricChip
+                                        anchors.centerIn: parent
+                                        text: challengesPage.metricLabel(modelData.metric)
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                    }
                                 }
 
                                 Item { Layout.fillWidth: true }
@@ -275,40 +311,31 @@ Item {
                                         }
                                     }
 
-                                    // Average pages per day needed
+                                    // Remaining to the goal (metric-aware)
                                     RowLayout {
                                         Layout.fillWidth: true
                                         spacing: Theme.spacingMedium
                                         visible: modelData.progress < 1.0
 
                                         Text {
-                                            text: "\u{1F4D6} " + Theme.tr("Avg pages/day to finish:")
+                                            text: "\u{1F3AF} " + Theme.tr("To go:")
                                             color: Theme.textSecondary
                                             font.pixelSize: Theme.fontSizeSmall
                                         }
 
                                         Text {
                                             text: {
-                                                var dl = new Date(modelData.deadline);
-                                                var now = new Date();
-                                                var daysLeft = Math.max(1, Math.ceil((dl - now) / (1000 * 60 * 60 * 24)));
-                                                var booksLeft = Math.max(0, modelData.targetBooks - modelData.currentCount);
-                                                var avgPagesPerBook = 400;
-                                                var totalPagesLeft = booksLeft * avgPagesPerBook;
-                                                var pagesPerDay = Math.ceil(totalPagesLeft / daysLeft);
-                                                if (booksLeft <= 0) return "\u2714 " + Theme.tr("done!");
-                                                return pagesPerDay + " " + Theme.tr("pages/day") + " (" + booksLeft + " " + Theme.tr("books") + " \u00D7 400 pp)";
+                                                if (modelData.metric === "pages_per_day") {
+                                                    // Average is a rate, not a countdown \u2014 show target vs current pace.
+                                                    return Theme.tr("target") + " " + modelData.targetValue + " "
+                                                           + Theme.tr("pg/day") + " \u00B7 " + Theme.tr("now")
+                                                           + " " + Math.round(modelData.currentValue);
+                                                }
+                                                var left = Math.max(0, modelData.targetValue - modelData.currentValue);
+                                                return left + " " + challengesPage.metricUnit(modelData.metric)
+                                                       + " " + Theme.tr("left");
                                             }
-                                            color: {
-                                                var dl = new Date(modelData.deadline);
-                                                var now = new Date();
-                                                var daysLeft = Math.max(1, Math.ceil((dl - now) / (1000 * 60 * 60 * 24)));
-                                                var booksLeft = Math.max(0, modelData.targetBooks - modelData.currentCount);
-                                                var pagesPerDay = Math.ceil((booksLeft * 400) / daysLeft);
-                                                if (pagesPerDay > 100) return Theme.error;
-                                                if (pagesPerDay > 50) return Theme.statusPlanned;
-                                                return Theme.statusRead;
-                                            }
+                                            color: Theme.textOnSurface
                                             font.pixelSize: Theme.fontSizeSmall
                                             font.bold: true
                                         }
@@ -333,7 +360,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: challengesPage.expandedId === modelData.id
-                                          ? "\u25B2 " + Theme.tr("Hide books") : "\u25BC " + Theme.tr("Show books") + " (" + modelData.currentCount + ")"
+                                          ? "\u25B2 " + Theme.tr("Hide books") : "\u25BC " + Theme.tr("Show books")
                                     color: Theme.primary
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
@@ -414,15 +441,31 @@ Item {
         }
     }
 
-    // ── Add challenge dialog (2 sliders) ──
+    // ── Add challenge dialog ──
     Dialog {
         id: addChallengeDialog
         title: ""
         modal: true
         standardButtons: Dialog.NoButton
         anchors.centerIn: parent
-        width: Math.min(480, parent.width - 48)
+        width: Math.min(500, parent.width - 48)
         padding: 0
+
+        // Two ways to set the deadline: a period from today, or an explicit date.
+        property bool periodMode: true
+
+        // Deadline the current inputs would produce, as a yyyy-MM-dd string.
+        function previewDeadline() {
+            if (!periodMode)
+                return dateField.text;
+            var d = new Date();
+            var c = countSpin.value;
+            var u = unitCombo.currentValue;
+            if (u === "day")        d.setDate(d.getDate() + c);
+            else if (u === "month") d.setMonth(d.getMonth() + c);
+            else                    d.setFullYear(d.getFullYear() + c);
+            return Qt.formatDate(d, "yyyy-MM-dd");
+        }
 
         Material.theme: Theme.isDark ? Material.Dark : Material.Light
         Material.accent: Theme.primary
@@ -436,8 +479,14 @@ Item {
 
         onOpened: {
             challengeNameField.text = "";
-            booksSlider.value = 5;
-            monthsSlider.value = 3;
+            metricCombo.currentIndex = 0;
+            targetSpin.value = 5;
+            periodMode = true;
+            unitCombo.currentIndex = 1;   // months
+            countSpin.value = 3;
+            var d = new Date();
+            d.setMonth(d.getMonth() + 3);
+            dateField.text = Qt.formatDate(d, "yyyy-MM-dd");
         }
 
         ColumnLayout {
@@ -477,126 +526,152 @@ Item {
                     Material.accent: Theme.primary
                 }
 
-                // Books slider
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
+                // Metric type
+                Text {
+                    text: Theme.tr("Challenge type")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: Theme.tr("Number of books")
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSmall
-                        }
-                        Item { Layout.fillWidth: true }
-                        Text {
-                            text: Math.round(booksSlider.value)
-                            color: Theme.primary
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.bold: true
+                ComboBox {
+                    id: metricCombo
+                    Layout.fillWidth: true
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                    textRole: "key"
+                    valueRole: "value"
+                    model: ListModel {
+                        Component.onCompleted: {
+                            append({ key: Theme.tr("Books read"),   value: "books" });
+                            append({ key: Theme.tr("Pages read"),   value: "pages" });
+                            append({ key: Theme.tr("Pages per day"), value: "pages_per_day" });
                         }
                     }
+                }
 
-                    Slider {
-                        id: booksSlider
+                // Target value
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
                         Layout.fillWidth: true
-                        from: 1; to: 30
-                        stepSize: 1
+                        text: metricCombo.currentValue === "pages_per_day"
+                              ? Theme.tr("Target pages per day")
+                              : metricCombo.currentValue === "pages"
+                                ? Theme.tr("Number of pages")
+                                : Theme.tr("Number of books")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+                    SpinBox {
+                        id: targetSpin
+                        editable: true
+                        from: 1
+                        to: 1000000
                         value: 5
-                        snapMode: Slider.SnapAlways
                         Material.accent: Theme.primary
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text { text: "1"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
-                        Item { Layout.fillWidth: true }
-                        Text { text: "30"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
                     }
                 }
 
-                // Months slider
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
+                // Timeframe mode
+                Text {
+                    text: Theme.tr("Timeframe")
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: Theme.tr("Duration (months)")
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSmall
-                        }
-                        Item { Layout.fillWidth: true }
-                        Text {
-                            text: {
-                                var m = Math.round(monthsSlider.value);
-                                return m + " " + (m === 1 ? Theme.tr("month") : Theme.tr("months"));
+                Row {
+                    spacing: Theme.spacingSmall
+
+                    Repeater {
+                        model: [
+                            { key: "Period",   period: true },
+                            { key: "End date", period: false }
+                        ]
+                        Rectangle {
+                            required property var modelData
+                            readonly property bool sel: addChallengeDialog.periodMode === modelData.period
+                            width: modeChipText.implicitWidth + Theme.spacingLarge
+                            height: 30
+                            radius: 15
+                            color: sel ? Theme.primary : Theme.surfaceVariant
+                            border.width: 1
+                            border.color: sel ? "transparent" : Theme.divider
+
+                            Text {
+                                id: modeChipText
+                                anchors.centerIn: parent
+                                text: Theme.tr(parent.modelData.key)
+                                color: parent.sel ? Theme.textOnPrimary : Theme.textSecondary
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.bold: parent.sel
                             }
-                            color: Theme.primary
-                            font.pixelSize: Theme.fontSizeLarge
-                            font.bold: true
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: addChallengeDialog.periodMode = parent.modelData.period
+                            }
                         }
-                    }
-
-                    Slider {
-                        id: monthsSlider
-                        Layout.fillWidth: true
-                        from: 1; to: 12
-                        stepSize: 1
-                        value: 3
-                        snapMode: Slider.SnapAlways
-                        Material.accent: Theme.primary
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text { text: "1"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
-                        Item { Layout.fillWidth: true }
-                        Text { text: "12"; color: Theme.textSecondary; font.pixelSize: Theme.fontSizeSmall }
                     }
                 }
 
-                // Preview: calculated deadline & avg pages/day
+                // Period inputs (unit + count)
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingMedium
+                    visible: addChallengeDialog.periodMode
+
+                    SpinBox {
+                        id: countSpin
+                        editable: true
+                        from: 1
+                        to: 999
+                        value: 3
+                        Material.accent: Theme.primary
+                    }
+
+                    ComboBox {
+                        id: unitCombo
+                        Layout.fillWidth: true
+                        font.pixelSize: Theme.fontSizeMedium
+                        Material.accent: Theme.primary
+                        textRole: "key"
+                        valueRole: "value"
+                        model: ListModel {
+                            Component.onCompleted: {
+                                append({ key: Theme.tr("days"),   value: "day" });
+                                append({ key: Theme.tr("months"), value: "month" });
+                                append({ key: Theme.tr("years"),  value: "year" });
+                            }
+                        }
+                    }
+                }
+
+                // Explicit end date
+                TextField {
+                    Layout.fillWidth: true
+                    id: dateField
+                    visible: !addChallengeDialog.periodMode
+                    placeholderText: "yyyy-MM-dd"
+                    inputMask: "9999-99-99;_"
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                }
+
+                // Preview: resulting deadline
                 Rectangle {
                     Layout.fillWidth: true
-                    implicitHeight: previewCol.implicitHeight + Theme.spacingMedium * 2
+                    implicitHeight: previewText.implicitHeight + Theme.spacingMedium * 2
                     radius: Theme.radiusSmall
                     color: Theme.surfaceVariant
 
-                    ColumnLayout {
-                        id: previewCol
+                    Text {
+                        id: previewText
                         anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Theme.spacingMedium
-                        spacing: 4
-
-                        Text {
-                            text: {
-                                var now = new Date();
-                                var months = Math.round(monthsSlider.value);
-                                // End of the target month: day 0 of next month = last day of target month
-                                var deadline = new Date(now.getFullYear(), now.getMonth() + months + 1, 0);
-                                return Theme.tr("Deadline:") + " " + deadline.toISOString().split("T")[0];
-                            }
-                            color: Theme.textOnSurface
-                            font.pixelSize: Theme.fontSizeMedium
-                        }
-
-                        Text {
-                            text: {
-                                var months = Math.round(monthsSlider.value);
-                                var books = Math.round(booksSlider.value);
-                                var days = months * 30;
-                                var totalPages = books * 400;
-                                var ppd = Math.ceil(totalPages / days);
-                                return "\u2248 " + ppd + " " + Theme.tr("pages/day") + " (avg 400 " + Theme.tr("pages") + "/" + Theme.tr("Book").toLowerCase() + ")";
-                            }
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSmall
-                        }
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: Theme.spacingMedium
+                        text: Theme.tr("Deadline:") + " " + addChallengeDialog.previewDeadline()
+                        color: Theme.textOnSurface
+                        font.pixelSize: Theme.fontSizeMedium
                     }
                 }
             }
@@ -624,19 +699,23 @@ Item {
                     Material.background: enabled ? Theme.primary : Theme.surfaceVariant
                     Material.foreground: enabled ? Theme.textOnPrimary : Theme.textSecondary
                     onClicked: {
-                        var now = new Date();
-                        var months = Math.round(monthsSlider.value);
-                        // End of the target month
-                        var deadline = new Date(now.getFullYear(), now.getMonth() + months + 1, 0);
-                        var deadlineStr = deadline.toISOString().split("T")[0];
+                        // Editable SpinBoxes don't commit typed text until focus-loss.
+                        targetSpin.value = targetSpin.valueFromText(targetSpin.contentItem.text, targetSpin.locale);
+                        countSpin.value = countSpin.valueFromText(countSpin.contentItem.text, countSpin.locale);
 
-                        bookController.addChallenge(
-                            challengeNameField.text.trim(),
-                            Math.round(booksSlider.value),
-                            deadlineStr
-                        );
-                        challengesPage.loadChallenges();
-                        addChallengeDialog.close();
+                        var metric = metricCombo.currentValue;
+                        var target = targetSpin.value;
+                        var ok;
+                        if (addChallengeDialog.periodMode)
+                            ok = bookController.addChallenge(challengeNameField.text.trim(), metric,
+                                                             target, "", unitCombo.currentValue, countSpin.value);
+                        else
+                            ok = bookController.addChallenge(challengeNameField.text.trim(), metric,
+                                                             target, dateField.text, "custom", 0);
+                        if (ok) {
+                            challengesPage.loadChallenges();
+                            addChallengeDialog.close();
+                        }
                     }
                 }
             }

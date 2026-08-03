@@ -141,6 +141,14 @@ bool DatabaseManager::initializeSchema()
            "  deadline DATE NOT NULL,"
            "  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"
            ")");
+    // Generalise challenges beyond a book count: a metric ('books' | 'pages' |
+    // 'pages_per_day'), a generic target, and the period the deadline came from.
+    q.exec("ALTER TABLE challenges ADD COLUMN IF NOT EXISTS metric VARCHAR(24) NOT NULL DEFAULT 'books'");
+    q.exec("ALTER TABLE challenges ADD COLUMN IF NOT EXISTS target_value INTEGER NOT NULL DEFAULT 1");
+    q.exec("ALTER TABLE challenges ADD COLUMN IF NOT EXISTS period_unit VARCHAR(12) DEFAULT 'custom'");
+    q.exec("ALTER TABLE challenges ADD COLUMN IF NOT EXISTS period_count INTEGER DEFAULT 0");
+    // Book-count challenges keep target_value in step with the legacy target_books.
+    q.exec("UPDATE challenges SET target_value = target_books WHERE metric = 'books'");
 
     // Highlights table
     q.exec("CREATE TABLE IF NOT EXISTS highlights ("
@@ -576,51 +584,94 @@ QVariantList DatabaseManager::fetchAllChallenges()
 {
     QVariantList result;
     QSqlQuery q(m_db);
-    q.prepare("SELECT id, name, target_books, deadline, created_at FROM challenges ORDER BY deadline");
+    q.prepare("SELECT id, name, metric, target_value, deadline, created_at, "
+              "  period_unit, period_count "
+              "FROM challenges ORDER BY deadline");
 
     if (!q.exec()) {
         qWarning() << "fetchAllChallenges error:" << q.lastError().text();
         return result;
     }
 
+    const QDate today = QDate::currentDate();
+
     while (q.next()) {
         QVariantMap ch;
-        int id = q.value("id").toInt();
-        ch["id"]          = id;
+        const QString metric = q.value("metric").toString();
+        const int target      = q.value("target_value").toInt();
+        const QDate start     = q.value("created_at").toDateTime().date();
+        const QDate deadline  = q.value("deadline").toDate();
+
+        ch["id"]          = q.value("id").toInt();
         ch["name"]        = q.value("name").toString();
-        ch["targetBooks"] = q.value("target_books").toInt();
-        ch["deadline"]    = q.value("deadline").toDate().toString(Qt::ISODate);
-        ch["createdAt"]   = q.value("created_at").toDateTime().date().toString(Qt::ISODate);
+        ch["metric"]      = metric;
+        ch["targetValue"] = target;
+        ch["deadline"]    = deadline.toString(Qt::ISODate);
+        ch["createdAt"]   = start.toString(Qt::ISODate);
+        ch["periodUnit"]  = q.value("period_unit").toString();
+        ch["periodCount"] = q.value("period_count").toInt();
 
-        // Count books read within challenge period
-        QSqlQuery countQ(m_db);
-        countQ.prepare(
-            "SELECT COUNT(*) FROM books "
-            "WHERE status = 'read' AND end_date IS NOT NULL "
-            "AND end_date >= :start AND end_date <= :deadline"
-        );
-        countQ.bindValue(":start", q.value("created_at").toDateTime().date());
-        countQ.bindValue(":deadline", q.value("deadline").toDate());
-        int currentCount = 0;
-        if (countQ.exec() && countQ.next())
-            currentCount = countQ.value(0).toInt();
+        // Total span and how much of it has elapsed, both at least 1 day so the
+        // per-day metric never divides by zero on its first day.
+        const int totalDays   = qMax(1, static_cast<int>(start.daysTo(deadline)) + 1);
+        const int daysElapsed = qBound(1, static_cast<int>(start.daysTo(today)) + 1, totalDays);
 
-        ch["currentCount"] = currentCount;
-        int target = q.value("target_books").toInt();
-        ch["progress"] = target > 0 ? qMin(1.0, static_cast<double>(currentCount) / target) : 0.0;
+        double currentValue = 0.0;   // shown to the user (books, pages, or avg/day)
+        double progress     = 0.0;   // 0..1 bar fill
 
+        if (metric == QStringLiteral("books")) {
+            QSqlQuery cq(m_db);
+            cq.prepare("SELECT COUNT(*) FROM books "
+                       "WHERE status = 'read' AND end_date IS NOT NULL "
+                       "AND end_date >= :start AND end_date <= :deadline");
+            cq.bindValue(":start", start);
+            cq.bindValue(":deadline", deadline);
+            int c = 0;
+            if (cq.exec() && cq.next()) c = cq.value(0).toInt();
+            currentValue = c;
+            progress = target > 0 ? qMin(1.0, static_cast<double>(c) / target) : 0.0;
+        } else {
+            // Pages actually read (from sessions) inside the window — shared by the
+            // 'pages' total and the 'pages_per_day' average.
+            QSqlQuery pq(m_db);
+            pq.prepare("SELECT COALESCE(SUM(page_end - page_start), 0) FROM reading_sessions "
+                       "WHERE session_date >= :start AND session_date <= :deadline");
+            pq.bindValue(":start", start);
+            pq.bindValue(":deadline", deadline);
+            int pages = 0;
+            if (pq.exec() && pq.next()) pages = pq.value(0).toInt();
+
+            if (metric == QStringLiteral("pages_per_day")) {
+                currentValue = static_cast<double>(pages) / daysElapsed;   // avg so far
+                const double needed = static_cast<double>(target) * totalDays;
+                progress = needed > 0 ? qMin(1.0, static_cast<double>(pages) / needed) : 0.0;
+            } else {   // 'pages'
+                currentValue = pages;
+                progress = target > 0 ? qMin(1.0, static_cast<double>(pages) / target) : 0.0;
+            }
+        }
+
+        ch["currentValue"] = currentValue;
+        ch["progress"]     = progress;
         result.append(ch);
     }
     return result;
 }
 
-int DatabaseManager::insertChallenge(const QString &name, int targetBooks, const QDate &deadline)
+int DatabaseManager::insertChallenge(const QString &name, const QString &metric, int targetValue,
+                                     const QDate &deadline, const QString &periodUnit, int periodCount)
 {
     QSqlQuery q(m_db);
-    q.prepare("INSERT INTO challenges (name, target_books, deadline) VALUES (:name, :target, :deadline) RETURNING id");
+    // target_books is kept in sync for backward compatibility with the old column.
+    q.prepare("INSERT INTO challenges (name, metric, target_books, target_value, deadline, "
+              "  period_unit, period_count) "
+              "VALUES (:name, :metric, :target, :target, :deadline, :unit, :count) RETURNING id");
     q.bindValue(":name", name);
-    q.bindValue(":target", targetBooks);
+    q.bindValue(":metric", metric);
+    q.bindValue(":target", targetValue);
     q.bindValue(":deadline", deadline);
+    q.bindValue(":unit", periodUnit);
+    q.bindValue(":count", periodCount);
 
     if (!q.exec() || !q.next()) {
         qWarning() << "insertChallenge error:" << q.lastError().text();

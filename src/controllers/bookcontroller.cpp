@@ -614,15 +614,36 @@ QVariantList BookController::getChallenges()
     return DatabaseManager::instance().fetchAllChallenges();
 }
 
-bool BookController::addChallenge(const QString &name, int targetBooks, const QString &deadline)
+bool BookController::addChallenge(const QString &name, const QString &metric, int targetValue,
+                                  const QString &isoDeadline, const QString &periodUnit, int periodCount)
 {
-    QDate dl = QDate::fromString(deadline, Qt::ISODate);
-    if (name.trimmed().isEmpty() || !dl.isValid() || targetBooks < 1) {
+    static const QSet<QString> validMetrics = {
+        QStringLiteral("books"), QStringLiteral("pages"), QStringLiteral("pages_per_day")
+    };
+    const QString m = validMetrics.contains(metric) ? metric : QStringLiteral("books");
+
+    // Two ways to set the deadline: a period from today, or an explicit end date.
+    QDate deadline;
+    QString unit = periodUnit;
+    if (periodCount > 0) {
+        const QDate today = QDate::currentDate();
+        if (periodUnit == QStringLiteral("day"))         deadline = today.addDays(periodCount);
+        else if (periodUnit == QStringLiteral("month"))  deadline = today.addMonths(periodCount);
+        else if (periodUnit == QStringLiteral("year"))   deadline = today.addYears(periodCount);
+        else                                             deadline = today.addYears(periodCount);
+    } else {
+        deadline = QDate::fromString(isoDeadline, Qt::ISODate);
+        unit = QStringLiteral("custom");
+    }
+
+    if (name.trimmed().isEmpty() || !deadline.isValid() || targetValue < 1
+        || deadline < QDate::currentDate()) {
         emit errorOccurred("Invalid challenge data");
         return false;
     }
 
-    int id = DatabaseManager::instance().insertChallenge(name.trimmed(), targetBooks, dl);
+    int id = DatabaseManager::instance().insertChallenge(name.trimmed(), m, targetValue,
+                                                         deadline, unit, periodCount);
     return id > 0;
 }
 
