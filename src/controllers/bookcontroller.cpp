@@ -6,6 +6,7 @@
 #include <QDate>
 #include <QUrl>
 #include <QSet>
+#include <QHash>
 #include <algorithm>
 
 BookController::BookController(QObject *parent)
@@ -303,6 +304,55 @@ QVariantMap BookController::getTypeDistribution()
         dist[type] = dist.value(type, 0).toInt() + 1;
     }
     return dist;
+}
+
+QVariantList BookController::getSeriesList()
+{
+    // Group books by series name, preserving first-seen order via a parallel list.
+    QStringList order;
+    QHash<QString, QVariantList> booksBySeries;
+    QHash<QString, int> readCountBySeries;
+
+    for (const Book &book : m_allBooks) {
+        const QString series = book.series.trimmed();
+        if (series.isEmpty())
+            continue;
+
+        if (!booksBySeries.contains(series)) {
+            booksBySeries.insert(series, {});
+            readCountBySeries.insert(series, 0);
+            order.append(series);
+        }
+
+        QVariantMap b;
+        b["id"]             = book.id;
+        b["title"]          = book.title;
+        b["author"]         = book.author;
+        b["status"]         = book.status;
+        b["rating"]         = book.rating;
+        b["coverImagePath"] = book.coverImagePath;
+        booksBySeries[series].append(b);
+
+        if (book.status == QStringLiteral("read"))
+            readCountBySeries[series] += 1;
+    }
+
+    QVariantList result;
+    for (const QString &name : std::as_const(order)) {
+        const QVariantList &books = booksBySeries[name];
+        QVariantMap entry;
+        entry["name"]  = name;
+        entry["total"] = books.size();
+        entry["read"]  = readCountBySeries[name];
+        entry["books"] = books;
+        result.append(entry);
+    }
+
+    // Longest series first, so the fuller ones lead.
+    std::stable_sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value("total").toInt() > b.toMap().value("total").toInt();
+    });
+    return result;
 }
 
 QStringList BookController::getAllTags()

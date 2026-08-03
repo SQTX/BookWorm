@@ -82,6 +82,9 @@ public:
     Q_INVOKABLE bool updateReview(int bookId, const QString &review);
 
     Q_INVOKABLE QVariantMap getTypeDistribution();
+    // Books grouped by their series field (books with no series are omitted). Each
+    // entry: { name, total, read, books:[{id,title,author,status,rating,coverImagePath}] }.
+    Q_INVOKABLE QVariantList getSeriesList();
 
     // Challenges
     Q_INVOKABLE QVariantList getChallenges();

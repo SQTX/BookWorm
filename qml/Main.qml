@@ -363,6 +363,32 @@ ApplicationWindow {
                     }
                 }
 
+                // Series button
+                ToolButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 48; height: 48
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/book-cover.svg"
+                    icon.width: 22; icon.height: 22
+                    icon.color: currentPage === 4 ? Theme.primary : Theme.textSecondary
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3; height: 24
+                        radius: 2
+                        color: Theme.primary
+                        visible: currentPage === 4
+                    }
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: Theme.tr("Series")
+
+                    onClicked: {
+                        currentPage = 4;
+                        stackView.replace(null, seriesComponent);
+                    }
+                }
+
                 Item { Layout.fillHeight: true }
 
                 // Tags button
@@ -492,6 +518,15 @@ ApplicationWindow {
     Component {
         id: challengesComponent
         ChallengesView {}
+    }
+
+    Component {
+        id: seriesComponent
+        SeriesView {
+            onBookSelected: function(bookId) {
+                stackView.push(bookDetailsComponent, { bookId: bookId });
+            }
+        }
     }
 
     // ── Settings ──
