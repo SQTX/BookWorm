@@ -88,6 +88,10 @@ public:
 
     Q_INVOKABLE bool exportToCsv(const QString &filePath);
     Q_INVOKABLE int  importFromCsv(const QString &filePath);
+    // Markdown export of quotes/highlights/summary/review/notes.
+    // Per book, or the whole library into one file (returns books written, -1 on error).
+    Q_INVOKABLE bool exportBookNotesToMarkdown(int bookId, const QString &filePath);
+    Q_INVOKABLE int  exportAllNotesToMarkdown(const QString &filePath);
     Q_INVOKABLE bool resetAllData();
 
     QString filterStatus() const;

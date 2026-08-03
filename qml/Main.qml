@@ -114,6 +114,10 @@ ApplicationWindow {
                 text: Theme.tr("Export CSV")
                 onTriggered: exportDialog.open()
             }
+            Platform.MenuItem {
+                text: Theme.tr("Export notes (Markdown)")
+                onTriggered: exportNotesDialog.open()
+            }
         }
         Platform.Menu {
             title: Theme.tr("View")
@@ -1427,6 +1431,24 @@ ApplicationWindow {
             } else {
                 csvToast.show(Theme.tr("Export failed"));
             }
+        }
+    }
+
+    FileDialog {
+        id: exportNotesDialog
+        title: Theme.tr("Export notes (Markdown)")
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Markdown (*.md)"]
+        defaultSuffix: "md"
+        currentFolder: StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+        currentFile: currentFolder + "/bookworm_notes.md"
+
+        onAccepted: {
+            var n = bookController.exportAllNotesToMarkdown(selectedFile);
+            if (n >= 0)
+                csvToast.show(Theme.tr("Exported notes for") + " " + n + " " + Theme.tr("books"));
+            else
+                csvToast.show(Theme.tr("Export failed"));
         }
     }
 

@@ -737,6 +737,139 @@ bool BookController::exportToCsv(const QString &filePath)
     return true;
 }
 
+// ─── Markdown notes export ──────────────────────────────────
+
+// Build the Markdown for one book. Returns an empty string when the book has
+// nothing worth exporting (no summary, review, notes, quotes or highlights), so
+// the whole-library export can skip books that would otherwise be empty headers.
+static QString buildBookMarkdown(const Book &book,
+                                 const QVariantList &quotes,
+                                 const QVariantList &highlights)
+{
+    const bool hasText = !book.summary.trimmed().isEmpty()
+                         || !book.review.trimmed().isEmpty()
+                         || !book.notes.trimmed().isEmpty();
+    if (!hasText && quotes.isEmpty() && highlights.isEmpty())
+        return QString();
+
+    QString md;
+    md += QStringLiteral("# %1\n").arg(book.title);
+    md += QStringLiteral("*%1*").arg(book.author);
+    if (!book.series.trimmed().isEmpty())
+        md += QStringLiteral("  ·  %1").arg(book.series);
+    md += QStringLiteral("\n\n");
+
+    if (book.rating > 0)
+        md += QStringLiteral("**Rating:** %1/6\n\n").arg(book.rating);
+
+    if (!book.summary.trimmed().isEmpty())
+        md += QStringLiteral("## Summary\n\n%1\n\n").arg(book.summary.trimmed());
+
+    if (!book.review.trimmed().isEmpty())
+        md += QStringLiteral("## Review\n\n%1\n\n").arg(book.review.trimmed());
+
+    if (!book.notes.trimmed().isEmpty())
+        md += QStringLiteral("## Notes\n\n%1\n\n").arg(book.notes.trimmed());
+
+    if (!quotes.isEmpty()) {
+        md += QStringLiteral("## Favorite quotes\n\n");
+        for (const QVariant &v : quotes) {
+            const QVariantMap q = v.toMap();
+            const QString text = q.value("quote").toString().trimmed();
+            const int page = q.value("page").toInt();
+            // Prefix every line of the quote with "> " so multi-line quotes stay a blockquote.
+            QString quoted = text;
+            quoted.replace(QStringLiteral("\n"), QStringLiteral("\n> "));
+            md += QStringLiteral("> %1\n").arg(quoted);
+            if (page > 0)
+                md += QStringLiteral(">\n> — p. %1\n").arg(page);
+            md += QStringLiteral("\n");
+        }
+    }
+
+    if (!highlights.isEmpty()) {
+        md += QStringLiteral("## Highlights\n\n");
+        for (const QVariant &v : highlights) {
+            const QVariantMap h = v.toMap();
+            const QString title = h.value("title").toString().trimmed();
+            const int page = h.value("page").toInt();
+            const QString note = h.value("note").toString().trimmed();
+            md += QStringLiteral("### %1").arg(title.isEmpty() ? QStringLiteral("—") : title);
+            if (page > 0)
+                md += QStringLiteral(" (p. %1)").arg(page);
+            md += QStringLiteral("\n\n");
+            if (!note.isEmpty())
+                md += QStringLiteral("%1\n\n").arg(note);
+        }
+    }
+
+    return md;
+}
+
+bool BookController::exportBookNotesToMarkdown(int bookId, const QString &filePath)
+{
+    QString path = filePath;
+    if (path.startsWith("file://"))
+        path = QUrl(path).toLocalFile();
+
+    auto existing = DatabaseManager::instance().fetchBookById(bookId);
+    if (!existing.has_value()) {
+        emit errorOccurred("Book not found");
+        return false;
+    }
+
+    DatabaseManager &db = DatabaseManager::instance();
+    const QString md = buildBookMarkdown(existing.value(),
+                                         db.fetchQuotesForBook(bookId),
+                                         db.fetchHighlightsForBook(bookId));
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit errorOccurred("Cannot open file for writing: " + path);
+        return false;
+    }
+    QTextStream out(&file);
+    // A book with no notes still produces a minimal file rather than a silent no-op.
+    out << (md.isEmpty() ? QStringLiteral("# %1\n\n*%2*\n\n_(no notes)_\n")
+                               .arg(existing->title, existing->author)
+                         : md);
+    file.close();
+    return true;
+}
+
+int BookController::exportAllNotesToMarkdown(const QString &filePath)
+{
+    QString path = filePath;
+    if (path.startsWith("file://"))
+        path = QUrl(path).toLocalFile();
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit errorOccurred("Cannot open file for writing: " + path);
+        return -1;
+    }
+
+    QTextStream out(&file);
+    out << QStringLiteral("# Reading notes\n\n");
+
+    DatabaseManager &db = DatabaseManager::instance();
+    const auto allBooks = db.fetchAllBooks();
+    int written = 0;
+    for (const Book &book : allBooks) {
+        const QString md = buildBookMarkdown(book,
+                                             db.fetchQuotesForBook(book.id),
+                                             db.fetchHighlightsForBook(book.id));
+        if (md.isEmpty())
+            continue;  // skip books with nothing to export
+        if (written > 0)
+            out << QStringLiteral("\n---\n\n");
+        out << md;
+        ++written;
+    }
+    file.close();
+    return written;
+}
+
 int BookController::importFromCsv(const QString &filePath)
 {
     QString path = filePath;
