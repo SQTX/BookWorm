@@ -10,7 +10,7 @@ Item {
     ColumnLayout {
         id: shellColumn
         anchors.fill: parent
-        spacing: Theme.spacingLarge
+        spacing: Theme.sectionGap
 
         // ═══════════════════════════════════
         // Header + Year filter

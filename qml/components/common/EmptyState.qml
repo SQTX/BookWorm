@@ -28,19 +28,19 @@ Item {
     ColumnLayout {
         id: column
         anchors.centerIn: parent
-        width: Math.min(root.width > 0 ? root.width : 320, 320)
-        spacing: Theme.spacingMedium
+        width: Math.min(root.width > 0 ? root.width : 340, 340)
+        spacing: Theme.spacingSmall
 
         // The icon sits in a soft disc so it reads as an illustration instead of
         // a stray glyph. SVGs cannot be tinted through Image, hence the ToolButton
         // (focus and background stripped so it stays decorative).
         Rectangle {
             Layout.alignment: Qt.AlignHCenter
-            Layout.bottomMargin: Theme.spacingSmall
+            Layout.bottomMargin: Theme.spacingXS
             visible: !root.compact && root.icon !== ""
-            width: 72
-            height: 72
-            radius: 36
+            width: 54
+            height: 54
+            radius: 27
             color: Theme.surfaceVariant
             opacity: 0.6
 
@@ -50,8 +50,8 @@ Item {
                 hoverEnabled: false
                 background: Item {}
                 icon.source: root.icon
-                icon.width: 30
-                icon.height: 30
+                icon.width: 24
+                icon.height: 24
                 icon.color: Theme.textSecondary
             }
         }

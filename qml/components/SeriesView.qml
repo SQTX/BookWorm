@@ -23,7 +23,7 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.pageMargin
-        spacing: Theme.spacingLarge
+        spacing: Theme.sectionGap
 
         // Header
         PageHeader {

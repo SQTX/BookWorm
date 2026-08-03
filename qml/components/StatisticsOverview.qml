@@ -203,7 +203,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                Layout.topMargin: Theme.spacingXL
+                Layout.topMargin: Theme.spacingLarge
                 spacing: Theme.spacingMedium
 
                 StatCard {
@@ -949,7 +949,7 @@ Item {
             }
 
             // Bottom spacer
-            Item { Layout.preferredHeight: Theme.spacingXL }
+            Item { Layout.preferredHeight: Theme.spacingLarge }
         }
     }
 

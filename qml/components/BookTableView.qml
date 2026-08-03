@@ -81,10 +81,10 @@ Item {
         // Search & filter bar
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: Theme.spacingLarge
+            Layout.topMargin: Theme.sectionGap
             Layout.leftMargin: Theme.pageMargin
             Layout.rightMargin: Theme.pageMargin
-            Layout.bottomMargin: Theme.spacingLarge
+            Layout.bottomMargin: Theme.sectionGap
             spacing: Theme.spacingSmall
 
             TextField {

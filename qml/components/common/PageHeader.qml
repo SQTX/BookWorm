@@ -18,7 +18,7 @@ Item {
 
     default property alias actions: actionRow.data
 
-    implicitHeight: headerRow.implicitHeight + (showRule ? Theme.spacingLarge + 1 : 0)
+    implicitHeight: headerRow.implicitHeight + (showRule ? Theme.spacingMedium + 1 : 0)
 
     RowLayout {
         id: headerRow

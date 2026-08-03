@@ -228,7 +228,9 @@ QtObject {
     readonly property int fontSizeMedium: 14
     readonly property int fontSizeLarge:  18
     readonly property int fontSizeTitle:  24
-    readonly property int fontSizeHeader: 32
+    // 32px pushed the page title into banner territory and cost ~20px of vertical
+    // space on every screen before any content appeared.
+    readonly property int fontSizeHeader: 26
 
     // ── Spacing ──
 
@@ -242,8 +244,12 @@ QtObject {
     // ── Layout metrics ──
 
     // Every page anchors its content at this margin so the five views line up with
-    // each other when you switch between them.
-    readonly property int pageMargin:      32
+    // each other when you switch between them. Kept tight on purpose: this is a
+    // dense data app, not a marketing page, and 32px on every edge ate a visible
+    // slice of the grid.
+    readonly property int pageMargin:      20
+    // Gap between the header, the toolbar and the content beneath them.
+    readonly property int sectionGap:      12
     // Text and charts stop growing past this. Without it a maximised window on a
     // wide display stretches a two-column layout into unreadable full-width runs.
     readonly property int contentMaxWidth: 1440

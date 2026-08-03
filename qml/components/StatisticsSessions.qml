@@ -153,7 +153,7 @@ Item {
             Row {
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                Layout.topMargin: Theme.spacingXL
+                Layout.topMargin: Theme.spacingLarge
                 spacing: Theme.spacingSmall
 
                 Repeater {
@@ -202,7 +202,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                Layout.topMargin: Theme.spacingXL
+                Layout.topMargin: Theme.spacingLarge
                 spacing: Theme.spacingMedium
                 visible: sessionsPage.hasAnyData
 
@@ -242,7 +242,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                Layout.topMargin: Theme.spacingXL
+                Layout.topMargin: Theme.spacingLarge
                 visible: statsProvider.readingProjections.length > 0
                 implicitHeight: projectionColumn.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusCard
@@ -366,7 +366,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                Layout.topMargin: Theme.spacingXL
+                Layout.topMargin: Theme.spacingLarge
                 visible: !sessionsPage.hasAnyData
                 implicitHeight: emptyColumn.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusCard
@@ -853,7 +853,7 @@ Item {
             }
 
             // Bottom spacer
-            Item { Layout.preferredHeight: Theme.spacingXL }
+            Item { Layout.preferredHeight: Theme.spacingLarge }
         }
     }
 

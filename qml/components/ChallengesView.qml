@@ -51,7 +51,7 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.pageMargin
-        spacing: Theme.spacingLarge
+        spacing: Theme.sectionGap
 
         // Header
         PageHeader {
@@ -432,7 +432,7 @@ Item {
                 // Empty state
                 EmptyState {
                     Layout.fillWidth: true
-                    Layout.topMargin: Theme.spacingXXL * 2
+                    Layout.topMargin: Theme.spacingXXL
                     visible: challengesPage.challenges.length === 0
                     icon: "qrc:/qt/qml/BookWorm/src/img/icons/challenges.svg"
                     title: Theme.tr("No challenges yet")

@@ -169,7 +169,7 @@ Item {
             opacity: 0.4
         }
 
-        Item { width: parent.width; height: Theme.spacingLarge }
+        Item { width: parent.width; height: Theme.spacingMedium }
     }
 
     Component.onCompleted: {
@@ -187,7 +187,7 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.pageMargin
-        spacing: Theme.spacingLarge
+        spacing: Theme.sectionGap
 
         // Header
         PageHeader {
@@ -459,7 +459,7 @@ Item {
 
                 Item {
                     width: parent.width
-                    height: bookController.priorityModel.count > 0 ? Theme.spacingLarge : 0
+                    height: bookController.priorityModel.count > 0 ? Theme.spacingMedium : 0
                 }
 
                 // ── Status sections (default sort only; models empty otherwise) ──

@@ -63,7 +63,7 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingLarge
+                Layout.margins: Theme.pageMargin
                 spacing: Theme.spacingMedium
 
                 Button {
@@ -106,8 +106,8 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 spacing: Theme.spacingXL
 
                 // Cover
@@ -335,9 +335,9 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
-                Layout.topMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                Layout.topMargin: Theme.spacingLarge
                 Layout.bottomMargin: 0
                 implicitHeight: reviewCol.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusCard
@@ -393,8 +393,8 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: notesContent.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusCard
@@ -433,8 +433,8 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: quotesColumn.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusCard
@@ -524,8 +524,8 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: highlightsCol.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusCard
@@ -637,8 +637,8 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: summaryCol.implicitHeight + Theme.spacingLarge * 2
                 radius: Theme.radiusCard
@@ -858,7 +858,7 @@ Item {
             // Footer
             RowLayout {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingLarge
+                Layout.margins: Theme.pageMargin
                 spacing: Theme.spacingMedium
 
                 Item { Layout.fillWidth: true }
@@ -986,7 +986,7 @@ Item {
             // Footer
             RowLayout {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingLarge
+                Layout.margins: Theme.pageMargin
                 spacing: Theme.spacingMedium
 
                 Item { Layout.fillWidth: true }
