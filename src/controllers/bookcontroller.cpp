@@ -616,6 +616,34 @@ void BookController::setPriorityEnabled(bool enabled)
     }
 }
 
+int BookController::filterMinRating() const
+{
+    return m_filterMinRating;
+}
+
+void BookController::setFilterMinRating(int rating)
+{
+    if (m_filterMinRating != rating) {
+        m_filterMinRating = rating;
+        emit filterMinRatingChanged();
+        applyFilters();
+    }
+}
+
+QString BookController::filterTag() const
+{
+    return m_filterTag;
+}
+
+void BookController::setFilterTag(const QString &tag)
+{
+    if (m_filterTag != tag) {
+        m_filterTag = tag;
+        emit filterTagChanged();
+        applyFilters();
+    }
+}
+
 // ─── CSV helpers ────────────────────────────────────────────
 
 static QString escapeCsvField(const QString &field)
@@ -830,6 +858,14 @@ void BookController::applyFilters()
                     continue;
             }
         }
+
+        // Minimum-rating filter (Table view)
+        if (m_filterMinRating > 0 && book.rating < m_filterMinRating)
+            continue;
+
+        // Tag filter (Table view)
+        if (!m_filterTag.isEmpty() && !book.tags.contains(m_filterTag))
+            continue;
 
         filtered.append(book);
     }

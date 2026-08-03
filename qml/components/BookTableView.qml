@@ -9,19 +9,36 @@ Item {
 
     signal bookSelected(int bookId)
 
-    // Column definitions
+    // The rating/tag filters are Table-only; clear them on leave so they do not
+    // silently keep filtering the Library grid, which has no UI to undo them.
+    Component.onDestruction: {
+        bookController.filterMinRating = 0;
+        bookController.filterTag = "";
+    }
+
+    // Column definitions. sortAsc/sortDesc name the sort modes a header click
+    // cycles through; columns without them are not sortable.
     readonly property var columns: [
         { role: "coverImagePath", key: "",              width: 50,  type: "cover" },
-        { role: "title",          key: "Title",         width: -1,  type: "text" },
+        { role: "title",          key: "Title",         width: -1,  type: "text",   sortAsc: "title_asc",  sortDesc: "title_desc" },
         { role: "itemType",       key: "Type",          width: 80,  type: "badge" },
         { role: "status",         key: "Status",        width: 110, type: "status" },
-        { role: "pageCount",      key: "Pages",         width: 70,  type: "number" },
-        { role: "author",         key: "Author",        width: 180, type: "text" },
-        { role: "rating",         key: "Rating",        width: 120, type: "stars" },
-        { role: "endDate",        key: "Finished",      width: 130, type: "date" },
+        { role: "pageCount",      key: "Pages",         width: 70,  type: "number", sortDesc: "pages_desc" },
+        { role: "author",         key: "Author",        width: 180, type: "text",   sortAsc: "author_asc", sortDesc: "author_desc" },
+        { role: "rating",         key: "Rating",        width: 120, type: "stars",  sortDesc: "rating_desc" },
+        { role: "endDate",        key: "Finished",      width: 130, type: "date",   sortAsc: "date_asc",   sortDesc: "date_desc" },
         { role: "genre",          key: "Genre",         width: 120, type: "text" },
         { role: "tags",           key: "Tags",          width: 130, type: "text" }
     ]
+
+    // Cycle a sortable column: first click uses its ascending mode (or its only
+    // mode), a second click on the same column flips to descending.
+    function cycleSort(col) {
+        if (col.sortAsc && col.sortDesc)
+            bookController.sortMode = (bookController.sortMode === col.sortAsc) ? col.sortDesc : col.sortAsc;
+        else if (col.sortDesc)
+            bookController.sortMode = col.sortDesc;
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -81,6 +98,45 @@ Item {
                 placeholderText: "\u{1F50D} " + Theme.tr("Search title / author...")
                 Material.accent: Theme.primary
                 onTextChanged: bookController.searchQuery = text
+            }
+
+            // Minimum-rating filter
+            ComboBox {
+                id: ratingCombo
+                Layout.preferredWidth: 110
+                Layout.preferredHeight: 36
+                font.pixelSize: Theme.fontSizeSmall
+                Material.accent: Theme.primary
+
+                textRole: "key"
+                valueRole: "value"
+                model: ListModel {
+                    ListElement { key: "★ any";  value: 0 }
+                    ListElement { key: "★ ≥ 1";  value: 1 }
+                    ListElement { key: "★ ≥ 2";  value: 2 }
+                    ListElement { key: "★ ≥ 3";  value: 3 }
+                    ListElement { key: "★ ≥ 4";  value: 4 }
+                    ListElement { key: "★ ≥ 5";  value: 5 }
+                    ListElement { key: "★ = 6";  value: 6 }
+                }
+                onActivated: bookController.filterMinRating = currentValue
+            }
+
+            // Tag filter
+            ComboBox {
+                id: tagCombo
+                Layout.preferredWidth: 140
+                Layout.preferredHeight: 36
+                font.pixelSize: Theme.fontSizeSmall
+                Material.accent: Theme.primary
+
+                property var tagOptions: {
+                    var dummy = bookController.model.count;  // refresh when books change
+                    return [Theme.tr("All tags")].concat(bookController.getAllTags());
+                }
+                model: tagOptions
+
+                onActivated: bookController.filterTag = (currentIndex === 0 ? "" : currentText)
             }
 
             Item { Layout.fillWidth: true }
@@ -160,20 +216,47 @@ Item {
                     model: tablePage.columns
 
                     Item {
+                        id: headerCell
+                        required property var modelData
+                        readonly property bool sortable: modelData.sortAsc !== undefined || modelData.sortDesc !== undefined
+                        readonly property bool activeAsc: modelData.sortAsc !== undefined && bookController.sortMode === modelData.sortAsc
+                        readonly property bool activeDesc: modelData.sortDesc !== undefined && bookController.sortMode === modelData.sortDesc
+                        readonly property bool active: activeAsc || activeDesc
+
                         width: modelData.width > 0 ? modelData.width : headerFillWidth()
                         height: parent.height
 
-                        Text {
+                        Row {
                             anchors.left: parent.left
                             anchors.leftMargin: Theme.spacingSmall
                             anchors.verticalCenter: parent.verticalCenter
-                            text: Theme.tr(modelData.key)
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.bold: true
-                            font.letterSpacing: 0.5
-                            elide: Text.ElideRight
                             width: parent.width - Theme.spacingMedium
+                            spacing: 3
+
+                            Text {
+                                text: Theme.tr(headerCell.modelData.key)
+                                color: headerCell.active ? Theme.primary : Theme.textSecondary
+                                font.pixelSize: Theme.fontSizeSmall
+                                font.bold: true
+                                font.letterSpacing: 0.5
+                                elide: Text.ElideRight
+                                width: Math.min(implicitWidth, parent.width - 12)
+                            }
+
+                            Text {
+                                visible: headerCell.active
+                                text: headerCell.activeAsc ? "▲" : "▼"
+                                color: Theme.primary
+                                font.pixelSize: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: headerCell.sortable
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: tablePage.cycleSort(headerCell.modelData)
                         }
                     }
                 }

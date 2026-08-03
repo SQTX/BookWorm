@@ -239,6 +239,7 @@ var _pl = {
     "Recent sessions": "Ostatnie sesje",
     "No reading sessions yet": "Brak sesji czytania",
     "Sessions are recorded when you add pages": "Sesje są zapisywane, gdy dodajesz strony",
+    "All tags": "Wszystkie tagi",
     "Completion projection": "Prognoza ukończenia",
     "pages left": "stron zostało",
     "in": "za",

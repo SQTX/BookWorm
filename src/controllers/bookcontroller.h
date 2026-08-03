@@ -25,6 +25,9 @@ class BookController : public QObject
     Q_PROPERTY(QString filterYearMode READ filterYearMode WRITE setFilterYearMode NOTIFY filterYearModeChanged)
     Q_PROPERTY(QString sortMode READ sortMode WRITE setSortMode NOTIFY sortModeChanged)
     Q_PROPERTY(bool priorityEnabled READ priorityEnabled WRITE setPriorityEnabled NOTIFY priorityEnabledChanged)
+    // Extra filters exposed by the Table view. 0 rating / empty tag mean "no filter".
+    Q_PROPERTY(int filterMinRating READ filterMinRating WRITE setFilterMinRating NOTIFY filterMinRatingChanged)
+    Q_PROPERTY(QString filterTag READ filterTag WRITE setFilterTag NOTIFY filterTagChanged)
 
 public:
     explicit BookController(QObject *parent = nullptr);
@@ -99,6 +102,10 @@ public:
     void setSortMode(const QString &mode);
     bool priorityEnabled() const;
     void setPriorityEnabled(bool enabled);
+    int filterMinRating() const;
+    void setFilterMinRating(int rating);
+    QString filterTag() const;
+    void setFilterTag(const QString &tag);
 
 signals:
     void filterStatusChanged();
@@ -107,6 +114,8 @@ signals:
     void filterYearModeChanged();
     void sortModeChanged();
     void priorityEnabledChanged();
+    void filterMinRatingChanged();
+    void filterTagChanged();
     void booksChanged();
     void errorOccurred(const QString &message);
 
@@ -129,4 +138,6 @@ private:
     QString m_filterYearMode = QStringLiteral("finish");
     QString m_sortMode = QStringLiteral("default");
     bool m_priorityEnabled = true;
+    int m_filterMinRating = 0;
+    QString m_filterTag;
 };
