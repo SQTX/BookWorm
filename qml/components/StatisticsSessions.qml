@@ -538,9 +538,17 @@ Item {
                                            : 4
                                     height: parent.height
                                     radius: 4
-                                    color: Theme.statusReading
+                                    color: weekdayBarHover.containsMouse
+                                           ? Qt.lighter(Theme.statusReading, 1.25) : Theme.statusReading
 
                                     Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                }
+
+                                MouseArea {
+                                    id: weekdayBarHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
                                 }
                             }
 
@@ -649,6 +657,12 @@ Item {
                                                 height: heatmapColumn.parent.cell
                                                 radius: 2
                                                 color: sessionsPage.heatColor(modelData.pages, modelData.inRange)
+                                                // Pop the hovered day and outline it.
+                                                z: cellHover.containsMouse ? 1 : 0
+                                                scale: cellHover.containsMouse && modelData.inRange ? 1.35 : 1.0
+                                                border.width: cellHover.containsMouse && modelData.inRange ? 1 : 0
+                                                border.color: Theme.textOnSurface
+                                                Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
 
                                                 ToolTip.visible: cellHover.containsMouse && modelData.inRange
                                                 ToolTip.text: modelData.ds + ": " + modelData.pages + " " + Theme.tr("pages")
@@ -978,13 +992,20 @@ Item {
 
     // ── Inline component: Stat Card (matches StatisticsOverview.qml) ──
     component StatCard: Rectangle {
+        id: statCard
         property var value: 0
         property string label: ""
         property color accent: Theme.primary
 
         implicitHeight: 90
         radius: Theme.radiusMedium
-        color: Theme.surface
+        color: cardHover.containsMouse ? Theme.surfaceVariant : Theme.surface
+        scale: cardHover.containsMouse ? 1.03 : 1.0
+        border.width: cardHover.containsMouse ? 1 : 0
+        border.color: accent
+
+        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: 140 } }
 
         ColumnLayout {
             anchors.centerIn: parent
@@ -992,18 +1013,24 @@ Item {
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: String(value)
-                color: accent
+                text: String(statCard.value)
+                color: statCard.accent
                 font.pixelSize: 30
                 font.bold: true
             }
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: label
+                text: statCard.label
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
             }
+        }
+
+        MouseArea {
+            id: cardHover
+            anchors.fill: parent
+            hoverEnabled: true
         }
     }
 }

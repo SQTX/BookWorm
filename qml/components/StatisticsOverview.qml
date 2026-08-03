@@ -296,6 +296,11 @@ Item {
                                 id: libraryPie
                                 holeSize: 0.45
                                 size: 0.75
+                                // Pop the hovered slice out slightly.
+                                onHovered: (slice, state) => {
+                                    slice.explodeDistanceFactor = 0.08;
+                                    slice.exploded = state;
+                                }
                             }
                         }
 
@@ -795,6 +800,8 @@ Item {
                                     color: Theme.surfaceVariant
 
                                     Rectangle {
+                                        id: genreBarFill
+                                        readonly property color baseColor: statsPage.chartColors[index % statsPage.chartColors.length]
                                         width: {
                                             var maxCount = 1;
                                             var data = statsProvider.genreDistribution;
@@ -804,9 +811,17 @@ Item {
                                         }
                                         height: parent.height
                                         radius: 4
-                                        color: statsPage.chartColors[index % statsPage.chartColors.length]
+                                        // Brighten on hover.
+                                        color: genreBarHover.containsMouse ? Qt.lighter(baseColor, 1.25) : baseColor
 
                                         Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                    }
+
+                                    MouseArea {
+                                        id: genreBarHover
+                                        anchors.fill: parent
+                                        hoverEnabled: true
                                     }
                                 }
 
@@ -840,6 +855,10 @@ Item {
                             id: genrePie
                             size: 0.8
                             holeSize: 0.35
+                            onHovered: (slice, state) => {
+                                slice.explodeDistanceFactor = 0.08;
+                                slice.exploded = state;
+                            }
                         }
                     }
 
@@ -856,14 +875,27 @@ Item {
                                                              treemapView.width, treemapView.height)
 
                             Rectangle {
+                                id: treemapTile
                                 required property var modelData
+                                readonly property color baseColor: statsPage.chartColors[modelData.index % statsPage.chartColors.length]
                                 x: modelData.x
                                 y: modelData.y
                                 width: modelData.w
                                 height: modelData.h
-                                color: statsPage.chartColors[modelData.index % statsPage.chartColors.length]
-                                border.width: 1
-                                border.color: Theme.surface
+                                color: tileHover.containsMouse ? Qt.lighter(baseColor, 1.18) : baseColor
+                                border.width: tileHover.containsMouse ? 2 : 1
+                                border.color: tileHover.containsMouse ? Theme.textOnSurface : Theme.surface
+                                // Lift the hovered tile above its neighbours and grow it a touch.
+                                z: tileHover.containsMouse ? 1 : 0
+                                scale: tileHover.containsMouse ? 1.04 : 1.0
+                                Behavior on scale { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
+                                Behavior on color { ColorAnimation { duration: 130 } }
+
+                                MouseArea {
+                                    id: tileHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                }
 
                                 // Full label (genre + count) when the tile is roomy.
                                 Column {
@@ -923,13 +955,21 @@ Item {
 
     // ── Inline component: Stat Card ──
     component StatCard: Rectangle {
+        id: statCard
         property var value: 0
         property string label: ""
         property color accent: Theme.primary
 
         implicitHeight: 90
         radius: Theme.radiusMedium
-        color: Theme.surface
+        color: cardHover.containsMouse ? Theme.surfaceVariant : Theme.surface
+        // Gentle lift + accent outline on hover.
+        scale: cardHover.containsMouse ? 1.03 : 1.0
+        border.width: cardHover.containsMouse ? 1 : 0
+        border.color: accent
+
+        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: 140 } }
 
         ColumnLayout {
             anchors.centerIn: parent
@@ -937,18 +977,24 @@ Item {
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: String(value)
-                color: accent
+                text: String(statCard.value)
+                color: statCard.accent
                 font.pixelSize: 30
                 font.bold: true
             }
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: label
+                text: statCard.label
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
             }
+        }
+
+        MouseArea {
+            id: cardHover
+            anchors.fill: parent
+            hoverEnabled: true
         }
     }
 }
