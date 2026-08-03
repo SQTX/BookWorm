@@ -175,6 +175,132 @@ Item {
                 }
             }
 
+            // ═══════════════════════════════════
+            // Completion projection (currently-reading books)
+            // ═══════════════════════════════════
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingXL
+                Layout.rightMargin: Theme.spacingXL
+                Layout.topMargin: Theme.spacingXL
+                visible: statsProvider.readingProjections.length > 0
+                implicitHeight: projectionColumn.implicitHeight + Theme.spacingLarge * 2
+                radius: Theme.radiusMedium
+                color: Theme.surface
+
+                ColumnLayout {
+                    id: projectionColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.spacingLarge
+                    spacing: Theme.spacingMedium
+
+                    Text {
+                        text: Theme.tr("Completion projection")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.bold: true
+                    }
+
+                    Repeater {
+                        model: statsProvider.readingProjections
+
+                        ColumnLayout {
+                            id: projRow
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingSmall
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingMedium
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 2
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: projRow.modelData.title
+                                        color: Theme.textOnSurface
+                                        font.pixelSize: Theme.fontSizeMedium
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        text: projRow.modelData.author + "  ·  "
+                                              + projRow.modelData.pagesLeft + " " + Theme.tr("pages left")
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                    }
+                                }
+
+                                // Right side: estimate or "not enough data"
+                                ColumnLayout {
+                                    Layout.alignment: Qt.AlignRight
+                                    spacing: 2
+                                    visible: projRow.modelData.hasEstimate
+
+                                    Text {
+                                        Layout.alignment: Qt.AlignRight
+                                        text: "≈ " + Qt.formatDate(projRow.modelData.finishDate, "yyyy-MM-dd")
+                                        color: Theme.primary
+                                        font.pixelSize: Theme.fontSizeMedium
+                                        font.bold: true
+                                    }
+
+                                    Text {
+                                        Layout.alignment: Qt.AlignRight
+                                        text: Theme.tr("in") + " " + projRow.modelData.daysLeft + " "
+                                              + Theme.tr("days") + "  ·  ~"
+                                              + projRow.modelData.pacePerDay.toFixed(0) + " " + Theme.tr("pg/day")
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                    }
+                                }
+
+                                Text {
+                                    Layout.alignment: Qt.AlignRight
+                                    visible: !projRow.modelData.hasEstimate
+                                    text: Theme.tr("Not enough data to estimate")
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    font.italic: true
+                                }
+                            }
+
+                            // Progress bar
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 6
+                                radius: 3
+                                color: Theme.surfaceVariant
+
+                                Rectangle {
+                                    width: projRow.modelData.pageCount > 0
+                                           ? parent.width * Math.min(projRow.modelData.currentPage
+                                                                     / projRow.modelData.pageCount, 1.0)
+                                           : 0
+                                    height: parent.height
+                                    radius: 3
+                                    color: Theme.statusReading
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 1
+                                color: Theme.divider
+                                visible: projRow.index < statsProvider.readingProjections.length - 1
+                            }
+                        }
+                    }
+                }
+            }
+
             // Empty state for the whole tab (no sessions recorded at all yet)
             Rectangle {
                 Layout.fillWidth: true

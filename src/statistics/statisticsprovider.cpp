@@ -55,6 +55,7 @@ double StatisticsProvider::meanPagesPerReadingDay() const { return m_meanPagesPe
 QVariantList StatisticsProvider::pagesPerDay() const { return m_pagesPerDay; }
 QVariantList StatisticsProvider::pagesByWeekday() const { return m_pagesByWeekday; }
 QVariantList StatisticsProvider::recentSessions() const { return m_recentSessions; }
+QVariantList StatisticsProvider::readingProjections() const { return m_readingProjections; }
 
 void StatisticsProvider::computeStreaks(const QVariantList &dates)
 {
@@ -128,6 +129,8 @@ void StatisticsProvider::refresh()
     m_pagesPerDay        = db.pagesPerDay(yr, audio);
     m_pagesByWeekday     = db.pagesByWeekday(yr, audio);
     m_recentSessions     = db.recentSessions(yr, audio);
+    // Projection is about books being read right now, so it ignores the year filter.
+    m_readingProjections = db.readingProjections();
 
     const int readingDays = db.readingDayCount(yr, audio);
     m_meanPagesPerReadingDay = readingDays > 0

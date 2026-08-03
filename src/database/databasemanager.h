@@ -81,6 +81,11 @@ public:
     int totalSessionPages(int year = 0, const QString &audioMode = QString());
     int readingDayCount(int year = 0, const QString &audioMode = QString());
 
+    // Completion projection for every currently-reading book: pace is derived from
+    // that book's own manual sessions (pages read / distinct reading days). Books
+    // with no pace yet are still returned with hasEstimate = false.
+    QVariantList readingProjections();
+
     // Reset
     bool resetAllData();
 

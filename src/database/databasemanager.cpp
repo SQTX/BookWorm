@@ -6,6 +6,7 @@
 #include <QSqlRecord>
 #include <QVariantMap>
 #include <QDebug>
+#include <cmath>
 
 DatabaseManager &DatabaseManager::instance()
 {
@@ -889,6 +890,66 @@ QVariantList DatabaseManager::recentSessions(int year, const QString &audioMode,
         entry["source"] = q.value(4).toString();
         entry["title"]  = q.value(5).toString();
         entry["author"] = q.value(6).toString();
+        result.append(entry);
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::readingProjections()
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    // Pace comes from the book's own manual sessions: total pages read over the
+    // number of distinct days it was read. A LEFT JOIN keeps books that have no
+    // session yet (they come back with zero pace and hasEstimate = false).
+    q.prepare(
+        "SELECT b.id, b.title, b.author, b.current_page, b.page_count, "
+        "  COALESCE(SUM(s.page_end - s.page_start), 0) AS pages_read, "
+        "  COUNT(DISTINCT s.session_date) AS reading_days "
+        "FROM books b "
+        "LEFT JOIN reading_sessions s ON s.book_id = b.id AND s.source = 'manual' "
+        "WHERE b.status = 'reading' "
+        "GROUP BY b.id, b.title, b.author, b.current_page, b.page_count "
+        "ORDER BY b.title"
+    );
+
+    if (!q.exec()) {
+        qWarning() << "readingProjections error:" << q.lastError().text();
+        return result;
+    }
+
+    const QDate today = QDate::currentDate();
+    while (q.next()) {
+        const int currentPage = q.value("current_page").toInt();
+        const int pageCount   = q.value("page_count").toInt();
+        const int pagesLeft   = qMax(0, pageCount - currentPage);
+        if (pagesLeft <= 0)
+            continue;  // effectively finished; nothing to project
+
+        const int pagesRead   = q.value("pages_read").toInt();
+        const int readingDays = q.value("reading_days").toInt();
+        const double pace = readingDays > 0
+                            ? static_cast<double>(pagesRead) / readingDays : 0.0;
+
+        QVariantMap entry;
+        entry["id"]          = q.value("id").toInt();
+        entry["title"]       = q.value("title").toString();
+        entry["author"]      = q.value("author").toString();
+        entry["currentPage"] = currentPage;
+        entry["pageCount"]   = pageCount;
+        entry["pagesLeft"]   = pagesLeft;
+        entry["pacePerDay"]  = pace;
+
+        if (pace > 0.0) {
+            const int daysLeft = static_cast<int>(std::ceil(pagesLeft / pace));
+            entry["daysLeft"]    = daysLeft;
+            entry["finishDate"]  = today.addDays(daysLeft);
+            entry["hasEstimate"] = true;
+        } else {
+            entry["daysLeft"]    = 0;
+            entry["finishDate"]  = QVariant(QMetaType(QMetaType::QDate));
+            entry["hasEstimate"] = false;
+        }
         result.append(entry);
     }
     return result;
