@@ -100,6 +100,14 @@ ApplicationWindow {
                 onTriggered: aboutDialog.open()
             }
             Platform.MenuSeparator {}
+            // Qt maps Ctrl to Cmd on macOS, so this is the standard ⌘, and it
+            // shows up as such in the menu.
+            Platform.MenuItem {
+                text: Theme.tr("Settings") + "…"
+                shortcut: "Ctrl+,"
+                onTriggered: settingsDialog.open()
+            }
+            Platform.MenuSeparator {}
             Platform.MenuItem {
                 text: Theme.tr("Check for Updates...")
                 enabled: false
