@@ -31,6 +31,7 @@ struct Book {
     QString series;
     QString summary;
     QString review;
+    int readCount = 0;  // times finished; grows each time the book is marked as read
     QStringList tags;
 
     QVariantMap toVariantMap() const;

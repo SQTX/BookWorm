@@ -55,6 +55,7 @@ Item {
             required property bool isPriority
             required property string audioMode
             required property string tags
+            required property int readCount
 
             BookCard {
                 id: bookCard
@@ -76,6 +77,7 @@ Item {
                 isPriority: cellDelegate.isPriority
                 audioMode: cellDelegate.audioMode
                 tags: cellDelegate.tags
+                readCount: cellDelegate.readCount
                 onClicked: bookListPage.bookSelected(cellDelegate.bookId)
                 onRightClicked: (mx, my) => {
                     bookListPage.contextBookId = cellDelegate.bookId

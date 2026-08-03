@@ -173,6 +173,7 @@ Item {
                             visible: (bookData.itemType || "book") !== "book"
                         }
                         MetaBadge { text: Theme.tr("Non-fiction"); visible: bookData.isNonFiction || false }
+                        MetaBadge { text: "↻ " + Theme.tr("Read") + " " + (bookData.readCount || 0) + "×"; visible: (bookData.readCount || 0) > 1 }
                         MetaBadge { text: bookData.genre || ""; visible: text !== "" }
                         MetaBadge { text: bookData.language || ""; visible: text !== "" }
                         MetaBadge { text: (bookData.pageCount || 0) + " " + Theme.tr("pages"); visible: (bookData.pageCount || 0) > 0 }

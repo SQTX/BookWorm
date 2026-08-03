@@ -118,6 +118,10 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS review TEXT");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS audio_mode VARCHAR(32) DEFAULT 'none'");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS read_count INTEGER NOT NULL DEFAULT 0");
+    // One-time backfill: books already 'read' before this column existed count as
+    // read once. Guarded on read_count = 0 so it never overwrites a real reread tally.
+    q.exec("UPDATE books SET read_count = 1 WHERE status = 'read' AND read_count = 0");
 
     // Update rating constraint to allow 1-6 instead of 1-10
     q.exec("UPDATE books SET rating = LEAST(rating, 6) WHERE rating > 6");
@@ -222,11 +226,11 @@ int DatabaseManager::insertBook(const Book &book)
         "INSERT INTO books (title, author, genre, page_count, start_date, end_date, "
         "  rating, status, notes, isbn, publisher, publication_year, language, "
         "  cover_image_path, item_type, is_non_fiction, audio_mode, current_page, series, "
-        "  publication_date, summary, review, is_priority) "
+        "  publication_date, summary, review, is_priority, read_count) "
         "VALUES (:title, :author, :genre, :pageCount, :startDate, :endDate, "
         "  :rating, :status, :notes, :isbn, :publisher, :pubYear, :language, "
         "  :coverPath, :itemType, :isNonFiction, :audioMode, :currentPage, :series, "
-        "  :pubDate, :summary, :review, :isPriority) "
+        "  :pubDate, :summary, :review, :isPriority, :readCount) "
         "RETURNING id"
     );
 
@@ -253,6 +257,10 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
     q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
     q.bindValue(":isPriority",   book.isPriority);
+    // A book added straight as 'read' has been read once even though no completion
+    // event ran through markAsRead(); otherwise honour whatever count came in.
+    q.bindValue(":readCount",    book.readCount > 0 ? book.readCount
+                                 : (book.status == QStringLiteral("read") ? 1 : 0));
 
     if (!q.exec() || !q.next()) {
         qWarning() << "insertBook error:" << q.lastError().text();
@@ -274,7 +282,8 @@ bool DatabaseManager::updateBook(const Book &book)
         "  is_non_fiction = :isNonFiction, audio_mode = :audioMode, "
         "  current_page = :currentPage, "
         "  series = :series, publication_date = :pubDate, "
-        "  summary = :summary, review = :review, is_priority = :isPriority, updated_at = NOW() "
+        "  summary = :summary, review = :review, is_priority = :isPriority, "
+        "  read_count = :readCount, updated_at = NOW() "
         "WHERE id = :id"
     );
 
@@ -302,6 +311,7 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
     q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
     q.bindValue(":isPriority",   book.isPriority);
+    q.bindValue(":readCount",    book.readCount);
 
     if (!q.exec()) {
         qWarning() << "updateBook error:" << q.lastError().text();

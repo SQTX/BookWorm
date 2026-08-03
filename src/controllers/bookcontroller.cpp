@@ -172,6 +172,9 @@ bool BookController::markAsRead(int bookId, int rating, const QString &review)
     book.endDate = QDate::currentDate();
     book.rating = rating;
     book.currentPage = book.pageCount;
+    // Each completion is one more read — this is the sole path that grows the tally,
+    // so finishing a book again (after restarting it) records a reread.
+    book.readCount = book.readCount + 1;
 
     // DatabaseManager::updateBook() is what BookController::updateReview() ultimately
     // delegates to (fetch -> set review -> updateBook); folding the review into this
