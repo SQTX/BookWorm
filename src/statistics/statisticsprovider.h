@@ -40,6 +40,7 @@ class StatisticsProvider : public QObject
     Q_PROPERTY(QVariantList pagesByWeekday READ pagesByWeekday NOTIFY dataChanged)
     Q_PROPERTY(QVariantList recentSessions READ recentSessions NOTIFY dataChanged)
     Q_PROPERTY(QVariantList readingProjections READ readingProjections NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList heatmapDays READ heatmapDays NOTIFY dataChanged)
 
 public:
     explicit StatisticsProvider(QObject *parent = nullptr);
@@ -76,6 +77,7 @@ public:
     QVariantList pagesByWeekday() const;
     QVariantList recentSessions() const;
     QVariantList readingProjections() const;
+    QVariantList heatmapDays() const;
 
     Q_INVOKABLE void refresh();
 
@@ -117,4 +119,5 @@ private:
     QVariantList m_pagesByWeekday;
     QVariantList m_recentSessions;
     QVariantList m_readingProjections;
+    QVariantList m_heatmapDays;
 };

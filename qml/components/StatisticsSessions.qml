@@ -71,6 +71,66 @@ Item {
         return m;
     }
 
+    // ── Reading heatmap (GitHub-style contribution calendar) ──
+    // A selected year spans Jan–Dec; "all time" spans the trailing 53 weeks.
+    // Columns are weeks (Monday-first), rows are weekdays.
+    function heatmapFmt(d) { return Qt.formatDate(d, "yyyy-MM-dd"); }
+
+    readonly property var heatmapWeeks: {
+        var year = statsProvider.selectedYear;
+        var start, end;
+        if (year > 0) {
+            start = new Date(year, 0, 1);
+            end = new Date(year, 11, 31);
+        } else {
+            end = new Date(); end.setHours(0, 0, 0, 0);
+            start = new Date(end); start.setDate(end.getDate() - 364);
+        }
+        // Snap the grid's first column back to the Monday on/before the start.
+        var mondayOffset = (start.getDay() + 6) % 7;
+        var gridStart = new Date(start);
+        gridStart.setDate(start.getDate() - mondayOffset);
+
+        var map = {};
+        var data = statsProvider.heatmapDays;
+        for (var i = 0; i < data.length; i++)
+            map[heatmapFmt(data[i].date)] = data[i].pages;
+
+        var weeks = [];
+        var cur = new Date(gridStart);
+        while (cur <= end) {
+            var week = [];
+            for (var d = 0; d < 7; d++) {
+                var ds = heatmapFmt(cur);
+                week.push({ ds: ds,
+                            pages: (map[ds] || 0),
+                            inRange: (cur >= start && cur <= end) });
+                cur.setDate(cur.getDate() + 1);
+            }
+            weeks.push(week);
+        }
+        return weeks;
+    }
+
+    readonly property int heatmapMax: {
+        var m = 0;
+        var data = statsProvider.heatmapDays;
+        for (var i = 0; i < data.length; i++)
+            if (data[i].pages > m) m = data[i].pages;
+        return m;
+    }
+
+    // Colour a cell by reading intensity; four buckets of the reading accent.
+    function heatColor(pages, inRange) {
+        if (!inRange) return "transparent";
+        if (pages <= 0) return Theme.surfaceVariant;
+        var maxP = heatmapMax > 0 ? heatmapMax : 1;
+        var t = pages / maxP;
+        var a = t < 0.25 ? 0.35 : t < 0.5 ? 0.55 : t < 0.75 ? 0.78 : 1.0;
+        var c = Theme.statusReading;
+        return Qt.rgba(c.r, c.g, c.b, a);
+    }
+
     Flickable {
         anchors.fill: parent
         contentWidth: width
@@ -502,6 +562,136 @@ Item {
                         font.italic: true
                         Layout.alignment: Qt.AlignHCenter
                         Layout.topMargin: Theme.spacingMedium
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════
+            // Section 3b: Reading activity heatmap
+            // ═══════════════════════════════════
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingXL
+                Layout.rightMargin: Theme.spacingXL
+                visible: statsProvider.heatmapDays.length > 0
+                implicitHeight: heatmapColumn.implicitHeight + Theme.spacingLarge * 2
+                radius: Theme.radiusMedium
+                color: Theme.surface
+
+                readonly property real cell: 13
+                readonly property real cellGap: 3
+
+                ColumnLayout {
+                    id: heatmapColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.spacingLarge
+                    spacing: Theme.spacingMedium
+
+                    Text {
+                        text: Theme.tr("Reading activity")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.bold: true
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSmall
+
+                        // Weekday labels (Mon/Wed/Fri)
+                        Column {
+                            spacing: heatmapColumn.parent.cellGap
+                            Repeater {
+                                model: 7
+                                Text {
+                                    required property int index
+                                    width: 28
+                                    height: heatmapColumn.parent.cell
+                                    text: index % 2 === 1 ? sessionsPage.dayLabels[index] : ""
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall - 2
+                                    horizontalAlignment: Text.AlignRight
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+                        }
+
+                        // Weeks grid (scrolls horizontally if it overflows)
+                        Flickable {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: heatmapColumn.parent.cell * 7
+                                                    + heatmapColumn.parent.cellGap * 6
+                            contentWidth: weeksRow.width
+                            contentHeight: height
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            flickableDirection: Flickable.HorizontalFlick
+
+                            Row {
+                                id: weeksRow
+                                spacing: heatmapColumn.parent.cellGap
+
+                                Repeater {
+                                    model: sessionsPage.heatmapWeeks
+
+                                    Column {
+                                        required property var modelData
+                                        spacing: heatmapColumn.parent.cellGap
+
+                                        Repeater {
+                                            model: parent.modelData
+
+                                            Rectangle {
+                                                required property var modelData
+                                                width: heatmapColumn.parent.cell
+                                                height: heatmapColumn.parent.cell
+                                                radius: 2
+                                                color: sessionsPage.heatColor(modelData.pages, modelData.inRange)
+
+                                                ToolTip.visible: cellHover.containsMouse && modelData.inRange
+                                                ToolTip.text: modelData.ds + ": " + modelData.pages + " " + Theme.tr("pages")
+
+                                                MouseArea {
+                                                    id: cellHover
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Legend
+                    RowLayout {
+                        Layout.alignment: Qt.AlignRight
+                        spacing: 4
+
+                        Text {
+                            text: Theme.tr("Less")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                        }
+                        Repeater {
+                            model: [0, 0.35, 0.55, 0.78, 1.0]
+                            Rectangle {
+                                required property var modelData
+                                width: 11; height: 11; radius: 2
+                                color: modelData === 0
+                                       ? Theme.surfaceVariant
+                                       : Qt.rgba(Theme.statusReading.r, Theme.statusReading.g,
+                                                 Theme.statusReading.b, modelData)
+                            }
+                        }
+                        Text {
+                            text: Theme.tr("More")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                        }
                     }
                 }
             }
