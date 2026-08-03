@@ -61,6 +61,7 @@ qt_add_qml_module(BookWorm
         qml/components/common/SectionLabel.qml
         qml/components/common/AppButton.qml
         qml/components/common/Chip.qml
+        qml/components/common/IconButton.qml
         qml/components/common/PageHeader.qml
         qml/components/common/EmptyState.qml
     RESOURCES

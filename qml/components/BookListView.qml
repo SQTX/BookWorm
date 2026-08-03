@@ -206,32 +206,18 @@ Item {
             }
 
             // Layout button
-            RoundButton {
-                implicitWidth: Theme.controlHeight
-                implicitHeight: Theme.controlHeight
-                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"
-                icon.width: 18; icon.height: 18
-                icon.color: Theme.textSecondary
-                Material.background: Theme.surfaceVariant
-
-                ToolTip.visible: hovered
-                ToolTip.text: Theme.tr("Layout")
-
+            IconButton {
+                iconSource: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"
+                tooltip: Theme.tr("Layout")
                 onClicked: layoutPopup.open()
             }
 
-            // Add book button
-            RoundButton {
-                implicitWidth: Theme.controlHeight
-                implicitHeight: Theme.controlHeight
-                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
-                icon.width: 18; icon.height: 18
-                icon.color: Theme.textOnPrimary
-                Material.background: Theme.primary
-
-                ToolTip.visible: hovered
-                ToolTip.text: Theme.tr("Add Book")
-
+            // Add book — the primary action on this page, so it gets a label
+            // rather than a 34px icon circle sitting next to an identical one.
+            AppButton {
+                variant: "primary"
+                iconSource: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
+                text: Theme.tr("Add Book")
                 onClicked: {
                     addDialog.mode = "add";
                     addDialog.editData = null;

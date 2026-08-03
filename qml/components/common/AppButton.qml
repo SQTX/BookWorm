@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import BookWorm
 
 // One button for the whole app.
@@ -73,16 +74,24 @@ Rectangle {
     Row {
         id: contentRow
         anchors.centerIn: parent
-        spacing: Theme.spacingMedium
+        spacing: Theme.spacingSmall
 
-        Image {
+        // ToolButton rather than Image: an SVG in an Image cannot be tinted, so
+        // the icon would keep its own colour on a filled button. Decorative only
+        // — the MouseArea below is declared later and takes the clicks.
+        ToolButton {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.iconSource !== ""
-            source: root.iconSource
-            sourceSize.width: 16
-            sourceSize.height: 16
-            width: 16
-            height: 16
+            width: visible ? 20 : 0
+            height: 20
+            focusPolicy: Qt.NoFocus
+            hoverEnabled: false
+            padding: 0
+            background: Item {}
+            icon.source: root.iconSource
+            icon.width: 16
+            icon.height: 16
+            icon.color: root._label
         }
 
         Text {

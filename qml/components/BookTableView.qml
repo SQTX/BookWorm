@@ -63,17 +63,10 @@ Item {
                 return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
             }
 
-            RoundButton {
-                implicitWidth: Theme.controlHeight
-                implicitHeight: Theme.controlHeight
-                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
-                icon.width: 18; icon.height: 18
-                icon.color: Theme.textOnPrimary
-                Material.background: Theme.primary
-
-                ToolTip.visible: hovered
-                ToolTip.text: Theme.tr("Add Book")
-
+            AppButton {
+                variant: "primary"
+                iconSource: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
+                text: Theme.tr("Add Book")
                 onClicked: addDialog.open()
             }
         }
