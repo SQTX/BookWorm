@@ -44,6 +44,9 @@ public:
     Q_INVOKABLE bool addBook(const QVariantMap &bookData);
     Q_INVOKABLE bool updateBook(const QVariantMap &bookData);
     Q_INVOKABLE bool deleteBook(int id);
+    // Restore the most recently deleted book (and its tags, quotes, highlights and
+    // reading sessions) from an in-memory snapshot. Returns false if nothing is held.
+    Q_INVOKABLE bool undoDelete();
     Q_INVOKABLE QVariantMap getBookDetails(int id);
     // Sets the current page to an absolute value; it does not add a delta.
     Q_INVOKABLE bool updateReadingProgress(int bookId, int newCurrentPage);
@@ -122,6 +125,8 @@ signals:
     void filterTagChanged();
     void booksChanged();
     void errorOccurred(const QString &message);
+    // Emitted after a delete so the UI can offer an undo affordance.
+    void bookDeletedUndoable(const QString &title);
 
 private:
     void applyFilters();
@@ -144,4 +149,15 @@ private:
     bool m_priorityEnabled = true;
     int m_filterMinRating = 0;
     QString m_filterTag;
+
+    // Snapshot of the last deleted book for a single-level undo. Held in memory only,
+    // so it does not survive a restart — matching the transient undo affordance.
+    struct DeletedSnapshot {
+        bool valid = false;
+        Book book;
+        QVariantList quotes;      // {quote, page}
+        QVariantList highlights;  // {title, page, note}
+        QVariantList sessions;    // {date, pageStart, pageEnd, source}
+    };
+    DeletedSnapshot m_lastDeleted;
 };

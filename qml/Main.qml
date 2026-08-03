@@ -1905,4 +1905,62 @@ ApplicationWindow {
             NumberAnimation { target: csvToast; property: "opacity"; to: 0; duration: 400 }
         }
     }
+
+    // Undo toast — shown after a delete, with an action to restore the book.
+    Connections {
+        target: bookController
+        function onBookDeletedUndoable(title) {
+            undoLabel.text = Theme.tr("Deleted") + " \"" + title + "\"";
+            undoToast.opacity = 1;
+            undoHideTimer.restart();
+        }
+    }
+
+    Rectangle {
+        id: undoToast
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 32
+        height: 44
+        width: undoRow.implicitWidth + 32
+        radius: 22
+        color: Theme.surface
+        border.width: 1
+        border.color: Theme.divider
+        opacity: 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 250 } }
+
+        Timer {
+            id: undoHideTimer
+            interval: 6000
+            onTriggered: undoToast.opacity = 0
+        }
+
+        Row {
+            id: undoRow
+            anchors.centerIn: parent
+            spacing: Theme.spacingMedium
+
+            Text {
+                id: undoLabel
+                anchors.verticalCenter: parent.verticalCenter
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeMedium
+            }
+
+            Button {
+                anchors.verticalCenter: parent.verticalCenter
+                text: Theme.tr("Undo")
+                flat: true
+                Material.foreground: Theme.primary
+                onClicked: {
+                    undoHideTimer.stop();
+                    undoToast.opacity = 0;
+                    if (bookController.undoDelete())
+                        csvToast.show(Theme.tr("Book restored"));
+                }
+            }
+        }
+    }
 }

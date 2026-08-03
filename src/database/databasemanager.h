@@ -86,6 +86,12 @@ public:
     // with no pace yet are still returned with hasEstimate = false.
     QVariantList readingProjections();
 
+    // Raw session rows for one book ({date, pageStart, pageEnd, source}) and a plain
+    // re-insert with an explicit date — together they let a deleted book (whose
+    // sessions vanish via ON DELETE CASCADE) be restored exactly on undo.
+    QVariantList fetchSessionsForBookRaw(int bookId);
+    bool restoreSession(int bookId, const QDate &date, int pageStart, int pageEnd, const QString &source);
+
     // Reset
     bool resetAllData();
 

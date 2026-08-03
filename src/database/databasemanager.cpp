@@ -965,6 +965,51 @@ QVariantList DatabaseManager::readingProjections()
     return result;
 }
 
+QVariantList DatabaseManager::fetchSessionsForBookRaw(int bookId)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT session_date, page_start, page_end, source "
+              "FROM reading_sessions WHERE book_id = :bookId ORDER BY session_date, id");
+    q.bindValue(":bookId", bookId);
+    if (!q.exec()) {
+        qWarning() << "fetchSessionsForBookRaw error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap e;
+        e["date"]      = q.value(0).toDate();
+        e["pageStart"] = q.value(1).toInt();
+        e["pageEnd"]   = q.value(2).toInt();
+        e["source"]    = q.value(3).toString();
+        result.append(e);
+    }
+    return result;
+}
+
+bool DatabaseManager::restoreSession(int bookId, const QDate &date, int pageStart,
+                                     int pageEnd, const QString &source)
+{
+    QSqlQuery q(m_db);
+    // A straight insert; ON CONFLICT keeps it harmless if the same day/source is
+    // somehow already present (the UNIQUE constraint would otherwise fail the undo).
+    q.prepare(
+        "INSERT INTO reading_sessions (book_id, session_date, page_start, page_end, source) "
+        "VALUES (:bookId, :date, :pageStart, :pageEnd, :source) "
+        "ON CONFLICT (book_id, session_date, source) DO NOTHING"
+    );
+    q.bindValue(":bookId",    bookId);
+    q.bindValue(":date",      date);
+    q.bindValue(":pageStart", pageStart);
+    q.bindValue(":pageEnd",   pageEnd);
+    q.bindValue(":source",    source);
+    if (!q.exec()) {
+        qWarning() << "restoreSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 int DatabaseManager::totalSessionPages(int year, const QString &audioMode)
 {
     QSqlQuery q(m_db);

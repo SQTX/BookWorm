@@ -108,8 +108,24 @@ bool BookController::updateBook(const QVariantMap &bookData)
 
 bool BookController::deleteBook(int id)
 {
-    if (!DatabaseManager::instance().deleteBook(id)) {
+    DatabaseManager &db = DatabaseManager::instance();
+
+    // Snapshot everything before the delete — the FK cascade wipes tags, quotes,
+    // highlights and sessions with the row, so undo must reconstruct them.
+    auto existing = db.fetchBookById(id);
+    if (existing.has_value()) {
+        m_lastDeleted.valid      = true;
+        m_lastDeleted.book       = existing.value();
+        m_lastDeleted.quotes     = db.fetchQuotesForBook(id);
+        m_lastDeleted.highlights = db.fetchHighlightsForBook(id);
+        m_lastDeleted.sessions   = db.fetchSessionsForBookRaw(id);
+    } else {
+        m_lastDeleted.valid = false;
+    }
+
+    if (!db.deleteBook(id)) {
         emit errorOccurred("Failed to delete book");
+        m_lastDeleted.valid = false;
         return false;
     }
 
@@ -119,6 +135,52 @@ bool BookController::deleteBook(int id)
         m_allBooks.end()
     );
 
+    applyFilters();
+    emit booksChanged();
+    if (m_lastDeleted.valid)
+        emit bookDeletedUndoable(m_lastDeleted.book.title);
+    return true;
+}
+
+bool BookController::undoDelete()
+{
+    if (!m_lastDeleted.valid)
+        return false;
+
+    DatabaseManager &db = DatabaseManager::instance();
+
+    // Re-insert the book. It gets a fresh id (the old one is gone); children are
+    // relinked to that new id below.
+    Book book = m_lastDeleted.book;
+    const int newId = db.insertBook(book);
+    if (newId < 0) {
+        emit errorOccurred("Failed to restore book");
+        return false;
+    }
+    book.id = newId;
+
+    if (!book.tags.isEmpty())
+        db.syncTagsForBook(newId, book.tags);
+
+    for (const QVariant &v : std::as_const(m_lastDeleted.quotes)) {
+        const QVariantMap q = v.toMap();
+        db.addQuote(newId, q.value("quote").toString(), q.value("page").toInt());
+    }
+    for (const QVariant &v : std::as_const(m_lastDeleted.highlights)) {
+        const QVariantMap h = v.toMap();
+        db.addHighlight(newId, h.value("title").toString(),
+                        h.value("page").toInt(), h.value("note").toString());
+    }
+    for (const QVariant &v : std::as_const(m_lastDeleted.sessions)) {
+        const QVariantMap s = v.toMap();
+        db.restoreSession(newId, s.value("date").toDate(),
+                          s.value("pageStart").toInt(), s.value("pageEnd").toInt(),
+                          s.value("source").toString());
+    }
+
+    m_lastDeleted = DeletedSnapshot{};  // single-level undo — consume the snapshot
+
+    m_allBooks.prepend(book);
     applyFilters();
     emit booksChanged();
     return true;
