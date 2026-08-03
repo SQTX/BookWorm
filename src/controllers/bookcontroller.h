@@ -88,7 +88,11 @@ public:
 
     // Challenges
     Q_INVOKABLE QVariantList getChallenges();
-    Q_INVOKABLE bool addChallenge(const QString &name, int targetBooks, const QString &deadline);
+    // metric: "books" | "pages" | "pages_per_day". When periodCount > 0 the deadline
+    // is computed as today + periodCount×periodUnit (day/month/year); otherwise the
+    // isoDeadline string (an explicit end date) is used and periodUnit is "custom".
+    Q_INVOKABLE bool addChallenge(const QString &name, const QString &metric, int targetValue,
+                                  const QString &isoDeadline, const QString &periodUnit, int periodCount);
     Q_INVOKABLE bool deleteChallenge(int id);
     Q_INVOKABLE QVariantList getBooksForChallenge(int challengeId);
 
