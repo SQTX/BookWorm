@@ -31,17 +31,31 @@ Dialog {
 
     anchors.centerIn: parent
 
-    Material.theme: Material.Dark
+    // Was pinned to Material.Dark, so the form stayed dark while the rest of the
+    // app was in the light theme — text fields and combo popups came out with the
+    // wrong contrast.
+    Material.theme: Theme.isDark ? Material.Dark : Material.Light
     Material.accent: Theme.primary
 
     header: Item {}
     padding: 0
 
-    background: Rectangle {
+    background: Panel {
         radius: Theme.radiusLarge
-        color: Theme.surface
-        border.width: 1
-        border.color: Theme.divider
+        elevated: true
+    }
+
+    enter: Transition {
+        ParallelAnimation {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.durationMedium }
+            NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Theme.durationMedium; easing.type: Theme.easeOut }
+        }
+    }
+    exit: Transition {
+        ParallelAnimation {
+            NumberAnimation { property: "opacity"; from: 1; to: 0; duration: Theme.durationFast }
+            NumberAnimation { property: "scale"; from: 1; to: 0.98; duration: Theme.durationFast }
+        }
     }
 
     // ── Date helpers ──

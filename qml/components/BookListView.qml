@@ -27,8 +27,15 @@ Item {
     function cellWidthFor(gridWidth) {
         if (bookListPage.userCardsPerRow > 0)
             return Math.floor(gridWidth / bookListPage.userCardsPerRow);
-        // Auto: fit as many ~196px cards as possible
-        var cols = Math.max(1, Math.floor(gridWidth / 196));
+
+        // Auto: pick the column count whose resulting cell width lands closest to
+        // 210px. Dividing by a fixed 196 and flooring used to leave the remainder
+        // on the cells, so a wide window blew every card up to 260px+ and the grid
+        // read as four posters rather than a library.
+        var target = 210;
+        var cols = Math.max(1, Math.round(gridWidth / target));
+        if (gridWidth / cols > 260)
+            cols += 1;
         return Math.floor(gridWidth / cols);
     }
 
@@ -123,16 +130,24 @@ Item {
 
         Item {
             width: parent.width
-            height: sectionLabel.implicitHeight + Theme.spacingSmall
+            height: sectionLabel.implicitHeight + Theme.spacingMedium
 
-            Text {
+            SectionLabel {
                 id: sectionLabel
                 anchors.left: parent.left
                 anchors.top: parent.top
                 text: section.label
-                color: section.accent
+                accent: section.accent
+            }
+
+            // The count sits opposite the label so each section states its size
+            // without a second row of chrome.
+            Text {
+                anchors.right: parent.right
+                anchors.baseline: sectionLabel.baseline
+                text: section.sectionModel ? section.sectionModel.count : 0
+                color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
-                font.bold: true
             }
         }
 
@@ -171,39 +186,57 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Theme.spacingXL
+        anchors.margins: Theme.pageMargin
         spacing: Theme.spacingLarge
 
         // Header
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-            spacing: Theme.spacingLarge
-
-            Text {
-                text: Theme.tr("Library")
-                color: Theme.textOnBackground
-                font.pixelSize: Theme.fontSizeHeader
-                font.bold: true
+            title: Theme.tr("Library")
+            subtitle: {
+                var dummy = bookController.model.count;
+                var dist = bookController.getTypeDistribution();
+                var keys = Object.keys(dist).sort();
+                var parts = [];
+                for (var i = 0; i < keys.length; i++) {
+                    var k = keys[i];
+                    parts.push(Theme.typePlural(k) + ": " + dist[k]);
+                }
+                return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
             }
 
-            Item { Layout.fillWidth: true }
+            // Layout button
+            RoundButton {
+                implicitWidth: Theme.controlHeight
+                implicitHeight: Theme.controlHeight
+                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"
+                icon.width: 18; icon.height: 18
+                icon.color: Theme.textSecondary
+                Material.background: Theme.surfaceVariant
 
-            // Type distribution
-            Text {
-                text: {
-                    var dummy = bookController.model.count;
-                    var dist = bookController.getTypeDistribution();
-                    var keys = Object.keys(dist).sort();
-                    var parts = [];
-                    for (var i = 0; i < keys.length; i++) {
-                        var k = keys[i];
-                        parts.push(Theme.typePlural(k) + ": " + dist[k]);
-                    }
-                    return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
+                ToolTip.visible: hovered
+                ToolTip.text: Theme.tr("Layout")
+
+                onClicked: layoutPopup.open()
+            }
+
+            // Add book button
+            RoundButton {
+                implicitWidth: Theme.controlHeight
+                implicitHeight: Theme.controlHeight
+                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
+                icon.width: 18; icon.height: 18
+                icon.color: Theme.textOnPrimary
+                Material.background: Theme.primary
+
+                ToolTip.visible: hovered
+                ToolTip.text: Theme.tr("Add Book")
+
+                onClicked: {
+                    addDialog.mode = "add";
+                    addDialog.editData = null;
+                    addDialog.open();
                 }
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-                verticalAlignment: Text.AlignVCenter
             }
         }
 
@@ -216,7 +249,7 @@ Item {
             TextField {
                 id: searchField
                 Layout.preferredWidth: 220
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: Theme.controlHeight
                 topPadding: 6
                 bottomPadding: 6
                 font.pixelSize: Theme.fontSizeMedium
@@ -229,7 +262,7 @@ Item {
             ComboBox {
                 id: yearCombo
                 Layout.preferredWidth: 90
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: Theme.controlHeight
                 font.pixelSize: Theme.fontSizeSmall
                 Material.accent: Theme.primary
 
@@ -249,15 +282,18 @@ Item {
                 }
             }
 
-            // Start/Finish toggle
+            // Start/Finish toggle — a segmented control, so it stays one object
+            // rather than two loose chips.
             Rectangle {
-                Layout.preferredHeight: 28
-                implicitWidth: modeRow.implicitWidth + Theme.spacingMedium * 2
-                radius: 14
+                Layout.preferredHeight: Theme.chipHeight
+                implicitWidth: modeRow.implicitWidth + Theme.spacingMedium
+                radius: height / 2
                 color: Theme.surfaceVariant
+                border.width: 1
+                border.color: Theme.outline
                 visible: yearCombo.currentText !== "All"
 
-                RowLayout {
+                Row {
                     id: modeRow
                     anchors.centerIn: parent
                     spacing: 2
@@ -271,24 +307,30 @@ Item {
                         Rectangle {
                             required property var modelData
                             required property int index
-                            width: modeLabel.implicitWidth + Theme.spacingMedium
-                            height: 24
-                            radius: 12
-                            color: bookController.filterYearMode === modelData.value
-                                   ? Theme.primary : "transparent"
+
+                            readonly property bool isSelected: bookController.filterYearMode === modelData.value
+
+                            width: modeLabel.implicitWidth + Theme.spacingLarge
+                            height: 22
+                            radius: 11
+                            color: isSelected ? Theme.primary
+                                              : (modeMouse.containsMouse ? Theme.hover : "transparent")
+
+                            Behavior on color { ColorAnimation { duration: Theme.durationFast } }
 
                             Text {
                                 id: modeLabel
                                 anchors.centerIn: parent
                                 text: Theme.tr(modelData.key)
-                                color: bookController.filterYearMode === modelData.value
-                                       ? Theme.textOnPrimary : Theme.textSecondary
+                                color: parent.isSelected ? Theme.textOnPrimary : Theme.textSecondary
                                 font.pixelSize: Theme.fontSizeSmall - 1
-                                font.bold: bookController.filterYearMode === modelData.value
+                                font.bold: parent.isSelected
                             }
 
                             MouseArea {
+                                id: modeMouse
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: bookController.filterYearMode = modelData.value
                             }
@@ -301,7 +343,7 @@ Item {
             ComboBox {
                 id: sortCombo
                 Layout.preferredWidth: 160
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: Theme.controlHeight
                 font.pixelSize: Theme.fontSizeSmall
                 Material.accent: Theme.primary
 
@@ -328,7 +370,8 @@ Item {
 
             Item { Layout.fillWidth: true }
 
-            // Status filter chips
+            // Status filter chips — each carries its own status colour when active,
+            // so the filter row echoes the section headers below it.
             Row {
                 spacing: Theme.spacingSmall
 
@@ -341,62 +384,14 @@ Item {
                         { key: "Abandoned", value: "abandoned" }
                     ]
 
-                    Rectangle {
+                    Chip {
                         required property var modelData
-                        required property int index
-                        width: filterChipText.implicitWidth + Theme.spacingLarge
-                        height: 28
-                        radius: 14
-                        color: bookController.filterStatus === modelData.value
-                               ? Theme.primary : Theme.surfaceVariant
-                        border.width: 1
-                        border.color: bookController.filterStatus === modelData.value
-                                      ? "transparent" : Theme.divider
-
-                        Text {
-                            id: filterChipText
-                            anchors.centerIn: parent
-                            text: Theme.tr(modelData.key)
-                            color: bookController.filterStatus === modelData.value
-                                   ? Theme.textOnPrimary : Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.bold: bookController.filterStatus === modelData.value
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: bookController.filterStatus = modelData.value
-                        }
+                        text: Theme.tr(modelData.key)
+                        selected: bookController.filterStatus === modelData.value
+                        accent: modelData.value === "" ? Theme.primary
+                                                       : Theme.statusColor(modelData.value)
+                        onClicked: bookController.filterStatus = modelData.value
                     }
-                }
-            }
-
-            // Layout button
-            RoundButton {
-                width: 36; height: 36
-                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"
-                icon.width: 18; icon.height: 18
-                icon.color: Theme.textSecondary
-                Material.background: Theme.surfaceVariant
-
-                ToolTip.visible: hovered
-                ToolTip.text: Theme.tr("Layout")
-
-                onClicked: layoutPopup.open()
-            }
-
-            // Add book button
-            RoundButton {
-                width: 36; height: 36
-                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
-                icon.width: 18; icon.height: 18
-                icon.color: Theme.textOnPrimary
-                Material.background: Theme.primary
-                onClicked: {
-                    addDialog.mode = "add";
-                    addDialog.editData = null;
-                    addDialog.open();
                 }
             }
         }
@@ -421,17 +416,23 @@ Item {
                 // ── Priority section ──
                 Item {
                     width: parent.width
-                    height: visible ? priorityLabel.implicitHeight + Theme.spacingSmall : 0
+                    height: visible ? priorityLabel.implicitHeight + Theme.spacingMedium : 0
                     visible: bookController.priorityModel.count > 0
 
-                    Text {
+                    SectionLabel {
                         id: priorityLabel
                         anchors.left: parent.left
                         anchors.top: parent.top
                         text: Theme.tr("Priority")
-                        color: Theme.priority
+                        accent: Theme.priority
+                    }
+
+                    Text {
+                        anchors.right: parent.right
+                        anchors.baseline: priorityLabel.baseline
+                        text: bookController.priorityModel.count
+                        color: Theme.textSecondary
                         font.pixelSize: Theme.fontSizeSmall
-                        font.bold: true
                     }
                 }
 
@@ -497,13 +498,36 @@ Item {
                 }
             }
 
-            // Empty state
-            Text {
+            // Empty state — distinguishes "you have no books" from "this filter
+            // matched nothing", because the fix is different in each case.
+            EmptyState {
                 anchors.centerIn: parent
+                width: parent.width
                 visible: bookController.model.count === 0
-                text: searchField.text ? Theme.tr("No books match your search") : Theme.tr("No books yet. Click + to add one!")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeLarge
+
+                readonly property bool isFiltered: searchField.text !== ""
+                                                   || bookController.filterStatus !== ""
+                                                   || bookController.filterYear !== 0
+
+                icon: isFiltered ? "qrc:/qt/qml/BookWorm/src/img/icons/library-view.svg"
+                                 : "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
+                title: isFiltered ? Theme.tr("No books match your search")
+                                  : Theme.tr("Your library is empty")
+                hint: isFiltered ? Theme.tr("Try a different search term, or clear the filters.")
+                                 : Theme.tr("Add your first book to start tracking what you read.")
+                actionText: isFiltered ? Theme.tr("Clear filters") : Theme.tr("Add Book")
+                onActionClicked: {
+                    if (isFiltered) {
+                        searchField.text = "";
+                        bookController.filterStatus = "";
+                        bookController.filterYear = 0;
+                        yearCombo.currentIndex = 0;
+                    } else {
+                        addDialog.mode = "add";
+                        addDialog.editData = null;
+                        addDialog.open();
+                    }
+                }
             }
         }
     }
@@ -849,155 +873,115 @@ Item {
     // ═══════════════════════════════════════════════════
     // Layout popup
     // ═══════════════════════════════════════════════════
+    // Quick access to the two grid settings; the same values also live in
+    // Settings → Appearance, both writing the persisted properties in Main.qml.
     Popup {
         id: layoutPopup
-        x: parent.width - width - Theme.spacingXL
-        y: 100
-        width: 220
-        padding: Theme.spacingMedium
+        x: parent.width - width - Theme.pageMargin
+        y: 96
+        width: 260
+        padding: Theme.spacingLarge
         modal: true
 
-        background: Rectangle {
-            radius: Theme.radiusMedium
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+        background: Panel {
+            radius: Theme.radiusCard
+            elevated: true
+        }
+
+        enter: Transition {
+            ParallelAnimation {
+                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.durationFast }
+                NumberAnimation { property: "scale"; from: 0.96; to: 1; duration: Theme.durationMedium; easing.type: Theme.easeOut }
+            }
         }
 
         ColumnLayout {
             width: parent.width
-            spacing: Theme.spacingMedium
+            spacing: Theme.spacingLarge
 
-            Text {
-                text: Theme.tr("Layout")
-                color: Theme.textOnSurface
-                font.pixelSize: Theme.fontSizeMedium
-                font.bold: true
-            }
+            SectionLabel { text: Theme.tr("Layout") }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
-
-            // Auto switch
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Theme.spacingMedium
 
-                Text {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: Theme.tr("Auto")
-                    color: Theme.textOnSurface
-                    font.pixelSize: Theme.fontSizeMedium
-                }
-
-                Switch {
-                    id: autoSwitch
-                    checked: bookListPage.userCardsPerRow === 0
-                    Material.accent: Theme.primary
-                    onToggled: {
-                        if (checked) {
-                            bookListPage.userCardsPerRow = 0;
-                        } else {
-                            bookListPage.userCardsPerRow = 6;
-                        }
-                    }
-                }
-            }
-
-            // Cards per row: +/- buttons
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
-                enabled: !autoSwitch.checked
-                opacity: autoSwitch.checked ? 0.4 : 1.0
-
-                Text {
-                    text: Theme.tr("Cards per row")
-                    color: Theme.textOnSurface
-                    font.pixelSize: Theme.fontSizeSmall
-                }
-
-                Item { Layout.fillWidth: true }
-
-                // Zoom out (more, smaller cards)
-                Rectangle {
-                    width: 32; height: 32
-                    radius: Theme.radiusSmall
-                    color: minusArea.containsMouse ? Theme.surfaceVariant : "transparent"
-                    border.width: 1
-                    border.color: Theme.divider
-                    opacity: bookListPage.userCardsPerRow >= 8 ? 0.3 : 1.0
+                    spacing: Theme.spacingMedium
 
                     Text {
-                        anchors.centerIn: parent
-                        text: "\u2212"  // minus sign
+                        Layout.fillWidth: true
+                        text: Theme.tr("Cards per row")
                         color: Theme.textOnSurface
-                        font.pixelSize: 18
-                        font.bold: true
+                        font.pixelSize: Theme.fontSizeMedium
                     }
 
-                    MouseArea {
-                        id: minusArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (bookListPage.userCardsPerRow < 8)
-                                bookListPage.userCardsPerRow += 1;
-                        }
+                    Chip {
+                        text: Theme.tr("Auto")
+                        selected: bookListPage.userCardsPerRow === 0
+                        onClicked: bookListPage.userCardsPerRow =
+                                   bookListPage.userCardsPerRow === 0 ? 6 : 0
                     }
                 }
 
-                // Current value
-                Text {
-                    text: bookListPage.userCardsPerRow > 0 ? bookListPage.userCardsPerRow : "—"
-                    color: Theme.textOnSurface
-                    font.pixelSize: Theme.fontSizeMedium
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.preferredWidth: 28
-                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingSmall
+                    opacity: bookListPage.userCardsPerRow === 0 ? 0.4 : 1.0
 
-                // Zoom in (fewer, bigger cards)
-                Rectangle {
-                    width: 32; height: 32
-                    radius: Theme.radiusSmall
-                    color: plusArea.containsMouse ? Theme.surfaceVariant : "transparent"
-                    border.width: 1
-                    border.color: Theme.divider
-                    opacity: bookListPage.userCardsPerRow <= 2 ? 0.3 : 1.0
+                    Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
+
+                    // Zoom out (more, smaller cards)
+                    AppButton {
+                        variant: "outline"
+                        text: "−"
+                        Layout.preferredWidth: 44
+                        enabledState: bookListPage.userCardsPerRow > 0
+                                      && bookListPage.userCardsPerRow < 8
+                        onClicked: bookListPage.userCardsPerRow += 1
+                    }
 
                     Text {
-                        anchors.centerIn: parent
+                        Layout.fillWidth: true
+                        text: bookListPage.userCardsPerRow > 0 ? bookListPage.userCardsPerRow : "—"
+                        color: Theme.textOnSurface
+                        font.pixelSize: Theme.fontSizeLarge
+                        font.bold: true
+                        horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    // Zoom in (fewer, bigger cards)
+                    AppButton {
+                        variant: "outline"
                         text: "+"
-                        color: Theme.textOnSurface
-                        font.pixelSize: 18
-                        font.bold: true
-                    }
-
-                    MouseArea {
-                        id: plusArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (bookListPage.userCardsPerRow > 2)
-                                bookListPage.userCardsPerRow -= 1;
-                        }
+                        Layout.preferredWidth: 44
+                        enabledState: bookListPage.userCardsPerRow > 2
+                        onClicked: bookListPage.userCardsPerRow -= 1
                     }
                 }
             }
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.outline }
 
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Theme.spacingMedium
 
-                Text {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    text: Theme.tr("Prioritize books")
-                    color: Theme.textOnSurface
-                    font.pixelSize: Theme.fontSizeMedium
+                    spacing: 0
+
+                    Text {
+                        text: Theme.tr("Prioritize books")
+                        color: Theme.textOnSurface
+                        font.pixelSize: Theme.fontSizeMedium
+                    }
+
+                    Text {
+                        text: Theme.tr("Flagged books on top")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
                 }
 
                 Switch {

@@ -201,8 +201,8 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingXL
                 spacing: Theme.spacingMedium
 
@@ -251,8 +251,8 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.preferredHeight: 400
                 spacing: Theme.spacingLarge
 
@@ -260,7 +260,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    radius: Theme.radiusMedium
+                    radius: Theme.radiusCard
                     color: Theme.surface
 
                     ColumnLayout {
@@ -319,7 +319,7 @@ Item {
                 Rectangle {
                     Layout.preferredWidth: 280
                     Layout.fillHeight: true
-                    radius: Theme.radiusMedium
+                    radius: Theme.radiusCard
                     color: Theme.surface
 
                     ColumnLayout {
@@ -445,10 +445,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.preferredHeight: 400
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -568,10 +568,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 implicitHeight: yearlyColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -703,10 +703,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 implicitHeight: genreColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -961,15 +961,16 @@ Item {
         property color accent: Theme.primary
 
         implicitHeight: 90
-        radius: Theme.radiusMedium
+        radius: Theme.radiusCard
         color: cardHover.containsMouse ? Theme.surfaceVariant : Theme.surface
         // Gentle lift + accent outline on hover.
         scale: cardHover.containsMouse ? 1.03 : 1.0
-        border.width: cardHover.containsMouse ? 1 : 0
-        border.color: accent
+        border.width: 1
+        border.color: cardHover.containsMouse ? accent : Theme.outline
 
-        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation { duration: 140 } }
+        Behavior on scale { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easeOut } }
+        Behavior on color { ColorAnimation { duration: Theme.durationFast } }
+        Behavior on border.color { ColorAnimation { duration: Theme.durationFast } }
 
         ColumnLayout {
             anchors.centerIn: parent

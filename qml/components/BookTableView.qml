@@ -45,37 +45,36 @@ Item {
         spacing: 0
 
         // Header bar
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-            Layout.topMargin: Theme.spacingXL
-            Layout.leftMargin: Theme.spacingXL
-            Layout.rightMargin: Theme.spacingXL
-            spacing: Theme.spacingLarge
-
-            Text {
-                text: Theme.tr("Table")
-                color: Theme.textOnBackground
-                font.pixelSize: Theme.fontSizeHeader
-                font.bold: true
+            Layout.topMargin: Theme.pageMargin
+            Layout.leftMargin: Theme.pageMargin
+            Layout.rightMargin: Theme.pageMargin
+            title: Theme.tr("Table")
+            subtitle: {
+                var dummy = bookController.model.count;
+                var dist = bookController.getTypeDistribution();
+                var keys = Object.keys(dist).sort();
+                var parts = [];
+                for (var i = 0; i < keys.length; i++) {
+                    var k = keys[i];
+                    parts.push(Theme.typePlural(k) + ": " + dist[k]);
+                }
+                return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
             }
 
-            Item { Layout.fillWidth: true }
+            RoundButton {
+                implicitWidth: Theme.controlHeight
+                implicitHeight: Theme.controlHeight
+                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
+                icon.width: 18; icon.height: 18
+                icon.color: Theme.textOnPrimary
+                Material.background: Theme.primary
 
-            Text {
-                text: {
-                    var dummy = bookController.model.count;
-                    var dist = bookController.getTypeDistribution();
-                    var keys = Object.keys(dist).sort();
-                    var parts = [];
-                    for (var i = 0; i < keys.length; i++) {
-                        var k = keys[i];
-                        parts.push(Theme.typePlural(k) + ": " + dist[k]);
-                    }
-                    return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
-                }
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-                verticalAlignment: Text.AlignVCenter
+                ToolTip.visible: hovered
+                ToolTip.text: Theme.tr("Add Book")
+
+                onClicked: addDialog.open()
             }
         }
 
@@ -83,15 +82,15 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: Theme.spacingLarge
-            Layout.leftMargin: Theme.spacingXL
-            Layout.rightMargin: Theme.spacingXL
+            Layout.leftMargin: Theme.pageMargin
+            Layout.rightMargin: Theme.pageMargin
             Layout.bottomMargin: Theme.spacingLarge
             spacing: Theme.spacingSmall
 
             TextField {
                 id: searchField
                 Layout.preferredWidth: 220
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: Theme.controlHeight
                 topPadding: 6
                 bottomPadding: 6
                 font.pixelSize: Theme.fontSizeMedium
@@ -104,7 +103,7 @@ Item {
             ComboBox {
                 id: ratingCombo
                 Layout.preferredWidth: 110
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: Theme.controlHeight
                 font.pixelSize: Theme.fontSizeSmall
                 Material.accent: Theme.primary
 
@@ -126,7 +125,7 @@ Item {
             ComboBox {
                 id: tagCombo
                 Layout.preferredWidth: 140
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: Theme.controlHeight
                 font.pixelSize: Theme.fontSizeSmall
                 Material.accent: Theme.primary
 
@@ -153,44 +152,15 @@ Item {
                         { key: "Abandoned", value: "abandoned" }
                     ]
 
-                    Rectangle {
+                    Chip {
                         required property var modelData
-                        required property int index
-                        width: tFilterChip.implicitWidth + Theme.spacingLarge
-                        height: 28
-                        radius: 14
-                        color: bookController.filterStatus === modelData.value
-                               ? Theme.primary : Theme.surfaceVariant
-                        border.width: 1
-                        border.color: bookController.filterStatus === modelData.value
-                                      ? "transparent" : Theme.divider
-
-                        Text {
-                            id: tFilterChip
-                            anchors.centerIn: parent
-                            text: Theme.tr(modelData.key)
-                            color: bookController.filterStatus === modelData.value
-                                   ? Theme.textOnPrimary : Theme.textSecondary
-                            font.pixelSize: Theme.fontSizeSmall
-                            font.bold: bookController.filterStatus === modelData.value
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: bookController.filterStatus = modelData.value
-                        }
+                        text: Theme.tr(modelData.key)
+                        selected: bookController.filterStatus === modelData.value
+                        accent: modelData.value === "" ? Theme.primary
+                                                       : Theme.statusColor(modelData.value)
+                        onClicked: bookController.filterStatus = modelData.value
                     }
                 }
-            }
-
-            RoundButton {
-                width: 36; height: 36
-                icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/add-book.svg"
-                icon.width: 18; icon.height: 18
-                icon.color: Theme.textOnPrimary
-                Material.background: Theme.primary
-                onClicked: addDialog.open()
             }
         }
 
@@ -545,12 +515,34 @@ Item {
             }
 
             // Empty state
-            Text {
+            EmptyState {
                 anchors.centerIn: parent
+                width: parent.width
                 visible: tableList.count === 0
-                text: searchField.text ? Theme.tr("No books match your search") : Theme.tr("No books yet. Click + to add one!")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeLarge
+
+                readonly property bool isFiltered: searchField.text !== ""
+                                                   || bookController.filterStatus !== ""
+                                                   || bookController.filterMinRating > 0
+                                                   || bookController.filterTag !== ""
+
+                icon: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"
+                title: isFiltered ? Theme.tr("No books match your search")
+                                  : Theme.tr("Your library is empty")
+                hint: isFiltered ? Theme.tr("Try a different search term, or clear the filters.")
+                                 : Theme.tr("Add your first book to start tracking what you read.")
+                actionText: isFiltered ? Theme.tr("Clear filters") : Theme.tr("Add Book")
+                onActionClicked: {
+                    if (isFiltered) {
+                        searchField.text = "";
+                        bookController.filterStatus = "";
+                        bookController.filterMinRating = 0;
+                        bookController.filterTag = "";
+                        ratingCombo.currentIndex = 0;
+                        tagCombo.currentIndex = 0;
+                    } else {
+                        addDialog.open();
+                    }
+                }
             }
         }
     }

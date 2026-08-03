@@ -50,30 +50,27 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Theme.spacingXL
+        anchors.margins: Theme.pageMargin
         spacing: Theme.spacingLarge
 
         // Header
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-            spacing: Theme.spacingLarge
-
-            Text {
-                text: Theme.tr("Challenges")
-                color: Theme.textOnBackground
-                font.pixelSize: Theme.fontSizeHeader
-                font.bold: true
+            title: Theme.tr("Challenges")
+            subtitle: {
+                if (challengesPage.challenges.length === 0)
+                    return "";
+                var done = 0;
+                for (var i = 0; i < challengesPage.challenges.length; i++)
+                    if (challengesPage.challenges[i].progress >= 1.0)
+                        done++;
+                return challengesPage.challenges.length + " " + Theme.tr("active")
+                       + "  ·  " + done + " " + Theme.tr("completed");
             }
 
-            Item { Layout.fillWidth: true }
-
-            RoundButton {
-                text: "+"
-                font.pixelSize: 18
-                font.bold: true
-                width: 36; height: 36
-                Material.background: Theme.primary
-                Material.foreground: Theme.textOnPrimary
+            AppButton {
+                variant: "primary"
+                text: Theme.tr("New challenge")
                 onClicked: addChallengeDialog.open()
             }
         }
@@ -98,14 +95,18 @@ Item {
                 Repeater {
                     model: challengesPage.challenges
 
-                    Rectangle {
+                    Panel {
                         required property var modelData
                         required property int index
 
                         Layout.fillWidth: true
                         implicitHeight: cardContent.implicitHeight + Theme.spacingLarge * 2
-                        radius: Theme.radiusMedium
-                        color: Theme.surface
+                        interactive: true
+                        accent: modelData.progress >= 1.0 ? Theme.statusRead : Theme.primary
+
+                        Behavior on implicitHeight {
+                            NumberAnimation { duration: Theme.durationMedium; easing.type: Theme.easeOut }
+                        }
 
                         ColumnLayout {
                             id: cardContent
@@ -429,13 +430,15 @@ Item {
                 }
 
                 // Empty state
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.topMargin: Theme.spacingXL * 2
+                EmptyState {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingXXL * 2
                     visible: challengesPage.challenges.length === 0
-                    text: Theme.tr("No challenges yet. Click + to create one!")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeLarge
+                    icon: "qrc:/qt/qml/BookWorm/src/img/icons/challenges.svg"
+                    title: Theme.tr("No challenges yet")
+                    hint: Theme.tr("Set a target — books, pages, or pages per day — and a deadline, and track how you are doing against it.")
+                    actionText: Theme.tr("New challenge")
+                    onActionClicked: addChallengeDialog.open()
                 }
             }
         }

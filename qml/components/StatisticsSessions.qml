@@ -151,8 +151,8 @@ Item {
             // can still be cleared without leaving the tab.
             // ═══════════════════════════════════
             Row {
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingXL
                 spacing: Theme.spacingSmall
 
@@ -200,8 +200,8 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingXL
                 spacing: Theme.spacingMedium
                 visible: sessionsPage.hasAnyData
@@ -240,12 +240,12 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingXL
                 visible: statsProvider.readingProjections.length > 0
                 implicitHeight: projectionColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -364,12 +364,12 @@ Item {
             // Empty state for the whole tab (no sessions recorded at all yet)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingXL
                 visible: !sessionsPage.hasAnyData
                 implicitHeight: emptyColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -400,10 +400,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.preferredHeight: 320
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -486,10 +486,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 implicitHeight: weekdayColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -579,11 +579,11 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 visible: statsProvider.heatmapDays.length > 0
                 implicitHeight: heatmapColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 readonly property real cell: 13
@@ -715,10 +715,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 implicitHeight: recentColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -998,7 +998,7 @@ Item {
         property color accent: Theme.primary
 
         implicitHeight: 90
-        radius: Theme.radiusMedium
+        radius: Theme.radiusCard
         color: cardHover.containsMouse ? Theme.surfaceVariant : Theme.surface
         scale: cardHover.containsMouse ? 1.03 : 1.0
         border.width: cardHover.containsMouse ? 1 : 0

@@ -54,7 +54,8 @@ Item {
 
         ColumnLayout {
             id: mainColumn
-            width: parent.width
+            width: Math.min(parent.width, Theme.contentMaxWidth)
+            x: (parent.width - width) / 2
             spacing: 0
 
             // ═══════════════════════════════════
@@ -113,7 +114,7 @@ Item {
                 Rectangle {
                     Layout.preferredWidth: 200
                     Layout.preferredHeight: 300
-                    radius: Theme.radiusMedium
+                    radius: Theme.radiusCard
                     color: Theme.surfaceVariant
 
                     Image {
@@ -339,8 +340,10 @@ Item {
                 Layout.topMargin: Theme.spacingXL
                 Layout.bottomMargin: 0
                 implicitHeight: reviewCol.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
                 visible: (bookData.status || "") === "read"
 
                 ColumnLayout {
@@ -394,8 +397,10 @@ Item {
                 Layout.rightMargin: Theme.spacingXL * 2
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: notesContent.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
                 visible: (bookData.notes || "") !== ""
 
                 ColumnLayout {
@@ -432,8 +437,10 @@ Item {
                 Layout.rightMargin: Theme.spacingXL * 2
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: quotesColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
 
                 ColumnLayout {
                     id: quotesColumn
@@ -521,8 +528,10 @@ Item {
                 Layout.rightMargin: Theme.spacingXL * 2
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: highlightsCol.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
 
                 ColumnLayout {
                     id: highlightsCol
@@ -632,8 +641,10 @@ Item {
                 Layout.rightMargin: Theme.spacingXL * 2
                 Layout.topMargin: Theme.spacingLarge
                 implicitHeight: summaryCol.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
 
                 property bool expanded: false
 

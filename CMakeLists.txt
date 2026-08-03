@@ -56,6 +56,13 @@ qt_add_qml_module(BookWorm
         qml/components/StatisticsSessions.qml
         qml/components/ChallengesView.qml
         qml/components/SeriesView.qml
+        qml/components/SettingsDialog.qml
+        qml/components/common/Panel.qml
+        qml/components/common/SectionLabel.qml
+        qml/components/common/AppButton.qml
+        qml/components/common/Chip.qml
+        qml/components/common/PageHeader.qml
+        qml/components/common/EmptyState.qml
     RESOURCES
         src/img/png/main_icon.png
         src/img/png/main_icon_radius.png

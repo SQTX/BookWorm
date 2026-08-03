@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import QtQuick.Effects
 import QtCore
 import BookWorm
 import Qt.labs.platform as Platform
@@ -175,11 +176,9 @@ ApplicationWindow {
 
         Material.theme: Theme.isDark ? Material.Dark : Material.Light
 
-        background: Rectangle {
+        background: Panel {
             radius: Theme.radiusLarge
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+            elevated: true
         }
 
         ColumnLayout {
@@ -391,6 +390,16 @@ ApplicationWindow {
 
                 Item { Layout.fillHeight: true }
 
+                // Separates navigation (above) from utilities (below); without it
+                // the two groups read as one nine-icon list.
+                Rectangle {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.bottomMargin: Theme.spacingSmall
+                    width: 24
+                    height: 1
+                    color: Theme.outline
+                }
+
                 // Tags button
                 ToolButton {
                     Layout.alignment: Qt.AlignHCenter
@@ -444,7 +453,7 @@ ApplicationWindow {
                     ToolTip.visible: hovered
                     ToolTip.text: Theme.tr("Settings")
 
-                    onClicked: settingsPopup.open()
+                    onClicked: settingsDialog.open()
                 }
 
                 Item { Layout.preferredHeight: Theme.spacingSmall }
@@ -541,491 +550,47 @@ ApplicationWindow {
     property string backupIntervalUnit: "D"   // "D", "M" or "Y"
     property string backupLastRun: ""          // ISO date of the last successful run
 
-    Popup {
-        id: settingsPopup
-        x: 80
-        y: parent.height - height - 16
-        width: 280
-        padding: 0
-        modal: true
+    // Settings live here (Main.qml owns the persisted `Settings` block); the
+    // dialog mirrors them and writes back through these handlers.
+    SettingsDialog {
+        id: settingsDialog
 
-        background: Rectangle {
-            radius: Theme.radiusMedium
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+        language: root.appLanguage
+        onLanguageChanged: root.appLanguage = language
+
+        appStyle: root.appStyle
+        onAppStyleChanged: {
+            root.appStyle = appStyle;
+            Theme.setTheme(appStyle);
         }
 
-        ColumnLayout {
-            width: parent.width
-            spacing: 0
+        cardsPerRow: root.libraryCardsPerRow
+        onCardsPerRowChanged: root.libraryCardsPerRow = cardsPerRow
 
-            // Header
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 44
-                color: "transparent"
+        priorityEnabled: root.libraryPriorityEnabled
+        onPriorityEnabledChanged: root.libraryPriorityEnabled = priorityEnabled
 
-                Text {
-                    anchors.left: parent.left
-                    anchors.leftMargin: Theme.spacingLarge
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Theme.tr("Settings")
-                    color: Theme.textOnSurface
-                    font.pixelSize: Theme.fontSizeLarge
-                    font.bold: true
-                }
-            }
+        backupFolder: root.backupFolder
 
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+        backupAutomatic: root.backupAutomatic
+        onBackupAutomaticChanged: root.backupAutomatic = backupAutomatic
 
-            // ── Language section ──
-            Text {
-                Layout.topMargin: Theme.spacingMedium
-                Layout.leftMargin: Theme.spacingLarge
-                text: Theme.tr("LANGUAGE")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-                font.bold: true
-            }
+        backupIntervalValue: root.backupIntervalValue
+        onBackupIntervalValueChanged: root.backupIntervalValue = backupIntervalValue
 
-            Repeater {
-                model: [
-                    { key: "en", label: "English" },
-                    { key: "pl", label: "Polski" }
-                ]
+        backupIntervalUnit: root.backupIntervalUnit
+        onBackupIntervalUnitChanged: root.backupIntervalUnit = backupIntervalUnit
 
-                Rectangle {
-                    required property var modelData
-                    required property int index
+        backupLastRun: root.backupLastRun
 
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 36
-                    color: langMouse.containsMouse ? Theme.surfaceVariant : "transparent"
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: Theme.spacingLarge
-                        anchors.rightMargin: Theme.spacingLarge
-                        spacing: Theme.spacingMedium
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: modelData.label
-                            color: root.appLanguage === modelData.key
-                                   ? Theme.primary : Theme.textOnSurface
-                            font.pixelSize: Theme.fontSizeMedium
-                            font.bold: root.appLanguage === modelData.key
-                        }
-
-                        Rectangle {
-                            width: 18; height: 18; radius: 9
-                            color: "transparent"
-                            border.width: 2
-                            border.color: root.appLanguage === modelData.key
-                                          ? Theme.primary : Theme.textSecondary
-
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 10; height: 10; radius: 5
-                                color: Theme.primary
-                                visible: root.appLanguage === modelData.key
-                            }
-                        }
-                    }
-
-                    MouseArea {
-                        id: langMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.appLanguage = modelData.key
-                    }
-                }
-            }
-
-            // ── Separator ──
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.topMargin: Theme.spacingMedium
-                height: 1
-                color: Theme.divider
-            }
-
-            // ── Style section ──
-            Text {
-                Layout.topMargin: Theme.spacingMedium
-                Layout.leftMargin: Theme.spacingLarge
-                text: Theme.tr("APP STYLE")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-                font.bold: true
-            }
-
-            Repeater {
-                model: [
-                    { key: "minimalist_light", label: "Minimalist Light",
-                      labelPl: "Minimalistyczny jasny" },
-                    { key: "minimalist_dark",  label: "Minimalist Dark",
-                      labelPl: "Minimalistyczny ciemny" },
-                    { key: "classic",          label: "Classic",
-                      labelPl: "Klasyczny" }
-                ]
-
-                Rectangle {
-                    required property var modelData
-                    required property int index
-
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 36
-                    color: styleItemMouse.containsMouse ? Theme.surfaceVariant : "transparent"
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: Theme.spacingLarge
-                        anchors.rightMargin: Theme.spacingLarge
-                        spacing: Theme.spacingMedium
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: Theme.tr(modelData.label)
-                            color: root.appStyle === modelData.key
-                                   ? Theme.primary : Theme.textOnSurface
-                            font.pixelSize: Theme.fontSizeMedium
-                            font.bold: root.appStyle === modelData.key
-                        }
-
-                        Rectangle {
-                            width: 18; height: 18; radius: 9
-                            color: "transparent"
-                            border.width: 2
-                            border.color: root.appStyle === modelData.key
-                                          ? Theme.primary : Theme.textSecondary
-
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 10; height: 10; radius: 5
-                                color: Theme.primary
-                                visible: root.appStyle === modelData.key
-                            }
-                        }
-                    }
-
-                    MouseArea {
-                        id: styleItemMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            root.appStyle = modelData.key;
-                            Theme.setTheme(modelData.key);
-                        }
-                    }
-                }
-            }
-
-            // ── Separator ──
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.topMargin: Theme.spacingMedium
-                height: 1
-                color: Theme.divider
-            }
-
-            // ── Backup section ──
-            Text {
-                Layout.topMargin: Theme.spacingMedium
-                Layout.leftMargin: Theme.spacingLarge
-                text: Theme.tr("BACKUP")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-                font.bold: true
-                font.letterSpacing: 1
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingSmall
-                height: 40
-                radius: Theme.radiusSmall
-                color: backupMouse.containsMouse ? Theme.primaryVariant : Theme.primary
-                opacity: backupManager.pgDumpPath() === "" ? 0.4 : 1.0
-
-                Text {
-                    anchors.centerIn: parent
-                    text: Theme.tr("Back Up Now")
-                    color: Theme.textOnPrimary
-                    font.pixelSize: Theme.fontSizeMedium
-                    font.bold: true
-                }
-
-                MouseArea {
-                    id: backupMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    enabled: backupManager.pgDumpPath() !== ""
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        settingsPopup.close();
-                        backupSaveDialog.open();
-                    }
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingSmall
-                visible: backupManager.pgDumpPath() === ""
-                text: Theme.tr("pg_dump not found — backup unavailable")
-                color: Theme.error
-                font.pixelSize: Theme.fontSizeSmall
-                wrapMode: Text.WordWrap
-            }
-
-            // Chosen backup folder + picker
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingMedium
-                spacing: Theme.spacingSmall
-
-                Text {
-                    Layout.fillWidth: true
-                    text: root.backupFolder !== "" ? root.backupFolder : Theme.tr("No folder chosen")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeSmall
-                    elide: Text.ElideMiddle
-                }
-
-                Button {
-                    text: Theme.tr("Choose Backup Folder")
-                    flat: true
-                    Material.foreground: Theme.primary
-                    onClicked: backupFolderDialog.open()
-                }
-            }
-
-            // Automatic backup toggle
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingSmall
-                spacing: Theme.spacingMedium
-
-                Text {
-                    Layout.fillWidth: true
-                    text: Theme.tr("Automatic backup")
-                    color: Theme.textOnSurface
-                    font.pixelSize: Theme.fontSizeMedium
-                }
-
-                Switch {
-                    checked: root.backupAutomatic
-                    enabled: root.backupFolder !== ""
-                    Material.accent: Theme.primary
-                    onToggled: root.backupAutomatic = checked
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                visible: root.backupFolder === ""
-                text: Theme.tr("Choose a folder to enable automatic backup")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-                wrapMode: Text.WordWrap
-            }
-
-            // Interval
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingSmall
-                spacing: Theme.spacingSmall
-
-                Text {
-                    text: Theme.tr("Every")
-                    color: Theme.textOnSurface
-                    font.pixelSize: Theme.fontSizeMedium
-                }
-
-                // Sized to match the D/M/Y chips beside it; the Material default is
-                // roughly twice their height.
-                SpinBox {
-                    id: backupIntervalSpinBox
-                    from: 1
-                    to: 99
-                    editable: false
-                    value: root.backupIntervalValue
-                    implicitWidth: 92
-                    implicitHeight: 28
-                    topPadding: 0
-                    bottomPadding: 0
-                    font.pixelSize: Theme.fontSizeSmall
-                    Material.accent: Theme.primary
-                    onValueModified: root.backupIntervalValue = value
-
-                    contentItem: Text {
-                        text: backupIntervalSpinBox.value
-                        color: Theme.textOnSurface
-                        font: backupIntervalSpinBox.font
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    background: Rectangle {
-                        radius: 14
-                        color: Theme.surfaceVariant
-                        border.width: 1
-                        border.color: Theme.divider
-                    }
-                }
-
-                Row {
-                    spacing: Theme.spacingSmall
-
-                    Repeater {
-                        model: [
-                            { key: "D" },
-                            { key: "M" },
-                            { key: "Y" }
-                        ]
-
-                        Rectangle {
-                            required property var modelData
-
-                            readonly property bool isSelected: root.backupIntervalUnit === modelData.key
-
-                            width: unitText.implicitWidth + Theme.spacingLarge
-                            height: 28
-                            radius: 14
-                            color: isSelected ? Theme.primary : Theme.surfaceVariant
-                            border.width: 1
-                            border.color: isSelected ? "transparent" : Theme.divider
-
-                            Text {
-                                id: unitText
-                                anchors.centerIn: parent
-                                text: modelData.key
-                                color: parent.isSelected ? Theme.textOnPrimary : Theme.textSecondary
-                                font.pixelSize: Theme.fontSizeSmall
-                                font.bold: parent.isSelected
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.backupIntervalUnit = modelData.key
-                            }
-                        }
-                    }
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingSmall
-                text: root.backupLastRun !== ""
-                      ? Theme.tr("Last backup") + ": " + Qt.formatDateTime(new Date(root.backupLastRun), "yyyy-MM-dd hh:mm")
-                      : Theme.tr("No backup yet")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-            }
-
-            // ── Restore button ──
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 40
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingMedium
-                radius: Theme.radiusSmall
-                color: restoreMouse.containsMouse ? "#D32F2F" : "#B71C1C"
-                opacity: backupManager.psqlPath() === "" ? 0.4 : 1.0
-
-                Text {
-                    anchors.centerIn: parent
-                    text: Theme.tr("Restore from Backup")
-                    color: "#FFFFFF"
-                    font.pixelSize: Theme.fontSizeMedium
-                    font.bold: true
-                }
-
-                MouseArea {
-                    id: restoreMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    enabled: backupManager.psqlPath() !== ""
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        settingsPopup.close();
-                        restoreOpenDialog.open();
-                    }
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingLarge
-                Layout.rightMargin: Theme.spacingLarge
-                Layout.topMargin: Theme.spacingSmall
-                visible: backupManager.psqlPath() === ""
-                text: Theme.tr("psql not found — restore unavailable")
-                color: Theme.error
-                font.pixelSize: Theme.fontSizeSmall
-                wrapMode: Text.WordWrap
-            }
-
-            Item { Layout.preferredHeight: Theme.spacingSmall }
-
-            // ── Separator ──
-            Rectangle {
-                Layout.fillWidth: true
-                height: 1
-                color: Theme.divider
-            }
-
-            // ── Reset data button ──
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 40
-                Layout.margins: Theme.spacingLarge
-                radius: Theme.radiusSmall
-                color: resetMouse.containsMouse ? "#D32F2F" : "#B71C1C"
-
-                Text {
-                    anchors.centerIn: parent
-                    text: Theme.tr("Reset All Data")
-                    color: "#FFFFFF"
-                    font.pixelSize: Theme.fontSizeMedium
-                    font.bold: true
-                }
-
-                MouseArea {
-                    id: resetMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        settingsPopup.close();
-                        resetConfirmDialog.open();
-                    }
-                }
-            }
-
-            Item { Layout.preferredHeight: Theme.spacingSmall }
-        }
+        onChooseBackupFolderRequested: backupFolderDialog.open()
+        onBackupRequested: backupSaveDialog.open()
+        onRestoreRequested: restoreOpenDialog.open()
+        onResetRequested: resetConfirmDialog.open()
+        onExportCsvRequested: exportDialog.open()
+        onImportCsvRequested: importDialog.open()
+        onExportNotesRequested: exportNotesDialog.open()
+        onAboutRequested: aboutDialog.open()
     }
 
     // ── Tags Popup ──
@@ -1054,11 +619,9 @@ ApplicationWindow {
             newTagColor = "#808080";
         }
 
-        background: Rectangle {
-            radius: Theme.radiusMedium
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+        background: Panel {
+            radius: Theme.radiusCard
+            elevated: true
         }
 
         ColumnLayout {
@@ -1280,11 +843,9 @@ ApplicationWindow {
         property string selectedColor: "#808080"
         property bool isNewTag: false
 
-        background: Rectangle {
-            radius: Theme.radiusMedium
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+        background: Panel {
+            radius: Theme.radiusCard
+            elevated: true
         }
 
         ColumnLayout {
@@ -1385,11 +946,9 @@ ApplicationWindow {
         Material.theme: Theme.isDark ? Material.Dark : Material.Light
         Material.accent: Theme.primary
 
-        background: Rectangle {
+        background: Panel {
             radius: Theme.radiusLarge
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+            elevated: true
         }
 
         ColumnLayout {
@@ -1400,7 +959,7 @@ ApplicationWindow {
                 Layout.topMargin: Theme.spacingLarge
                 Layout.leftMargin: Theme.spacingXL
                 text: Theme.tr("Reset Data")
-                color: "#D32F2F"
+                color: Theme.dangerHover
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
             }
@@ -1434,8 +993,8 @@ ApplicationWindow {
 
                 Button {
                     text: "OK"
-                    Material.background: "#B71C1C"
-                    Material.foreground: "#FFFFFF"
+                    Material.background: Theme.danger
+                    Material.foreground: Theme.dangerText
                     onClicked: {
                         bookController.resetAllData();
                         bookController.loadBooks();
@@ -1578,11 +1137,9 @@ ApplicationWindow {
         Material.theme: Theme.isDark ? Material.Dark : Material.Light
         Material.accent: Theme.primary
 
-        background: Rectangle {
+        background: Panel {
             radius: Theme.radiusLarge
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+            elevated: true
         }
 
         ColumnLayout {
@@ -1593,7 +1150,7 @@ ApplicationWindow {
                 Layout.topMargin: Theme.spacingLarge
                 Layout.leftMargin: Theme.spacingXL
                 text: Theme.tr("Restore replaces everything")
-                color: "#D32F2F"
+                color: Theme.dangerHover
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
             }
@@ -1677,8 +1234,8 @@ ApplicationWindow {
                     text: Theme.tr("Restore from Backup")
                     enabled: restoreConfirmDialog.confirmText === Theme.tr("RESTORE")
                     opacity: enabled ? 1.0 : 0.4
-                    Material.background: "#B71C1C"
-                    Material.foreground: "#FFFFFF"
+                    Material.background: Theme.danger
+                    Material.foreground: Theme.dangerText
                     onClicked: {
                         var path = restoreConfirmDialog.archivePath;
                         restoreConfirmDialog.close();
@@ -1782,11 +1339,9 @@ ApplicationWindow {
         Material.theme: Theme.isDark ? Material.Dark : Material.Light
         Material.accent: Theme.primary
 
-        background: Rectangle {
+        background: Panel {
             radius: Theme.radiusLarge
-            color: Theme.surface
-            border.width: 1
-            border.color: Theme.divider
+            elevated: true
         }
 
         ColumnLayout {
@@ -1797,7 +1352,7 @@ ApplicationWindow {
                 Layout.topMargin: Theme.spacingLarge
                 Layout.leftMargin: Theme.spacingXL
                 text: Theme.tr("Restore failed")
-                color: "#D32F2F"
+                color: Theme.dangerHover
                 font.pixelSize: Theme.fontSizeTitle
                 font.bold: true
             }
@@ -1879,7 +1434,7 @@ ApplicationWindow {
                 Button {
                     text: Theme.tr("Close")
                     Material.background: Theme.primary
-                    Material.foreground: "#FFFFFF"
+                    Material.foreground: Theme.dangerText
                     onClicked: restoreFailureDialog.close()
                 }
             }
@@ -1911,15 +1466,24 @@ ApplicationWindow {
         id: csvToast
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 32
+        // Stacks above the undo toast when both are up — they shared this anchor
+        // and drew on top of each other.
+        anchors.bottomMargin: undoToast.opacity > 0 ? 32 + undoToast.height + Theme.spacingMedium : 32
         width: toastLabel.implicitWidth + 48
         height: 40
         radius: 20
         color: Theme.surface
         border.width: 1
-        border.color: Theme.divider
+        border.color: Theme.outline
         opacity: 0
         visible: opacity > 0
+        layer.enabled: visible
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Theme.shadow
+            shadowBlur: 0.6
+            shadowVerticalOffset: 4
+        }
 
         function show(msg) {
             toastLabel.text = msg;
@@ -1961,7 +1525,14 @@ ApplicationWindow {
         radius: 22
         color: Theme.surface
         border.width: 1
-        border.color: Theme.divider
+        border.color: Theme.outline
+        layer.enabled: visible
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Theme.shadow
+            shadowBlur: 0.6
+            shadowVerticalOffset: 4
+        }
         opacity: 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 250 } }
