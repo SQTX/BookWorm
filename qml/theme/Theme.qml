@@ -250,11 +250,14 @@ QtObject {
     readonly property int pageMargin:      20
     // Gap between the header, the toolbar and the content beneath them.
     readonly property int sectionGap:      12
+    // Inset between a card's edge and its content. Cards are small and numerous
+    // here, so 16 on all four sides added up to a lot of unused surface.
+    readonly property int cardPadding:     12
     // Text and charts stop growing past this. Without it a maximised window on a
     // wide display stretches a two-column layout into unreadable full-width runs.
     readonly property int contentMaxWidth: 1440
-    readonly property int controlHeight:   36
-    readonly property int chipHeight:      28
+    readonly property int controlHeight:   34
+    readonly property int chipHeight:      26
 
     // ── Shapes ──
 

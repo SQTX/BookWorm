@@ -71,7 +71,7 @@ Item {
                         property bool expanded: false
 
                         width: seriesColumn.width
-                        implicitHeight: cardColumn.implicitHeight + Theme.spacingLarge * 2
+                        implicitHeight: cardColumn.implicitHeight + Theme.cardPadding * 2
                         interactive: true
                         accent: Theme.statusRead
 
@@ -81,9 +81,9 @@ Item {
 
                         Column {
                             id: cardColumn
-                            x: Theme.spacingLarge
-                            y: Theme.spacingLarge
-                            width: parent.width - Theme.spacingLarge * 2
+                            x: Theme.cardPadding
+                            y: Theme.cardPadding
+                            width: parent.width - Theme.cardPadding * 2
                             spacing: Theme.spacingMedium
 
                             // Header (click toggles expand)

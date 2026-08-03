@@ -265,7 +265,7 @@ Item {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: Theme.spacingLarge
+                        anchors.margins: Theme.cardPadding
                         spacing: 0
 
                         Text {
@@ -324,7 +324,7 @@ Item {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: Theme.spacingLarge
+                        anchors.margins: Theme.cardPadding
                         spacing: Theme.spacingLarge
 
                         // Avg Rating
@@ -453,7 +453,7 @@ Item {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingSmall
 
                     Text {
@@ -570,7 +570,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                implicitHeight: yearlyColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: yearlyColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
 
@@ -579,7 +579,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -705,7 +705,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                implicitHeight: genreColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: genreColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
 
@@ -714,7 +714,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     // Header: title + chart-type switcher

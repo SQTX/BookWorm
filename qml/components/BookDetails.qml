@@ -339,7 +339,7 @@ Item {
                 Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
                 Layout.bottomMargin: 0
-                implicitHeight: reviewCol.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: reviewCol.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
                 border.width: 1
@@ -351,7 +351,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -396,7 +396,7 @@ Item {
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: notesContent.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: notesContent.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
                 border.width: 1
@@ -408,7 +408,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -436,7 +436,7 @@ Item {
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: quotesColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: quotesColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
                 border.width: 1
@@ -447,7 +447,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     RowLayout {
@@ -527,7 +527,7 @@ Item {
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: highlightsCol.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: highlightsCol.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
                 border.width: 1
@@ -538,7 +538,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     RowLayout {
@@ -640,7 +640,7 @@ Item {
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: summaryCol.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: summaryCol.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
                 border.width: 1
@@ -653,7 +653,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     RowLayout {

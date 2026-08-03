@@ -52,8 +52,8 @@ Rectangle {
 
     // No explicit width/height — a layout parent overrides these when it needs to
     // stretch the button, and they hug the label everywhere else.
-    implicitHeight: Theme.controlHeight + 4
-    implicitWidth: contentRow.implicitWidth + Theme.spacingXL
+    implicitHeight: Theme.controlHeight + 2
+    implicitWidth: contentRow.implicitWidth + Theme.spacingLarge + Theme.spacingSmall
 
     radius: Theme.radiusControl
     color: _pressed ? Qt.darker(_baseHover, 1.15)

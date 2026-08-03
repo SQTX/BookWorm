@@ -244,7 +244,7 @@ Item {
                 Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
                 visible: statsProvider.readingProjections.length > 0
-                implicitHeight: projectionColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: projectionColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
 
@@ -253,7 +253,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -368,7 +368,7 @@ Item {
                 Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
                 visible: !sessionsPage.hasAnyData
-                implicitHeight: emptyColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: emptyColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
 
@@ -408,7 +408,7 @@ Item {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingSmall
 
                     Text {
@@ -488,7 +488,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                implicitHeight: weekdayColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: weekdayColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
 
@@ -497,7 +497,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -582,7 +582,7 @@ Item {
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
                 visible: statsProvider.heatmapDays.length > 0
-                implicitHeight: heatmapColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: heatmapColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
 
@@ -594,7 +594,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -717,7 +717,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pageMargin
                 Layout.rightMargin: Theme.pageMargin
-                implicitHeight: recentColumn.implicitHeight + Theme.spacingLarge * 2
+                implicitHeight: recentColumn.implicitHeight + Theme.cardPadding * 2
                 radius: Theme.radiusCard
                 color: Theme.surface
 
@@ -726,7 +726,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {

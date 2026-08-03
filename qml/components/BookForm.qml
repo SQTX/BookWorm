@@ -18,7 +18,7 @@ Dialog {
     readonly property bool isRead: statusCombo.currentIndex === 1
 
     // Compact field height
-    readonly property int fieldHeight: 36
+    readonly property int fieldHeight: Theme.controlHeight
     readonly property int fieldTopPad: 6
     readonly property int fieldBotPad: 6
 
@@ -519,7 +519,7 @@ Dialog {
                                         required property string name
 
                                         width: authorSuggestList.width
-                                        height: 28
+                                        height: Theme.chipHeight
                                         color: suggestMouse.containsMouse ? Theme.surfaceVariant : "transparent"
                                         radius: Theme.radiusSmall
 
@@ -626,8 +626,8 @@ Dialog {
 
                                     property bool isSelected: formDialog.audioModeSelection === modelData.value
 
-                                    width: audioChipText.implicitWidth + Theme.spacingLarge * 2
-                                    height: 28
+                                    width: audioChipText.implicitWidth + Theme.spacingLarge
+                                    height: Theme.chipHeight
                                     radius: 14
                                     color: isSelected ? Theme.secondary : "transparent"
                                     border.width: 1
@@ -770,7 +770,7 @@ Dialog {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.spacingLarge
                     Layout.rightMargin: Theme.spacingLarge
-                    implicitHeight: detailsCol.implicitHeight + Theme.spacingLarge * 2
+                    implicitHeight: detailsCol.implicitHeight + Theme.cardPadding * 2
                     radius: Theme.radiusMedium
                     color: Theme.surfaceVariant
 
@@ -779,7 +779,7 @@ Dialog {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.margins: Theme.spacingLarge
+                        anchors.margins: Theme.cardPadding
                         spacing: Theme.spacingMedium
 
                         Text {
@@ -1042,7 +1042,7 @@ Dialog {
                                             required property string name
 
                                             width: seriesSuggestList.width
-                                            height: 28
+                                            height: Theme.chipHeight
                                             color: seriesSuggestMouse.containsMouse ? Theme.surfaceVariant : "transparent"
                                             radius: Theme.radiusSmall
 
@@ -1190,7 +1190,7 @@ Dialog {
                                             required property string name
 
                                             width: publisherSuggestList.width
-                                            height: 28
+                                            height: Theme.chipHeight
                                             color: pubSuggestMouse.containsMouse ? Theme.surfaceVariant : "transparent"
                                             radius: Theme.radiusSmall
 
@@ -1229,7 +1229,7 @@ Dialog {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.spacingLarge
                     Layout.rightMargin: Theme.spacingLarge
-                    implicitHeight: datesCol.implicitHeight + Theme.spacingLarge * 2
+                    implicitHeight: datesCol.implicitHeight + Theme.cardPadding * 2
                     radius: Theme.radiusMedium
                     color: Theme.surfaceVariant
 
@@ -1238,7 +1238,7 @@ Dialog {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.margins: Theme.spacingLarge
+                        anchors.margins: Theme.cardPadding
                         spacing: Theme.spacingMedium
 
                         Text {
@@ -1340,7 +1340,7 @@ Dialog {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.spacingLarge
                     Layout.rightMargin: Theme.spacingLarge
-                    implicitHeight: notesCol.implicitHeight + Theme.spacingLarge * 2
+                    implicitHeight: notesCol.implicitHeight + Theme.cardPadding * 2
                     radius: Theme.radiusMedium
                     color: Theme.surfaceVariant
 
@@ -1349,7 +1349,7 @@ Dialog {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.margins: Theme.spacingLarge
+                        anchors.margins: Theme.cardPadding
                         spacing: Theme.spacingMedium
 
                         Text {

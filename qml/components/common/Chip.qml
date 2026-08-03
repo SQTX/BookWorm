@@ -15,7 +15,7 @@ Rectangle {
 
     signal clicked()
 
-    implicitWidth: chipLabel.implicitWidth + Theme.spacingLarge + Theme.spacingSmall
+    implicitWidth: chipLabel.implicitWidth + Theme.spacingLarge
     implicitHeight: Theme.chipHeight
 
     radius: height / 2

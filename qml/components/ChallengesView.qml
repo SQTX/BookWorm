@@ -100,7 +100,7 @@ Item {
                         required property int index
 
                         Layout.fillWidth: true
-                        implicitHeight: cardContent.implicitHeight + Theme.spacingLarge * 2
+                        implicitHeight: cardContent.implicitHeight + Theme.cardPadding * 2
                         interactive: true
                         accent: modelData.progress >= 1.0 ? Theme.statusRead : Theme.primary
 
@@ -113,7 +113,7 @@ Item {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.margins: Theme.spacingLarge
+                            anchors.margins: Theme.cardPadding
                             spacing: Theme.spacingMedium
 
                             // Top row: name + deadline + delete
