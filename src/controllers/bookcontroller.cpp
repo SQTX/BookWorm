@@ -3,8 +3,10 @@
 
 #include <QFile>
 #include <QTextStream>
+#include <QDate>
 #include <QUrl>
 #include <QSet>
+#include <QHash>
 #include <algorithm>
 
 BookController::BookController(QObject *parent)
@@ -12,6 +14,10 @@ BookController::BookController(QObject *parent)
     , m_model(new BookModel(this))
     , m_priorityModel(new BookModel(this))
     , m_standardModel(new BookModel(this))
+    , m_readingModel(new BookModel(this))
+    , m_plannedModel(new BookModel(this))
+    , m_readModel(new BookModel(this))
+    , m_abandonedModel(new BookModel(this))
 {
 }
 
@@ -29,6 +35,11 @@ BookModel *BookController::standardModel() const
 {
     return m_standardModel;
 }
+
+BookModel *BookController::readingModel() const   { return m_readingModel; }
+BookModel *BookController::plannedModel() const   { return m_plannedModel; }
+BookModel *BookController::readModel() const      { return m_readModel; }
+BookModel *BookController::abandonedModel() const { return m_abandonedModel; }
 
 void BookController::loadBooks()
 {
@@ -98,8 +109,24 @@ bool BookController::updateBook(const QVariantMap &bookData)
 
 bool BookController::deleteBook(int id)
 {
-    if (!DatabaseManager::instance().deleteBook(id)) {
+    DatabaseManager &db = DatabaseManager::instance();
+
+    // Snapshot everything before the delete — the FK cascade wipes tags, quotes,
+    // highlights and sessions with the row, so undo must reconstruct them.
+    auto existing = db.fetchBookById(id);
+    if (existing.has_value()) {
+        m_lastDeleted.valid      = true;
+        m_lastDeleted.book       = existing.value();
+        m_lastDeleted.quotes     = db.fetchQuotesForBook(id);
+        m_lastDeleted.highlights = db.fetchHighlightsForBook(id);
+        m_lastDeleted.sessions   = db.fetchSessionsForBookRaw(id);
+    } else {
+        m_lastDeleted.valid = false;
+    }
+
+    if (!db.deleteBook(id)) {
         emit errorOccurred("Failed to delete book");
+        m_lastDeleted.valid = false;
         return false;
     }
 
@@ -109,6 +136,52 @@ bool BookController::deleteBook(int id)
         m_allBooks.end()
     );
 
+    applyFilters();
+    emit booksChanged();
+    if (m_lastDeleted.valid)
+        emit bookDeletedUndoable(m_lastDeleted.book.title);
+    return true;
+}
+
+bool BookController::undoDelete()
+{
+    if (!m_lastDeleted.valid)
+        return false;
+
+    DatabaseManager &db = DatabaseManager::instance();
+
+    // Re-insert the book. It gets a fresh id (the old one is gone); children are
+    // relinked to that new id below.
+    Book book = m_lastDeleted.book;
+    const int newId = db.insertBook(book);
+    if (newId < 0) {
+        emit errorOccurred("Failed to restore book");
+        return false;
+    }
+    book.id = newId;
+
+    if (!book.tags.isEmpty())
+        db.syncTagsForBook(newId, book.tags);
+
+    for (const QVariant &v : std::as_const(m_lastDeleted.quotes)) {
+        const QVariantMap q = v.toMap();
+        db.addQuote(newId, q.value("quote").toString(), q.value("page").toInt());
+    }
+    for (const QVariant &v : std::as_const(m_lastDeleted.highlights)) {
+        const QVariantMap h = v.toMap();
+        db.addHighlight(newId, h.value("title").toString(),
+                        h.value("page").toInt(), h.value("note").toString());
+    }
+    for (const QVariant &v : std::as_const(m_lastDeleted.sessions)) {
+        const QVariantMap s = v.toMap();
+        db.restoreSession(newId, s.value("date").toDate(),
+                          s.value("pageStart").toInt(), s.value("pageEnd").toInt(),
+                          s.value("source").toString());
+    }
+
+    m_lastDeleted = DeletedSnapshot{};  // single-level undo — consume the snapshot
+
+    m_allBooks.prepend(book);
     applyFilters();
     emit booksChanged();
     return true;
@@ -162,6 +235,9 @@ bool BookController::markAsRead(int bookId, int rating, const QString &review)
     book.endDate = QDate::currentDate();
     book.rating = rating;
     book.currentPage = book.pageCount;
+    // Each completion is one more read — this is the sole path that grows the tally,
+    // so finishing a book again (after restarting it) records a reread.
+    book.readCount = book.readCount + 1;
 
     // DatabaseManager::updateBook() is what BookController::updateReview() ultimately
     // delegates to (fetch -> set review -> updateBook); folding the review into this
@@ -205,6 +281,21 @@ bool BookController::deleteReadingSession(int sessionId)
     return DatabaseManager::instance().deleteSession(sessionId);
 }
 
+QString BookController::updateReadingSession(int sessionId, const QString &isoDate, int pages)
+{
+    const QDate date = QDate::fromString(isoDate, Qt::ISODate);
+    if (!date.isValid() || pages < 1)
+        return QStringLiteral("Invalid session values");
+
+    if (DatabaseManager::instance().sessionDateTaken(sessionId, date))
+        return QStringLiteral("A session for that day already exists");
+
+    if (!DatabaseManager::instance().updateSession(sessionId, date, pages))
+        return QStringLiteral("Failed to update session");
+
+    return QString();
+}
+
 QVariantMap BookController::getTypeDistribution()
 {
     QVariantMap dist;
@@ -213,6 +304,55 @@ QVariantMap BookController::getTypeDistribution()
         dist[type] = dist.value(type, 0).toInt() + 1;
     }
     return dist;
+}
+
+QVariantList BookController::getSeriesList()
+{
+    // Group books by series name, preserving first-seen order via a parallel list.
+    QStringList order;
+    QHash<QString, QVariantList> booksBySeries;
+    QHash<QString, int> readCountBySeries;
+
+    for (const Book &book : m_allBooks) {
+        const QString series = book.series.trimmed();
+        if (series.isEmpty())
+            continue;
+
+        if (!booksBySeries.contains(series)) {
+            booksBySeries.insert(series, {});
+            readCountBySeries.insert(series, 0);
+            order.append(series);
+        }
+
+        QVariantMap b;
+        b["id"]             = book.id;
+        b["title"]          = book.title;
+        b["author"]         = book.author;
+        b["status"]         = book.status;
+        b["rating"]         = book.rating;
+        b["coverImagePath"] = book.coverImagePath;
+        booksBySeries[series].append(b);
+
+        if (book.status == QStringLiteral("read"))
+            readCountBySeries[series] += 1;
+    }
+
+    QVariantList result;
+    for (const QString &name : std::as_const(order)) {
+        const QVariantList &books = booksBySeries[name];
+        QVariantMap entry;
+        entry["name"]  = name;
+        entry["total"] = books.size();
+        entry["read"]  = readCountBySeries[name];
+        entry["books"] = books;
+        result.append(entry);
+    }
+
+    // Longest series first, so the fuller ones lead.
+    std::stable_sort(result.begin(), result.end(), [](const QVariant &a, const QVariant &b) {
+        return a.toMap().value("total").toInt() > b.toMap().value("total").toInt();
+    });
+    return result;
 }
 
 QStringList BookController::getAllTags()
@@ -591,6 +731,34 @@ void BookController::setPriorityEnabled(bool enabled)
     }
 }
 
+int BookController::filterMinRating() const
+{
+    return m_filterMinRating;
+}
+
+void BookController::setFilterMinRating(int rating)
+{
+    if (m_filterMinRating != rating) {
+        m_filterMinRating = rating;
+        emit filterMinRatingChanged();
+        applyFilters();
+    }
+}
+
+QString BookController::filterTag() const
+{
+    return m_filterTag;
+}
+
+void BookController::setFilterTag(const QString &tag)
+{
+    if (m_filterTag != tag) {
+        m_filterTag = tag;
+        emit filterTagChanged();
+        applyFilters();
+    }
+}
+
 // ─── CSV helpers ────────────────────────────────────────────
 
 static QString escapeCsvField(const QString &field)
@@ -682,6 +850,139 @@ bool BookController::exportToCsv(const QString &filePath)
 
     file.close();
     return true;
+}
+
+// ─── Markdown notes export ──────────────────────────────────
+
+// Build the Markdown for one book. Returns an empty string when the book has
+// nothing worth exporting (no summary, review, notes, quotes or highlights), so
+// the whole-library export can skip books that would otherwise be empty headers.
+static QString buildBookMarkdown(const Book &book,
+                                 const QVariantList &quotes,
+                                 const QVariantList &highlights)
+{
+    const bool hasText = !book.summary.trimmed().isEmpty()
+                         || !book.review.trimmed().isEmpty()
+                         || !book.notes.trimmed().isEmpty();
+    if (!hasText && quotes.isEmpty() && highlights.isEmpty())
+        return QString();
+
+    QString md;
+    md += QStringLiteral("# %1\n").arg(book.title);
+    md += QStringLiteral("*%1*").arg(book.author);
+    if (!book.series.trimmed().isEmpty())
+        md += QStringLiteral("  ·  %1").arg(book.series);
+    md += QStringLiteral("\n\n");
+
+    if (book.rating > 0)
+        md += QStringLiteral("**Rating:** %1/6\n\n").arg(book.rating);
+
+    if (!book.summary.trimmed().isEmpty())
+        md += QStringLiteral("## Summary\n\n%1\n\n").arg(book.summary.trimmed());
+
+    if (!book.review.trimmed().isEmpty())
+        md += QStringLiteral("## Review\n\n%1\n\n").arg(book.review.trimmed());
+
+    if (!book.notes.trimmed().isEmpty())
+        md += QStringLiteral("## Notes\n\n%1\n\n").arg(book.notes.trimmed());
+
+    if (!quotes.isEmpty()) {
+        md += QStringLiteral("## Favorite quotes\n\n");
+        for (const QVariant &v : quotes) {
+            const QVariantMap q = v.toMap();
+            const QString text = q.value("quote").toString().trimmed();
+            const int page = q.value("page").toInt();
+            // Prefix every line of the quote with "> " so multi-line quotes stay a blockquote.
+            QString quoted = text;
+            quoted.replace(QStringLiteral("\n"), QStringLiteral("\n> "));
+            md += QStringLiteral("> %1\n").arg(quoted);
+            if (page > 0)
+                md += QStringLiteral(">\n> — p. %1\n").arg(page);
+            md += QStringLiteral("\n");
+        }
+    }
+
+    if (!highlights.isEmpty()) {
+        md += QStringLiteral("## Highlights\n\n");
+        for (const QVariant &v : highlights) {
+            const QVariantMap h = v.toMap();
+            const QString title = h.value("title").toString().trimmed();
+            const int page = h.value("page").toInt();
+            const QString note = h.value("note").toString().trimmed();
+            md += QStringLiteral("### %1").arg(title.isEmpty() ? QStringLiteral("—") : title);
+            if (page > 0)
+                md += QStringLiteral(" (p. %1)").arg(page);
+            md += QStringLiteral("\n\n");
+            if (!note.isEmpty())
+                md += QStringLiteral("%1\n\n").arg(note);
+        }
+    }
+
+    return md;
+}
+
+bool BookController::exportBookNotesToMarkdown(int bookId, const QString &filePath)
+{
+    QString path = filePath;
+    if (path.startsWith("file://"))
+        path = QUrl(path).toLocalFile();
+
+    auto existing = DatabaseManager::instance().fetchBookById(bookId);
+    if (!existing.has_value()) {
+        emit errorOccurred("Book not found");
+        return false;
+    }
+
+    DatabaseManager &db = DatabaseManager::instance();
+    const QString md = buildBookMarkdown(existing.value(),
+                                         db.fetchQuotesForBook(bookId),
+                                         db.fetchHighlightsForBook(bookId));
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit errorOccurred("Cannot open file for writing: " + path);
+        return false;
+    }
+    QTextStream out(&file);
+    // A book with no notes still produces a minimal file rather than a silent no-op.
+    out << (md.isEmpty() ? QStringLiteral("# %1\n\n*%2*\n\n_(no notes)_\n")
+                               .arg(existing->title, existing->author)
+                         : md);
+    file.close();
+    return true;
+}
+
+int BookController::exportAllNotesToMarkdown(const QString &filePath)
+{
+    QString path = filePath;
+    if (path.startsWith("file://"))
+        path = QUrl(path).toLocalFile();
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        emit errorOccurred("Cannot open file for writing: " + path);
+        return -1;
+    }
+
+    QTextStream out(&file);
+    out << QStringLiteral("# Reading notes\n\n");
+
+    DatabaseManager &db = DatabaseManager::instance();
+    const auto allBooks = db.fetchAllBooks();
+    int written = 0;
+    for (const Book &book : allBooks) {
+        const QString md = buildBookMarkdown(book,
+                                             db.fetchQuotesForBook(book.id),
+                                             db.fetchHighlightsForBook(book.id));
+        if (md.isEmpty())
+            continue;  // skip books with nothing to export
+        if (written > 0)
+            out << QStringLiteral("\n---\n\n");
+        out << md;
+        ++written;
+    }
+    file.close();
+    return written;
 }
 
 int BookController::importFromCsv(const QString &filePath)
@@ -806,6 +1107,14 @@ void BookController::applyFilters()
             }
         }
 
+        // Minimum-rating filter (Table view)
+        if (m_filterMinRating > 0 && book.rating < m_filterMinRating)
+            continue;
+
+        // Tag filter (Table view)
+        if (!m_filterTag.isEmpty() && !book.tags.contains(m_filterTag))
+            continue;
+
         filtered.append(book);
     }
 
@@ -816,20 +1125,49 @@ void BookController::applyFilters()
     // split models below, so flagged books can render in their own section.
     m_model->setBooks(filtered);
 
-    // Split only in the default sort — an explicit sort stays one list.
-    if (m_priorityEnabled && m_sortMode == QStringLiteral("default")) {
+    // Grouping (priority split + per-status sections) applies only to the default
+    // sort. An explicit sort is an ordering the user asked for, so it stays one flat
+    // list in m_standardModel with every section model emptied.
+    const bool grouped = (m_sortMode == QStringLiteral("default"));
+
+    if (grouped) {
         QVector<Book> prioritized;
         QVector<Book> standard;
-        for (const Book &book : filtered) {
-            if (book.isPriority)
-                prioritized.append(book);
-            else
-                standard.append(book);
+        if (m_priorityEnabled) {
+            for (const Book &book : filtered) {
+                if (book.isPriority)
+                    prioritized.append(book);
+                else
+                    standard.append(book);
+            }
+        } else {
+            standard = filtered;
         }
         m_priorityModel->setBooks(prioritized);
-        m_standardModel->setBooks(standard);
+
+        // Partition the non-priority remainder into one model per status. Each keeps
+        // the already-applied default ordering, so sections stay internally sorted.
+        QVector<Book> reading, planned, read, abandoned;
+        for (const Book &book : standard) {
+            if (book.status == QStringLiteral("reading"))        reading.append(book);
+            else if (book.status == QStringLiteral("planned"))   planned.append(book);
+            else if (book.status == QStringLiteral("read"))      read.append(book);
+            else if (book.status == QStringLiteral("abandoned")) abandoned.append(book);
+            else                                                 read.append(book);
+        }
+        m_readingModel->setBooks(reading);
+        m_plannedModel->setBooks(planned);
+        m_readModel->setBooks(read);
+        m_abandonedModel->setBooks(abandoned);
+
+        // Sections carry the books now; the flat grid stays empty.
+        m_standardModel->setBooks({});
     } else {
         m_priorityModel->setBooks({});
+        m_readingModel->setBooks({});
+        m_plannedModel->setBooks({});
+        m_readModel->setBooks({});
+        m_abandonedModel->setBooks({});
         m_standardModel->setBooks(filtered);
     }
 }

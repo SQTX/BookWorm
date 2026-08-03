@@ -13,12 +13,21 @@ class BookController : public QObject
     Q_PROPERTY(BookModel* model READ model CONSTANT)
     Q_PROPERTY(BookModel* priorityModel READ priorityModel CONSTANT)
     Q_PROPERTY(BookModel* standardModel READ standardModel CONSTANT)
+    // Non-priority books split by status, populated only in the default sort so the
+    // Library grid can render one labelled section per status. Empty otherwise.
+    Q_PROPERTY(BookModel* readingModel READ readingModel CONSTANT)
+    Q_PROPERTY(BookModel* plannedModel READ plannedModel CONSTANT)
+    Q_PROPERTY(BookModel* readModel READ readModel CONSTANT)
+    Q_PROPERTY(BookModel* abandonedModel READ abandonedModel CONSTANT)
     Q_PROPERTY(QString filterStatus READ filterStatus WRITE setFilterStatus NOTIFY filterStatusChanged)
     Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
     Q_PROPERTY(int filterYear READ filterYear WRITE setFilterYear NOTIFY filterYearChanged)
     Q_PROPERTY(QString filterYearMode READ filterYearMode WRITE setFilterYearMode NOTIFY filterYearModeChanged)
     Q_PROPERTY(QString sortMode READ sortMode WRITE setSortMode NOTIFY sortModeChanged)
     Q_PROPERTY(bool priorityEnabled READ priorityEnabled WRITE setPriorityEnabled NOTIFY priorityEnabledChanged)
+    // Extra filters exposed by the Table view. 0 rating / empty tag mean "no filter".
+    Q_PROPERTY(int filterMinRating READ filterMinRating WRITE setFilterMinRating NOTIFY filterMinRatingChanged)
+    Q_PROPERTY(QString filterTag READ filterTag WRITE setFilterTag NOTIFY filterTagChanged)
 
 public:
     explicit BookController(QObject *parent = nullptr);
@@ -26,16 +35,27 @@ public:
     BookModel *model() const;
     BookModel *priorityModel() const;
     BookModel *standardModel() const;
+    BookModel *readingModel() const;
+    BookModel *plannedModel() const;
+    BookModel *readModel() const;
+    BookModel *abandonedModel() const;
 
     Q_INVOKABLE void loadBooks();
     Q_INVOKABLE bool addBook(const QVariantMap &bookData);
     Q_INVOKABLE bool updateBook(const QVariantMap &bookData);
     Q_INVOKABLE bool deleteBook(int id);
+    // Restore the most recently deleted book (and its tags, quotes, highlights and
+    // reading sessions) from an in-memory snapshot. Returns false if nothing is held.
+    Q_INVOKABLE bool undoDelete();
     Q_INVOKABLE QVariantMap getBookDetails(int id);
     // Sets the current page to an absolute value; it does not add a delta.
     Q_INVOKABLE bool updateReadingProgress(int bookId, int newCurrentPage);
     Q_INVOKABLE bool markAsRead(int bookId, int rating, const QString &review);
     Q_INVOKABLE bool deleteReadingSession(int sessionId);
+    // Manual session edit. isoDate is "yyyy-MM-dd". Returns an empty string on
+    // success, otherwise a translation key describing why it was rejected — the UI
+    // runs the result through Theme.tr() and shows it inline without closing.
+    Q_INVOKABLE QString updateReadingSession(int sessionId, const QString &isoDate, int pages);
 
     Q_INVOKABLE QStringList getAllTags();
     Q_INVOKABLE QVariantList getAllTagsWithColors();
@@ -62,6 +82,9 @@ public:
     Q_INVOKABLE bool updateReview(int bookId, const QString &review);
 
     Q_INVOKABLE QVariantMap getTypeDistribution();
+    // Books grouped by their series field (books with no series are omitted). Each
+    // entry: { name, total, read, books:[{id,title,author,status,rating,coverImagePath}] }.
+    Q_INVOKABLE QVariantList getSeriesList();
 
     // Challenges
     Q_INVOKABLE QVariantList getChallenges();
@@ -71,6 +94,10 @@ public:
 
     Q_INVOKABLE bool exportToCsv(const QString &filePath);
     Q_INVOKABLE int  importFromCsv(const QString &filePath);
+    // Markdown export of quotes/highlights/summary/review/notes.
+    // Per book, or the whole library into one file (returns books written, -1 on error).
+    Q_INVOKABLE bool exportBookNotesToMarkdown(int bookId, const QString &filePath);
+    Q_INVOKABLE int  exportAllNotesToMarkdown(const QString &filePath);
     Q_INVOKABLE bool resetAllData();
 
     QString filterStatus() const;
@@ -85,6 +112,10 @@ public:
     void setSortMode(const QString &mode);
     bool priorityEnabled() const;
     void setPriorityEnabled(bool enabled);
+    int filterMinRating() const;
+    void setFilterMinRating(int rating);
+    QString filterTag() const;
+    void setFilterTag(const QString &tag);
 
 signals:
     void filterStatusChanged();
@@ -93,8 +124,12 @@ signals:
     void filterYearModeChanged();
     void sortModeChanged();
     void priorityEnabledChanged();
+    void filterMinRatingChanged();
+    void filterTagChanged();
     void booksChanged();
     void errorOccurred(const QString &message);
+    // Emitted after a delete so the UI can offer an undo affordance.
+    void bookDeletedUndoable(const QString &title);
 
 private:
     void applyFilters();
@@ -104,6 +139,10 @@ private:
     BookModel *m_model;
     BookModel *m_priorityModel;
     BookModel *m_standardModel;
+    BookModel *m_readingModel;
+    BookModel *m_plannedModel;
+    BookModel *m_readModel;
+    BookModel *m_abandonedModel;
     QVector<Book> m_allBooks;
     QString m_filterStatus;
     QString m_searchQuery;
@@ -111,4 +150,17 @@ private:
     QString m_filterYearMode = QStringLiteral("finish");
     QString m_sortMode = QStringLiteral("default");
     bool m_priorityEnabled = true;
+    int m_filterMinRating = 0;
+    QString m_filterTag;
+
+    // Snapshot of the last deleted book for a single-level undo. Held in memory only,
+    // so it does not survive a restart — matching the transient undo affordance.
+    struct DeletedSnapshot {
+        bool valid = false;
+        Book book;
+        QVariantList quotes;      // {quote, page}
+        QVariantList highlights;  // {title, page, note}
+        QVariantList sessions;    // {date, pageStart, pageEnd, source}
+    };
+    DeletedSnapshot m_lastDeleted;
 };

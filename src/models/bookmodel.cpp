@@ -43,6 +43,7 @@ QVariant BookModel::data(const QModelIndex &index, int role) const
     case SeriesRole:          return book.series;
     case TagsRole:            return book.tags.join(", ");
     case IsPriorityRole:      return book.isPriority;
+    case ReadCountRole:       return book.readCount;
     }
 
     return {};
@@ -73,7 +74,8 @@ QHash<int, QByteArray> BookModel::roleNames() const
         { CurrentPageRole,     "currentPage" },
         { SeriesRole,          "series" },
         { TagsRole,            "tags" },
-        { IsPriorityRole,      "isPriority" }
+        { IsPriorityRole,      "isPriority" },
+        { ReadCountRole,       "readCount" }
     };
 }
 

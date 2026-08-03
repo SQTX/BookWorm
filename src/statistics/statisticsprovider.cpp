@@ -55,6 +55,8 @@ double StatisticsProvider::meanPagesPerReadingDay() const { return m_meanPagesPe
 QVariantList StatisticsProvider::pagesPerDay() const { return m_pagesPerDay; }
 QVariantList StatisticsProvider::pagesByWeekday() const { return m_pagesByWeekday; }
 QVariantList StatisticsProvider::recentSessions() const { return m_recentSessions; }
+QVariantList StatisticsProvider::readingProjections() const { return m_readingProjections; }
+QVariantList StatisticsProvider::heatmapDays() const { return m_heatmapDays; }
 
 void StatisticsProvider::computeStreaks(const QVariantList &dates)
 {
@@ -128,6 +130,11 @@ void StatisticsProvider::refresh()
     m_pagesPerDay        = db.pagesPerDay(yr, audio);
     m_pagesByWeekday     = db.pagesByWeekday(yr, audio);
     m_recentSessions     = db.recentSessions(yr, audio);
+    // Projection is about books being read right now, so it ignores the year filter.
+    m_readingProjections = db.readingProjections();
+    // Heatmap window: a selected year covers Jan–Dec; "all" covers the trailing
+    // ~53 weeks. pagesPerDay already applies exactly that rule for lastNDays.
+    m_heatmapDays        = db.pagesPerDay(yr, audio, 371);
 
     const int readingDays = db.readingDayCount(yr, audio);
     m_meanPagesPerReadingDay = readingDays > 0

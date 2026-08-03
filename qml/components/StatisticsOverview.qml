@@ -24,6 +24,93 @@ Item {
 
     readonly property var monthLabels: Theme.getMonthLabels()
 
+    // Genre chart display mode: "bars" (default), "pie", or "treemap".
+    property string genreChartMode: "bars"
+
+    // Squarified treemap layout (Bruls, Huizing & van Wijk). Takes the genre
+    // distribution and a WxH box, returns [{x,y,w,h,genre,count,index}] with each
+    // tile's area proportional to its count and aspect ratios kept close to 1.
+    function squarifyTreemap(data, W, H) {
+        if (!data || data.length === 0 || W <= 0 || H <= 0)
+            return [];
+
+        var total = 0;
+        for (var i = 0; i < data.length; i++)
+            total += data[i].count;
+        if (total <= 0)
+            return [];
+
+        // Scale counts to pixel area, then sort descending — squarify needs the
+        // largest first to keep tiles near-square.
+        var scale = (W * H) / total;
+        var items = [];
+        for (var j = 0; j < data.length; j++)
+            items.push({ area: data[j].count * scale, genre: data[j].genre,
+                         count: data[j].count, index: j });
+        items.sort(function (a, b) { return b.area - a.area; });
+
+        var out = [];
+        var free = { x: 0, y: 0, w: W, h: H };
+
+        function worst(row, side, extra) {
+            var arr = extra ? row.concat([extra]) : row;
+            var sum = 0, mn = Infinity, mx = 0;
+            for (var k = 0; k < arr.length; k++) {
+                var a = arr[k].area;
+                sum += a; if (a < mn) mn = a; if (a > mx) mx = a;
+            }
+            if (sum <= 0) return Infinity;
+            var s2 = sum * sum, side2 = side * side;
+            return Math.max(side2 * mx / s2, s2 / (side2 * mn));
+        }
+
+        function placeRow(row) {
+            var side = Math.min(free.w, free.h);
+            var sum = 0;
+            for (var k = 0; k < row.length; k++) sum += row[k].area;
+            var thick = sum / side;   // strip depth, perpendicular to the short side
+            if (free.w >= free.h) {
+                // Vertical strip on the left; tiles stacked top→bottom.
+                var oy = free.y;
+                for (var m = 0; m < row.length; m++) {
+                    var rh = row[m].area / thick;
+                    out.push({ x: free.x, y: oy, w: thick, h: rh,
+                               genre: row[m].genre, count: row[m].count, index: row[m].index });
+                    oy += rh;
+                }
+                free.x += thick; free.w -= thick;
+            } else {
+                // Horizontal strip on top; tiles laid left→right.
+                var ox = free.x;
+                for (var n = 0; n < row.length; n++) {
+                    var rw = row[n].area / thick;
+                    out.push({ x: ox, y: free.y, w: rw, h: thick,
+                               genre: row[n].genre, count: row[n].count, index: row[n].index });
+                    ox += rw;
+                }
+                free.y += thick; free.h -= thick;
+            }
+        }
+
+        var row = [];
+        var idx = 0;
+        while (idx < items.length) {
+            var next = items[idx];
+            var side = Math.min(free.w, free.h);
+            if (row.length === 0 || worst(row, side, next) <= worst(row, side)) {
+                row.push(next);
+                idx++;
+            } else {
+                placeRow(row);
+                row = [];
+            }
+        }
+        if (row.length > 0)
+            placeRow(row);
+
+        return out;
+    }
+
     function updateCharts() {
         // ── Update Pie Chart ──
         libraryPie.clear();
@@ -79,6 +166,19 @@ Item {
         }
         currentYearBarSet.values = curValues;
         monthlyCountAxis.max = maxVal + 1;
+
+        // ── Update Genre Pie ──
+        genrePie.clear();
+        var gd = statsProvider.genreDistribution;
+        for (var g = 0; g < gd.length; g++) {
+            var slice = genrePie.append(gd[g].genre + " (" + gd[g].count + ")", gd[g].count);
+            slice.color = statsPage.chartColors[g % statsPage.chartColors.length];
+            slice.borderColor = Theme.surface;
+            slice.borderWidth = 2;
+            slice.labelVisible = true;
+            slice.labelColor = Theme.textOnSurface;
+            slice.labelFont.pixelSize = Theme.fontSizeSmall;
+        }
     }
 
     Flickable {
@@ -538,7 +638,7 @@ Item {
                         Row {
                             required property var modelData
                             required property int index
-                            width: parent.width
+                            Layout.fillWidth: true
 
                             Text {
                                 width: parent.width * 0.12
@@ -594,7 +694,7 @@ Item {
             }
 
             // ═══════════════════════════════════
-            // Section 5: Genre Distribution (horizontal bar chart)
+            // Section 5: Genre Distribution (bars / pie / treemap)
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
@@ -612,64 +712,199 @@ Item {
                     anchors.margins: Theme.spacingLarge
                     spacing: Theme.spacingMedium
 
-                    Text {
-                        text: Theme.tr("Genre Distribution")
-                        color: Theme.textSecondary
-                        font.pixelSize: Theme.fontSizeMedium
-                        font.bold: true
-                    }
+                    // Header: title + chart-type switcher
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 2
+                        spacing: Theme.spacingMedium
 
-                    Repeater {
-                        model: statsProvider.genreDistribution
-
-                        RowLayout {
-                            required property var modelData
-                            required property int index
+                        Text {
                             Layout.fillWidth: true
-                            spacing: Theme.spacingMedium
+                            text: Theme.tr("Genre Distribution")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeMedium
+                            font.bold: true
+                        }
 
-                            Text {
-                                Layout.preferredWidth: 120
-                                text: modelData.genre
-                                color: Theme.textSecondary
-                                font.pixelSize: Theme.fontSizeSmall
-                                elide: Text.ElideRight
-                                horizontalAlignment: Text.AlignRight
-                            }
+                        Repeater {
+                            model: [
+                                { key: "Bars",    value: "bars" },
+                                { key: "Pie",     value: "pie" },
+                                { key: "Treemap", value: "treemap" }
+                            ]
 
                             Rectangle {
-                                Layout.fillWidth: true
-                                height: 24
-                                radius: 4
-                                color: Theme.surfaceVariant
+                                required property var modelData
+                                readonly property bool isSelected:
+                                    statsPage.genreChartMode === modelData.value
 
-                                Rectangle {
-                                    width: {
-                                        var maxCount = 1;
-                                        var data = statsProvider.genreDistribution;
-                                        for (var i = 0; i < data.length; i++)
-                                            if (data[i].count > maxCount) maxCount = data[i].count;
-                                        return Math.max(4, parent.width * (modelData.count / maxCount));
-                                    }
-                                    height: parent.height
-                                    radius: 4
-                                    color: statsPage.chartColors[index % statsPage.chartColors.length]
+                                width: modeText.implicitWidth + Theme.spacingLarge
+                                height: 28
+                                radius: 14
+                                color: isSelected ? Theme.primary : Theme.surfaceVariant
+                                border.width: 1
+                                border.color: isSelected ? "transparent" : Theme.divider
 
-                                    Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                Text {
+                                    id: modeText
+                                    anchors.centerIn: parent
+                                    text: Theme.tr(parent.modelData.key)
+                                    color: parent.isSelected ? Theme.textOnPrimary : Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    font.bold: parent.isSelected
                                 }
-                            }
 
-                            Text {
-                                Layout.preferredWidth: 35
-                                text: modelData.count
-                                color: Theme.textOnSurface
-                                font.pixelSize: Theme.fontSizeMedium
-                                font.bold: true
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: statsPage.genreChartMode = parent.modelData.value
+                                }
                             }
                         }
                     }
 
-                    // Empty state
+                    // ── View: horizontal bars ──
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingMedium
+                        visible: statsPage.genreChartMode === "bars"
+                                 && statsProvider.genreDistribution.length > 0
+
+                        Repeater {
+                            model: statsProvider.genreDistribution
+
+                            RowLayout {
+                                required property var modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingMedium
+
+                                Text {
+                                    Layout.preferredWidth: 120
+                                    text: modelData.genre
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    elide: Text.ElideRight
+                                    horizontalAlignment: Text.AlignRight
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 24
+                                    radius: 4
+                                    color: Theme.surfaceVariant
+
+                                    Rectangle {
+                                        width: {
+                                            var maxCount = 1;
+                                            var data = statsProvider.genreDistribution;
+                                            for (var i = 0; i < data.length; i++)
+                                                if (data[i].count > maxCount) maxCount = data[i].count;
+                                            return Math.max(4, parent.width * (modelData.count / maxCount));
+                                        }
+                                        height: parent.height
+                                        radius: 4
+                                        color: statsPage.chartColors[index % statsPage.chartColors.length]
+
+                                        Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.preferredWidth: 35
+                                    text: modelData.count
+                                    color: Theme.textOnSurface
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    font.bold: true
+                                }
+                            }
+                        }
+                    }
+
+                    // ── View: pie chart ──
+                    ChartView {
+                        id: genrePieView
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 400
+                        visible: statsPage.genreChartMode === "pie"
+                                 && statsProvider.genreDistribution.length > 0
+                        antialiasing: true
+                        backgroundColor: "transparent"
+                        legend.visible: false
+                        margins.top: 10
+                        margins.bottom: 10
+                        margins.left: 10
+                        margins.right: 10
+
+                        PieSeries {
+                            id: genrePie
+                            size: 0.8
+                            holeSize: 0.35
+                        }
+                    }
+
+                    // ── View: squarified treemap ──
+                    Item {
+                        id: treemapView
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 460
+                        visible: statsPage.genreChartMode === "treemap"
+                                 && statsProvider.genreDistribution.length > 0
+
+                        Repeater {
+                            model: statsPage.squarifyTreemap(statsProvider.genreDistribution,
+                                                             treemapView.width, treemapView.height)
+
+                            Rectangle {
+                                required property var modelData
+                                x: modelData.x
+                                y: modelData.y
+                                width: modelData.w
+                                height: modelData.h
+                                color: statsPage.chartColors[modelData.index % statsPage.chartColors.length]
+                                border.width: 1
+                                border.color: Theme.surface
+
+                                // Full label (genre + count) when the tile is roomy.
+                                Column {
+                                    anchors.centerIn: parent
+                                    width: parent.width - 8
+                                    spacing: 0
+                                    visible: parent.width > 46 && parent.height > 30
+
+                                    Text {
+                                        width: parent.width
+                                        text: parent.parent.modelData.genre
+                                        color: "#1A1A1A"
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        horizontalAlignment: Text.AlignHCenter
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: parent.parent.modelData.count
+                                        color: "#1A1A1A"
+                                        font.pixelSize: Theme.fontSizeSmall
+                                        horizontalAlignment: Text.AlignHCenter
+                                    }
+                                }
+
+                                // Count only, for tiles too small for the full label.
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: parent.width > 22 && parent.height > 16
+                                             && !(parent.width > 46 && parent.height > 30)
+                                    text: parent.modelData.count
+                                    color: "#1A1A1A"
+                                    font.pixelSize: 10
+                                }
+                            }
+                        }
+                    }
+
+                    // Empty state (shared by every mode)
                     Text {
                         visible: statsProvider.genreDistribution.length === 0
                         text: Theme.tr("No genre data yet")

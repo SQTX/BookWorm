@@ -35,7 +35,8 @@ public:
         CurrentPageRole,
         SeriesRole,
         TagsRole,
-        IsPriorityRole
+        IsPriorityRole,
+        ReadCountRole
     };
 
     explicit BookModel(QObject *parent = nullptr);

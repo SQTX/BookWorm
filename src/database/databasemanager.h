@@ -63,6 +63,13 @@ public:
     // reporting on the return value without splitting those two cases first.
     bool recordSession(int bookId, int pageStart, int pageEnd, const QString &source);
     bool deleteSession(int sessionId);
+    // Manual edit of a single session. page_start is kept fixed and page_end is
+    // recomputed as page_start + newPages, so the caller only supplies the page
+    // count shown in the UI. Returns false on any failure (including newPages < 1).
+    bool updateSession(int sessionId, const QDate &newDate, int newPages);
+    // True when another session of the same book+source already occupies newDate —
+    // moving this session there would violate UNIQUE (book_id, session_date, source).
+    bool sessionDateTaken(int sessionId, const QDate &newDate);
 
     // Reading session statistics.
     // year = 0 means all years; an empty audioMode means any mode. The mode is matched
@@ -73,6 +80,17 @@ public:
     QVariantList recentSessions(int year = 0, const QString &audioMode = QString(), int limit = 30);
     int totalSessionPages(int year = 0, const QString &audioMode = QString());
     int readingDayCount(int year = 0, const QString &audioMode = QString());
+
+    // Completion projection for every currently-reading book: pace is derived from
+    // that book's own manual sessions (pages read / distinct reading days). Books
+    // with no pace yet are still returned with hasEstimate = false.
+    QVariantList readingProjections();
+
+    // Raw session rows for one book ({date, pageStart, pageEnd, source}) and a plain
+    // re-insert with an explicit date — together they let a deleted book (whose
+    // sessions vanish via ON DELETE CASCADE) be restored exactly on undo.
+    QVariantList fetchSessionsForBookRaw(int bookId);
+    bool restoreSession(int bookId, const QDate &date, int pageStart, int pageEnd, const QString &source);
 
     // Reset
     bool resetAllData();

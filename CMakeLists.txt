@@ -55,6 +55,7 @@ qt_add_qml_module(BookWorm
         qml/components/StatisticsOverview.qml
         qml/components/StatisticsSessions.qml
         qml/components/ChallengesView.qml
+        qml/components/SeriesView.qml
     RESOURCES
         src/img/png/main_icon.png
         src/img/png/main_icon_radius.png

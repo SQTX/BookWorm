@@ -114,6 +114,10 @@ ApplicationWindow {
                 text: Theme.tr("Export CSV")
                 onTriggered: exportDialog.open()
             }
+            Platform.MenuItem {
+                text: Theme.tr("Export notes (Markdown)")
+                onTriggered: exportNotesDialog.open()
+            }
         }
         Platform.Menu {
             title: Theme.tr("View")
@@ -359,6 +363,32 @@ ApplicationWindow {
                     }
                 }
 
+                // Series button
+                ToolButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 48; height: 48
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/book-cover.svg"
+                    icon.width: 22; icon.height: 22
+                    icon.color: currentPage === 4 ? Theme.primary : Theme.textSecondary
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3; height: 24
+                        radius: 2
+                        color: Theme.primary
+                        visible: currentPage === 4
+                    }
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: Theme.tr("Series")
+
+                    onClicked: {
+                        currentPage = 4;
+                        stackView.replace(null, seriesComponent);
+                    }
+                }
+
                 Item { Layout.fillHeight: true }
 
                 // Tags button
@@ -488,6 +518,15 @@ ApplicationWindow {
     Component {
         id: challengesComponent
         ChallengesView {}
+    }
+
+    Component {
+        id: seriesComponent
+        SeriesView {
+            onBookSelected: function(bookId) {
+                stackView.push(bookDetailsComponent, { bookId: bookId });
+            }
+        }
     }
 
     // ── Settings ──
@@ -902,6 +941,50 @@ ApplicationWindow {
                       : Theme.tr("No backup yet")
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSizeSmall
+            }
+
+            // ── Restore button ──
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 40
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingMedium
+                radius: Theme.radiusSmall
+                color: restoreMouse.containsMouse ? "#D32F2F" : "#B71C1C"
+                opacity: backupManager.psqlPath() === "" ? 0.4 : 1.0
+
+                Text {
+                    anchors.centerIn: parent
+                    text: Theme.tr("Restore from Backup")
+                    color: "#FFFFFF"
+                    font.pixelSize: Theme.fontSizeMedium
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: restoreMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: backupManager.psqlPath() !== ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        settingsPopup.close();
+                        restoreOpenDialog.open();
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.spacingLarge
+                Layout.rightMargin: Theme.spacingLarge
+                Layout.topMargin: Theme.spacingSmall
+                visible: backupManager.psqlPath() === ""
+                text: Theme.tr("psql not found — restore unavailable")
+                color: Theme.error
+                font.pixelSize: Theme.fontSizeSmall
+                wrapMode: Text.WordWrap
             }
 
             Item { Layout.preferredHeight: Theme.spacingSmall }
@@ -1387,6 +1470,24 @@ ApplicationWindow {
     }
 
     FileDialog {
+        id: exportNotesDialog
+        title: Theme.tr("Export notes (Markdown)")
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Markdown (*.md)"]
+        defaultSuffix: "md"
+        currentFolder: StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+        currentFile: currentFolder + "/bookworm_notes.md"
+
+        onAccepted: {
+            var n = bookController.exportAllNotesToMarkdown(selectedFile);
+            if (n >= 0)
+                csvToast.show(Theme.tr("Exported notes for") + " " + n + " " + Theme.tr("books"));
+            else
+                csvToast.show(Theme.tr("Export failed"));
+        }
+    }
+
+    FileDialog {
         id: importDialog
         title: Theme.tr("Import from CSV")
         fileMode: FileDialog.OpenFile
@@ -1429,12 +1530,379 @@ ApplicationWindow {
         onAccepted: root.backupFolder = selectedFolder.toString().replace("file://", "")
     }
 
+    // ── Restore ──
+
+    FileDialog {
+        id: restoreOpenDialog
+        title: Theme.tr("Restore from Backup")
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["ZIP archive (*.zip)"]
+        // "file:///name" is the filesystem ROOT — see backupSaveDialog above. Default
+        // to the configured backup folder, falling back to Documents.
+        currentFolder: root.backupFolder !== ""
+                       ? "file://" + root.backupFolder.replace(/\/+$/, "")
+                       : StandardPaths.writableLocation(StandardPaths.DocumentsLocation)
+
+        onAccepted: {
+            var info = backupManager.inspectArchive(selectedFile);
+            if (!info.valid) {
+                csvToast.show(info.error);
+                return;
+            }
+            restoreConfirmDialog.archivePath = selectedFile;
+            restoreConfirmDialog.archiveBooks = info.bookCount;
+            restoreConfirmDialog.open();
+        }
+    }
+
+    // ── Restore confirmation dialog ──
+    Dialog {
+        id: restoreConfirmDialog
+        title: ""
+        modal: true
+        standardButtons: Dialog.NoButton
+        closePolicy: Dialog.NoAutoClose
+        anchors.centerIn: parent
+        width: Math.min(440, parent.width - 48)
+        padding: 0
+
+        // Declared here on the Dialog root — properties nested inside the layout
+        // below are unreachable from these handlers, the way BookForm.qml learned.
+        property string archivePath: ""
+        property int archiveBooks: 0
+        property string confirmText: ""
+
+        onOpened: confirmText = ""
+        onRejected: confirmText = ""
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: Theme.tr("Restore replaces everything")
+                color: "#D32F2F"
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingXL
+                spacing: Theme.spacingSmall
+
+                Text {
+                    Layout.fillWidth: true
+                    text: Theme.tr("Every book currently in your library will be permanently replaced by the contents of this archive. This action cannot be undone.")
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeMedium
+                    wrapMode: Text.Wrap
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingSmall
+                    text: Theme.tr("Books now") + ": " + bookController.model.count
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: Theme.tr("Books in archive") + ": " + restoreConfirmDialog.archiveBooks
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingSmall
+                    text: Theme.tr("Safety backup will be written to") + ": " + backupManager.safetyBackupDir()
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSizeSmall
+                    wrapMode: Text.WrapAnywhere
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingMedium
+                    text: Theme.tr("Type %1 to confirm").replace("%1", Theme.tr("RESTORE"))
+                    color: Theme.textOnSurface
+                    font.pixelSize: Theme.fontSizeSmall
+                }
+
+                TextField {
+                    id: restoreConfirmField
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 32
+                    topPadding: 4; bottomPadding: 4
+                    font.pixelSize: Theme.fontSizeMedium
+                    Material.accent: Theme.primary
+                    text: restoreConfirmDialog.confirmText
+                    onTextChanged: restoreConfirmDialog.confirmText = text
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: Theme.tr("Cancel")
+                    flat: true
+                    Material.foreground: Theme.textSecondary
+                    onClicked: restoreConfirmDialog.reject()
+                }
+
+                Button {
+                    text: Theme.tr("Restore from Backup")
+                    enabled: restoreConfirmDialog.confirmText === Theme.tr("RESTORE")
+                    opacity: enabled ? 1.0 : 0.4
+                    Material.background: "#B71C1C"
+                    Material.foreground: "#FFFFFF"
+                    onClicked: {
+                        var path = restoreConfirmDialog.archivePath;
+                        restoreConfirmDialog.close();
+                        // Show the overlay, then yield to the event loop before making
+                        // the blocking restoreFrom() call — setting visible: true and
+                        // calling restoreFrom() on the same line would never paint,
+                        // because the event loop never runs between them. The 50ms
+                        // delay gives the (separate) render thread a chance to actually
+                        // draw and present the frame before the GUI thread freezes for
+                        // the duration of the restore.
+                        restoreOverlay.visible = true;
+                        restoreStartTimer.pendingPath = path;
+                        restoreStartTimer.start();
+                    }
+                }
+            }
+        }
+    }
+
+    // Deferred start for restoreFrom() — see the comment on restoreOverlay.visible
+    // above for why this can't just be a direct call.
+    Timer {
+        id: restoreStartTimer
+        interval: 50
+        repeat: false
+        property string pendingPath: ""
+        onTriggered: backupManager.restoreFrom(pendingPath)
+    }
+
+    // ── Restore progress overlay ──
+    // restoreFrom() runs synchronously on the GUI thread (a background-thread
+    // pipeline is a larger change than this warrants). That means once the call
+    // starts, the event loop cannot process anything else, including this
+    // BusyIndicator's own animation — it will appear frozen for the duration rather
+    // than spinning. What matters is that this whole overlay, including the
+    // "Restoring…" label, has already been painted (via restoreStartTimer's 50ms
+    // yield above) before that freeze begins, so a user watching it does not conclude
+    // the app has hung and force-quit mid-load.
+    Rectangle {
+        id: restoreOverlay
+        anchors.fill: parent
+        z: 9999
+        color: "#B3000000"
+        visible: false
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {}
+        }
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: Theme.spacingMedium
+
+            BusyIndicator {
+                Layout.alignment: Qt.AlignHCenter
+                running: restoreOverlay.visible
+            }
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: Theme.tr("Restoring…")
+                color: "#FFFFFF"
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+        }
+    }
+
+    // ── Restore failure dialog ──
+    // Failure messages here (especially the SAFETY BACKUP one) are the user's only
+    // path back to their data if the load fails after the schema has already been
+    // dropped. A toast fades in ~2.5s and clips multi-line text — this dialog stays
+    // open until dismissed, wraps text, and exposes the safety backup path (when the
+    // message carries one) in a selectable, copyable field.
+    Dialog {
+        id: restoreFailureDialog
+        title: ""
+        modal: true
+        standardButtons: Dialog.NoButton
+        closePolicy: Dialog.NoAutoClose
+        anchors.centerIn: parent
+        width: Math.min(520, parent.width - 48)
+        padding: 0
+
+        property string message: ""
+        // Recognizes every path-bearing failure message restoreFrom() emits:
+        // "SAFETY BACKUP: <path>", "(safety backup: <path>)", "(attempted: <path>)".
+        // Messages with no recoverable path (e.g. "psql not found") leave this empty
+        // and the copy field below simply does not appear.
+        readonly property string safetyPath: {
+            var m = message.match(/SAFETY BACKUP:\s*(.+?)(?:\n|$)/);
+            if (m) return m[1].trim();
+            m = message.match(/\(safety backup:\s*(.+?)\)/);
+            if (m) return m[1].trim();
+            m = message.match(/\(attempted:\s*(.+?)\)/);
+            if (m) return m[1].trim();
+            return "";
+        }
+
+        Material.theme: Theme.isDark ? Material.Dark : Material.Light
+        Material.accent: Theme.primary
+
+        background: Rectangle {
+            radius: Theme.radiusLarge
+            color: Theme.surface
+            border.width: 1
+            border.color: Theme.divider
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
+
+            Text {
+                Layout.topMargin: Theme.spacingLarge
+                Layout.leftMargin: Theme.spacingXL
+                text: Theme.tr("Restore failed")
+                color: "#D32F2F"
+                font.pixelSize: Theme.fontSizeTitle
+                font.bold: true
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.topMargin: Theme.spacingMedium; height: 1; color: Theme.divider }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingXL
+                spacing: Theme.spacingSmall
+
+                Flickable {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(failureMessageText.implicitHeight, 220)
+                    clip: true
+                    contentWidth: width
+                    contentHeight: failureMessageText.implicitHeight
+                    ScrollBar.vertical: ScrollBar {}
+
+                    Text {
+                        id: failureMessageText
+                        width: parent.width
+                        text: restoreFailureDialog.message
+                        color: Theme.textOnSurface
+                        font.pixelSize: Theme.fontSizeMedium
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingMedium
+                    spacing: Theme.spacingSmall
+                    visible: restoreFailureDialog.safetyPath !== ""
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: Theme.tr("Safety backup path")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSmall
+
+                        TextField {
+                            id: safetyPathField
+                            Layout.fillWidth: true
+                            readOnly: true
+                            selectByMouse: true
+                            text: restoreFailureDialog.safetyPath
+                            font.pixelSize: Theme.fontSizeSmall
+                            Material.accent: Theme.primary
+                        }
+
+                        Button {
+                            text: Theme.tr("Copy")
+                            flat: true
+                            onClicked: {
+                                safetyPathField.selectAll();
+                                safetyPathField.copy();
+                                safetyPathField.deselect();
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.divider }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    text: Theme.tr("Close")
+                    Material.background: Theme.primary
+                    Material.foreground: "#FFFFFF"
+                    onClicked: restoreFailureDialog.close()
+                }
+            }
+        }
+    }
+
     Connections {
         target: backupManager
         function onBackupFinished(ok, message) {
             csvToast.show(message);
             if (ok)
                 root.backupLastRun = new Date().toISOString();
+        }
+        function onRestoreFinished(ok, message) {
+            restoreOverlay.visible = false;
+            if (ok) {
+                csvToast.show(message);
+                bookController.loadBooks();
+                statsProvider.refresh();
+            } else {
+                restoreFailureDialog.message = message;
+                restoreFailureDialog.open();
+            }
         }
     }
 
@@ -1470,6 +1938,64 @@ ApplicationWindow {
             NumberAnimation { target: csvToast; property: "opacity"; to: 1; duration: 200 }
             PauseAnimation { duration: 2500 }
             NumberAnimation { target: csvToast; property: "opacity"; to: 0; duration: 400 }
+        }
+    }
+
+    // Undo toast — shown after a delete, with an action to restore the book.
+    Connections {
+        target: bookController
+        function onBookDeletedUndoable(title) {
+            undoLabel.text = Theme.tr("Deleted") + " \"" + title + "\"";
+            undoToast.opacity = 1;
+            undoHideTimer.restart();
+        }
+    }
+
+    Rectangle {
+        id: undoToast
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 32
+        height: 44
+        width: undoRow.implicitWidth + 32
+        radius: 22
+        color: Theme.surface
+        border.width: 1
+        border.color: Theme.divider
+        opacity: 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: 250 } }
+
+        Timer {
+            id: undoHideTimer
+            interval: 6000
+            onTriggered: undoToast.opacity = 0
+        }
+
+        Row {
+            id: undoRow
+            anchors.centerIn: parent
+            spacing: Theme.spacingMedium
+
+            Text {
+                id: undoLabel
+                anchors.verticalCenter: parent.verticalCenter
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeMedium
+            }
+
+            Button {
+                anchors.verticalCenter: parent.verticalCenter
+                text: Theme.tr("Undo")
+                flat: true
+                Material.foreground: Theme.primary
+                onClicked: {
+                    undoHideTimer.stop();
+                    undoToast.opacity = 0;
+                    if (bookController.undoDelete())
+                        csvToast.show(Theme.tr("Book restored"));
+                }
+            }
         }
     }
 }

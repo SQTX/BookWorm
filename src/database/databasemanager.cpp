@@ -6,6 +6,7 @@
 #include <QSqlRecord>
 #include <QVariantMap>
 #include <QDebug>
+#include <cmath>
 
 DatabaseManager &DatabaseManager::instance()
 {
@@ -117,6 +118,10 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS review TEXT");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS audio_mode VARCHAR(32) DEFAULT 'none'");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE");
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS read_count INTEGER NOT NULL DEFAULT 0");
+    // One-time backfill: books already 'read' before this column existed count as
+    // read once. Guarded on read_count = 0 so it never overwrites a real reread tally.
+    q.exec("UPDATE books SET read_count = 1 WHERE status = 'read' AND read_count = 0");
 
     // Update rating constraint to allow 1-6 instead of 1-10
     q.exec("UPDATE books SET rating = LEAST(rating, 6) WHERE rating > 6");
@@ -221,11 +226,11 @@ int DatabaseManager::insertBook(const Book &book)
         "INSERT INTO books (title, author, genre, page_count, start_date, end_date, "
         "  rating, status, notes, isbn, publisher, publication_year, language, "
         "  cover_image_path, item_type, is_non_fiction, audio_mode, current_page, series, "
-        "  publication_date, summary, review, is_priority) "
+        "  publication_date, summary, review, is_priority, read_count) "
         "VALUES (:title, :author, :genre, :pageCount, :startDate, :endDate, "
         "  :rating, :status, :notes, :isbn, :publisher, :pubYear, :language, "
         "  :coverPath, :itemType, :isNonFiction, :audioMode, :currentPage, :series, "
-        "  :pubDate, :summary, :review, :isPriority) "
+        "  :pubDate, :summary, :review, :isPriority, :readCount) "
         "RETURNING id"
     );
 
@@ -252,6 +257,10 @@ int DatabaseManager::insertBook(const Book &book)
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
     q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
     q.bindValue(":isPriority",   book.isPriority);
+    // A book added straight as 'read' has been read once even though no completion
+    // event ran through markAsRead(); otherwise honour whatever count came in.
+    q.bindValue(":readCount",    book.readCount > 0 ? book.readCount
+                                 : (book.status == QStringLiteral("read") ? 1 : 0));
 
     if (!q.exec() || !q.next()) {
         qWarning() << "insertBook error:" << q.lastError().text();
@@ -273,7 +282,8 @@ bool DatabaseManager::updateBook(const Book &book)
         "  is_non_fiction = :isNonFiction, audio_mode = :audioMode, "
         "  current_page = :currentPage, "
         "  series = :series, publication_date = :pubDate, "
-        "  summary = :summary, review = :review, is_priority = :isPriority, updated_at = NOW() "
+        "  summary = :summary, review = :review, is_priority = :isPriority, "
+        "  read_count = :readCount, updated_at = NOW() "
         "WHERE id = :id"
     );
 
@@ -301,6 +311,7 @@ bool DatabaseManager::updateBook(const Book &book)
     q.bindValue(":summary",      book.summary.isEmpty() ? QVariant() : book.summary);
     q.bindValue(":review",       book.review.isEmpty() ? QVariant() : book.review);
     q.bindValue(":isPriority",   book.isPriority);
+    q.bindValue(":readCount",    book.readCount);
 
     if (!q.exec()) {
         qWarning() << "updateBook error:" << q.lastError().text();
@@ -708,6 +719,58 @@ bool DatabaseManager::deleteSession(int sessionId)
     return true;
 }
 
+bool DatabaseManager::sessionDateTaken(int sessionId, const QDate &newDate)
+{
+    QSqlQuery q(m_db);
+    // A conflict is another row sharing this session's book_id AND source that already
+    // sits on newDate. Self-match is excluded so keeping the date is never a conflict.
+    q.prepare(
+        "SELECT 1 FROM reading_sessions o "
+        "JOIN reading_sessions s ON s.book_id = o.book_id AND s.source = o.source "
+        "WHERE s.id = :id AND o.id <> :id AND o.session_date = :date LIMIT 1"
+    );
+    q.bindValue(":id",   sessionId);
+    q.bindValue(":date", newDate);
+
+    if (!q.exec()) {
+        qWarning() << "sessionDateTaken error:" << q.lastError().text();
+        // Fail safe: report "taken" so a failed check never lets a duplicate slip past.
+        return true;
+    }
+    return q.next();
+}
+
+bool DatabaseManager::updateSession(int sessionId, const QDate &newDate, int newPages)
+{
+    if (newPages < 1 || !newDate.isValid())
+        return false;
+
+    // page_start is the anchor; the edited page count only moves page_end.
+    QSqlQuery sel(m_db);
+    sel.prepare("SELECT page_start FROM reading_sessions WHERE id = :id");
+    sel.bindValue(":id", sessionId);
+    if (!sel.exec() || !sel.next()) {
+        qWarning() << "updateSession: session not found" << sessionId;
+        return false;
+    }
+    const int pageStart = sel.value(0).toInt();
+
+    QSqlQuery q(m_db);
+    q.prepare(
+        "UPDATE reading_sessions SET session_date = :date, page_end = :pageEnd "
+        "WHERE id = :id"
+    );
+    q.bindValue(":date",    newDate);
+    q.bindValue(":pageEnd", pageStart + newPages);
+    q.bindValue(":id",      sessionId);
+
+    if (!q.exec()) {
+        qWarning() << "updateSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 // ─── Reading session statistics ────────────────────────────
 
 // The audio mode is read from the book on every query rather than stored on the
@@ -840,6 +903,111 @@ QVariantList DatabaseManager::recentSessions(int year, const QString &audioMode,
         result.append(entry);
     }
     return result;
+}
+
+QVariantList DatabaseManager::readingProjections()
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    // Pace comes from the book's own manual sessions: total pages read over the
+    // number of distinct days it was read. A LEFT JOIN keeps books that have no
+    // session yet (they come back with zero pace and hasEstimate = false).
+    q.prepare(
+        "SELECT b.id, b.title, b.author, b.current_page, b.page_count, "
+        "  COALESCE(SUM(s.page_end - s.page_start), 0) AS pages_read, "
+        "  COUNT(DISTINCT s.session_date) AS reading_days "
+        "FROM books b "
+        "LEFT JOIN reading_sessions s ON s.book_id = b.id AND s.source = 'manual' "
+        "WHERE b.status = 'reading' "
+        "GROUP BY b.id, b.title, b.author, b.current_page, b.page_count "
+        "ORDER BY b.title"
+    );
+
+    if (!q.exec()) {
+        qWarning() << "readingProjections error:" << q.lastError().text();
+        return result;
+    }
+
+    const QDate today = QDate::currentDate();
+    while (q.next()) {
+        const int currentPage = q.value("current_page").toInt();
+        const int pageCount   = q.value("page_count").toInt();
+        const int pagesLeft   = qMax(0, pageCount - currentPage);
+        if (pagesLeft <= 0)
+            continue;  // effectively finished; nothing to project
+
+        const int pagesRead   = q.value("pages_read").toInt();
+        const int readingDays = q.value("reading_days").toInt();
+        const double pace = readingDays > 0
+                            ? static_cast<double>(pagesRead) / readingDays : 0.0;
+
+        QVariantMap entry;
+        entry["id"]          = q.value("id").toInt();
+        entry["title"]       = q.value("title").toString();
+        entry["author"]      = q.value("author").toString();
+        entry["currentPage"] = currentPage;
+        entry["pageCount"]   = pageCount;
+        entry["pagesLeft"]   = pagesLeft;
+        entry["pacePerDay"]  = pace;
+
+        if (pace > 0.0) {
+            const int daysLeft = static_cast<int>(std::ceil(pagesLeft / pace));
+            entry["daysLeft"]    = daysLeft;
+            entry["finishDate"]  = today.addDays(daysLeft);
+            entry["hasEstimate"] = true;
+        } else {
+            entry["daysLeft"]    = 0;
+            entry["finishDate"]  = QVariant(QMetaType(QMetaType::QDate));
+            entry["hasEstimate"] = false;
+        }
+        result.append(entry);
+    }
+    return result;
+}
+
+QVariantList DatabaseManager::fetchSessionsForBookRaw(int bookId)
+{
+    QVariantList result;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT session_date, page_start, page_end, source "
+              "FROM reading_sessions WHERE book_id = :bookId ORDER BY session_date, id");
+    q.bindValue(":bookId", bookId);
+    if (!q.exec()) {
+        qWarning() << "fetchSessionsForBookRaw error:" << q.lastError().text();
+        return result;
+    }
+    while (q.next()) {
+        QVariantMap e;
+        e["date"]      = q.value(0).toDate();
+        e["pageStart"] = q.value(1).toInt();
+        e["pageEnd"]   = q.value(2).toInt();
+        e["source"]    = q.value(3).toString();
+        result.append(e);
+    }
+    return result;
+}
+
+bool DatabaseManager::restoreSession(int bookId, const QDate &date, int pageStart,
+                                     int pageEnd, const QString &source)
+{
+    QSqlQuery q(m_db);
+    // A straight insert; ON CONFLICT keeps it harmless if the same day/source is
+    // somehow already present (the UNIQUE constraint would otherwise fail the undo).
+    q.prepare(
+        "INSERT INTO reading_sessions (book_id, session_date, page_start, page_end, source) "
+        "VALUES (:bookId, :date, :pageStart, :pageEnd, :source) "
+        "ON CONFLICT (book_id, session_date, source) DO NOTHING"
+    );
+    q.bindValue(":bookId",    bookId);
+    q.bindValue(":date",      date);
+    q.bindValue(":pageStart", pageStart);
+    q.bindValue(":pageEnd",   pageEnd);
+    q.bindValue(":source",    source);
+    if (!q.exec()) {
+        qWarning() << "restoreSession error:" << q.lastError().text();
+        return false;
+    }
+    return true;
 }
 
 int DatabaseManager::totalSessionPages(int year, const QString &audioMode)

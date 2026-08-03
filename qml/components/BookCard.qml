@@ -19,6 +19,7 @@ Rectangle {
     required property bool isPriority
     required property string audioMode
     required property string tags
+    required property int readCount
 
     signal clicked()
     signal rightClicked(real mouseX, real mouseY)
@@ -99,8 +100,18 @@ Rectangle {
                 anchors.right: parent.right
                 anchors.rightMargin: 2
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 0
+                spacing: 2
                 layoutDirection: Qt.RightToLeft
+
+                // Reread tally — shown only when finished more than once.
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: card.readCount > 1
+                    text: "↻" + card.readCount
+                    color: "#000000"
+                    font.pixelSize: 11
+                    font.bold: true
+                }
 
                 ToolButton {
                     width: 18; height: 18
