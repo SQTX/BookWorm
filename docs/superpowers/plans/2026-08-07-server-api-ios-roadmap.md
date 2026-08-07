@@ -6,6 +6,8 @@
 
 **Status:** Planning. No phase started.
 
+**Server stack:** Node.js, JavaScript, npm — decided 2026-08-07. See [Decisions](#decisions).
+
 **Branch policy:** Every phase, and every fix inside a phase, gets its own branch and its own PR into `dev`. Nothing is committed straight to `dev` or `main`. `main` moves only at release time, and every release gets an annotated tag.
 
 ---
@@ -54,7 +56,7 @@ Three properties of the current code matter for what follows:
 ## Target Architecture
 
 ```
-iOS app  ─┐
+iOS app  ─┐                 Node.js
           ├─→  HTTPS  →  REST API  →  PostgreSQL   (VPS, private network)
 Desktop  ─┘                    ↓
                          Object storage  (covers, content-addressed)
@@ -105,6 +107,25 @@ Two decisions are cheap now and expensive to retrofit, so they belong in Phase 2
 
 ---
 
+## Decisions
+
+### D1 — Server stack: Node.js *(decided 2026-08-07)*
+
+The API is written in JavaScript on Node.js, managed with npm.
+
+Consequences that shape the phases below:
+
+- **Node LTS, pinned.** Pin the major version in `.nvmrc` and `package.json` `engines`, and use the same version on the VPS. Node's release cadence is fast enough that "whatever is installed" drifts.
+- **Memory footprint is a real constraint, not a footnote.** A Node process on a 4 GB VPS sharing the box with PostgreSQL should run with an explicit `--max-old-space-size` rather than letting V8 size its heap against total system RAM — otherwise the two compete for the same memory under load.
+- **Cover re-encoding is CPU-bound and must not run on the event loop.** `sharp` (libvips) releases the loop for the actual encode, which is why it is the right choice over pure-JS encoders. On 2 vCPU, cap concurrent encodes rather than accepting unbounded parallel uploads.
+- **Argon2id needs a native binding** (`argon2` or `@node-rs/argon2`). Do not substitute a pure-JS implementation, and do not fall back to bcrypt without deciding to.
+- **`npm ci` with a committed lockfile** for reproducible deploys. Never `npm install` on the server.
+- **Dependency surface is the security surface.** npm's transitive dependency depth makes supply chain the most likely attack path in this stack. Keep direct dependencies few, enable `npm audit` in CI, and prefer the standard library where it is adequate.
+
+Not decided by D1, and still open: framework, data-access layer, migration tool, and whether to add TypeScript. See [Open Questions](#open-questions).
+
+---
+
 ## Phases
 
 Each phase is one or more branches and PRs into `dev`. A phase is done when its PR is merged and its exit criteria are demonstrably met.
@@ -116,9 +137,12 @@ Removes the assumptions that would otherwise block everything else.
 - [ ] Move DB credentials out of `constants.h` into runtime configuration (env vars / `QSettings`), keeping the current local defaults so nothing breaks
 - [ ] Set a password on the local `wormbook` role and prove the app works with authentication on
 - [ ] Write down the full current schema as a numbered baseline migration, so the server and desktop share one source of truth instead of `initializeSchema()` being the only definition
-- [ ] Decide the API stack and record the choice as an ADR *(see Open Questions)*
+- [x] ~~Decide the API stack~~ — Node.js, see [D1](#d1--server-stack-nodejs-decided-2026-08-07)
+- [ ] Answer the remaining stack sub-questions (framework, data layer, migration tool, TypeScript) — Q1 in Open Questions
+- [ ] Scaffold the Node project: pinned LTS in `.nvmrc` and `engines`, committed lockfile, lint + format, test runner, `npm ci` in CI
+- [ ] Decide where the API lives — same repo (`server/`) or a separate one *(Q2)*
 
-**Exit:** desktop app runs against a password-protected local PostgreSQL, configured at runtime, with the schema captured as a versioned migration.
+**Exit:** desktop app runs against a password-protected local PostgreSQL, configured at runtime, with the schema captured as a versioned migration, and an empty Node service that builds and tests green in CI.
 
 ### Phase 1 — Multi-tenant schema
 
@@ -137,13 +161,15 @@ The largest and least reversible change. Do it locally, against a scratch databa
 
 ### Phase 2 — API and authentication
 
-- [ ] Auth: registration, login, refresh tokens, password reset. Argon2id hashing, short-lived access tokens
+- [ ] Auth: registration, login, refresh tokens, password reset. Argon2id via a native binding, short-lived access tokens
 - [ ] CRUD endpoints mirroring `BookController`'s invokable surface
 - [ ] Progress endpoints that preserve the invariant: recording pages writes the book *and* the session in one transaction, server-side
 - [ ] Session merge stays `ON CONFLICT ... LEAST/GREATEST` — idempotent, order-independent
-- [ ] Cover upload: accept, validate as an image, re-encode to WebP 400×600 plus a 120×180 thumbnail, store by SHA-256, deduplicate
+- [ ] Cover upload: accept, **validate by decoding rather than by extension or declared MIME type**, re-encode to WebP 400×600 plus a 120×180 thumbnail, store by SHA-256, deduplicate
+- [ ] Bound cover processing: cap upload size, cap concurrent encodes, stream uploads to disk instead of buffering whole files in memory
 - [ ] Rate limiting on auth endpoints
 - [ ] Health endpoint and structured logs
+- [ ] Reject unhandled promise rejections loudly in development; ensure one failing request cannot take the process down in production
 
 **Exit:** every operation the desktop app performs today is reachable over HTTP, covered by API tests, with a documented contract.
 
@@ -151,7 +177,9 @@ The largest and least reversible change. Do it locally, against a scratch databa
 
 - [ ] Provision (4 GB RAM, 2 vCPU, 40 GB disk), non-root user, SSH keys only, password auth off, firewall default-deny
 - [ ] PostgreSQL with `listen_addresses = 'localhost'` — never public
-- [ ] Reverse proxy with TLS
+- [ ] Reverse proxy with TLS in front of Node — Node does not terminate TLS or face the internet directly
+- [ ] Node runs as an unprivileged user under a process supervisor that restarts it on crash, with `--max-old-space-size` set so it cannot starve PostgreSQL
+- [ ] Deploy from a committed lockfile with `npm ci`; no `npm install` and no build toolchain on the server
 - [ ] Automated off-box backups (S3/R2/Backblaze), plus a **restore drill** — an untested backup is not a backup
 - [ ] Disk and memory alerting
 
@@ -184,11 +212,18 @@ The desktop app is the proving ground: real data, real usage, and a UI already k
 
 These block specific phases and should be answered before that phase starts, not during it.
 
-1. **API stack?** Blocks Phase 0. Candidates: Go (single static binary, small memory footprint, good fit for 4 GB), Python/FastAPI (fastest to write), Node/TypeScript (shared types with a future web client). No strong reason to pick C++ just because the desktop app is C++.
-2. **iOS: native SwiftUI or Qt?** Blocks Phase 5. Qt reuses QML but is a poor fit for App Store polish and iOS conventions. If the phone client stays read-focused, a native SwiftUI app over the REST API is small and will feel better. This choice does not affect Phases 0–4, so it can wait — but it should be answered before Phase 5 opens, not mid-phase.
-3. **Distribution?** Blocks Phase 5. Without the Apple Developer Program ($99/year) the only route is sideloading via Xcode onto the user's own device: certificates expire after 7 days and there is a 3-app limit. TestFlight requires the paid account. "Test app for me" works free; "give it to someone to try" does not.
-4. **Multi-user, or just the user's own devices?** Affects how much of Phase 1's tenancy work is actually needed and whether registration must be public. Cheaper to build the scoping now either way, but public registration brings abuse handling, email verification and GDPR-shaped obligations that a private instance does not.
-5. **Conflict policy for concurrent book edits?** Reading sessions merge cleanly by construction. Editing the same book's rating on two devices while offline does not. Last-write-wins per field is probably enough at this scale, but it should be a decision, not an accident.
+> **Resolved:** *API stack* → Node.js, see [D1](#d1--server-stack-nodejs-decided-2026-08-07).
+
+1. **Node sub-choices?** Blocks Phase 0. Four separate calls, all cheap now and progressively more expensive later:
+   - **Framework** — Fastify (fast, schema-based validation built in) vs Express (ubiquitous, more examples) vs Nest (structure out of the box, heaviest).
+   - **Data layer** — `pg` driver with hand-written SQL vs a query builder vs an ORM. Note the existing schema already leans on SQL features an ORM will abstract badly: `ON CONFLICT ... LEAST/GREATEST`, `CHECK` constraints, and planned row-level security. Hand-written SQL is a legitimate choice here, not a primitive one.
+   - **Migration tool** — must be picked before the Phase 1 tenancy migration, not after, and must be the same tool that produces Phase 0's baseline migration.
+   - **TypeScript?** The stated stack is JavaScript, so plain JS is the default. Worth a deliberate second look before Phase 2 rather than a drift decision: an API with two independent clients and a hand-rolled sync layer is exactly where a type contract earns back its cost, and retrofitting types across a finished codebase costs far more than starting with them. Either answer is defensible — an accidental answer is not.
+2. **One repo or two?** Blocks Phase 0. A `server/` directory in this repo keeps schema and API in lockstep and matches the current single-repo history; a separate repo keeps the C++/CMake and Node toolchains from colliding in CI. Leaning single repo at this scale.
+3. **iOS: native SwiftUI or Qt?** Blocks Phase 5. Qt reuses QML but is a poor fit for App Store polish and iOS conventions. If the phone client stays read-focused, a native SwiftUI app over the REST API is small and will feel better. This choice does not affect Phases 0–4, so it can wait — but it should be answered before Phase 5 opens, not mid-phase.
+4. **Distribution?** Blocks Phase 5. Without the Apple Developer Program ($99/year) the only route is sideloading via Xcode onto the user's own device: certificates expire after 7 days and there is a 3-app limit. TestFlight requires the paid account. "Test app for me" works free; "give it to someone to try" does not.
+5. **Multi-user, or just the user's own devices?** Affects how much of Phase 1's tenancy work is actually needed and whether registration must be public. Cheaper to build the scoping now either way, but public registration brings abuse handling, email verification and GDPR-shaped obligations that a private instance does not.
+6. **Conflict policy for concurrent book edits?** Reading sessions merge cleanly by construction. Editing the same book's rating on two devices while offline does not. Last-write-wins per field is probably enough at this scale, but it should be a decision, not an accident.
 
 ---
 
