@@ -10,31 +10,29 @@ Item {
     ColumnLayout {
         id: shellColumn
         anchors.fill: parent
-        spacing: Theme.spacingLarge
+        spacing: Theme.sectionGap
 
         // ═══════════════════════════════════
         // Header + Year filter
         // ═══════════════════════════════════
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-            Layout.leftMargin: Theme.spacingXL
-            Layout.rightMargin: Theme.spacingXL
-            Layout.topMargin: Theme.spacingXL
-
-            Text {
-                text: Theme.tr("Statistics")
-                color: Theme.textOnBackground
-                font.pixelSize: Theme.fontSizeHeader
-                font.bold: true
-            }
-
-            Item { Layout.fillWidth: true }
+            Layout.leftMargin: Theme.pageMargin
+            Layout.rightMargin: Theme.pageMargin
+            Layout.topMargin: Theme.pageMargin
+            title: Theme.tr("Statistics")
+            subtitle: statsProvider.selectedYear === 0
+                      ? Theme.tr("All time")
+                      : String(statsProvider.selectedYear)
+            // The TabBar directly below already draws a line; a second one here
+            // would stack two rules a few pixels apart.
+            showRule: false
 
             // Year filter ComboBox
             ComboBox {
                 id: yearCombo
                 Layout.preferredWidth: 200
-                Layout.preferredHeight: 36
+                Layout.preferredHeight: Theme.controlHeight
                 Material.accent: Theme.primary
                 font.pixelSize: Theme.fontSizeMedium
 
@@ -73,9 +71,20 @@ Item {
         TabBar {
             id: statsTabs
             Layout.fillWidth: true
-            Layout.leftMargin: Theme.spacingXL
-            Layout.rightMargin: Theme.spacingXL
+            Layout.leftMargin: Theme.pageMargin
+            Layout.rightMargin: Theme.pageMargin
             Material.accent: Theme.primary
+
+            background: Rectangle {
+                color: "transparent"
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: Theme.outline
+                }
+            }
 
             TabButton { text: Theme.tr("Overview") }
             TabButton { text: Theme.tr("Sessions") }

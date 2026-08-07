@@ -151,6 +151,25 @@ QtObject {
         }
     }
 
+    // A divider is too heavy for a card outline — cards sit on the background and
+    // only need to be separated from it, not boxed in.
+    property color outline: Qt.rgba(divider.r, divider.g, divider.b, 0.55)
+
+    // ── Interaction ──
+
+    // Derived from the text colour so it works in all three themes without adding
+    // per-theme literals: a faint wash of the foreground over whatever is beneath.
+    property color hover: Qt.rgba(textOnSurface.r, textOnSurface.g, textOnSurface.b, 0.07)
+    property color pressed: Qt.rgba(textOnSurface.r, textOnSurface.g, textOnSurface.b, 0.13)
+    property color shadow: Qt.rgba(0, 0, 0, isDark ? 0.45 : 0.16)
+
+    // ── Destructive actions ──
+    // These were repeated as literals in six places (reset, restore, both confirm
+    // dialogs). Same values as before — only the definition moved here.
+    readonly property color danger:      "#B71C1C"
+    readonly property color dangerHover: "#D32F2F"
+    readonly property color dangerText:  "#FFFFFF"
+
     // ── Status colors ──
 
     property color statusReading: {
@@ -204,26 +223,72 @@ QtObject {
 
     // ── Typography ──
 
+    readonly property int fontSizeSection: 11   // uppercase section labels
     readonly property int fontSizeSmall:  12
     readonly property int fontSizeMedium: 14
     readonly property int fontSizeLarge:  18
     readonly property int fontSizeTitle:  24
-    readonly property int fontSizeHeader: 32
+    // 32px pushed the page title into banner territory and cost ~20px of vertical
+    // space on every screen before any content appeared.
+    readonly property int fontSizeHeader: 26
 
     // ── Spacing ──
 
+    readonly property int spacingXS:     2
     readonly property int spacingSmall:  4
     readonly property int spacingMedium: 8
     readonly property int spacingLarge:  16
     readonly property int spacingXL:     24
+    readonly property int spacingXXL:    32
+
+    // ── Layout metrics ──
+
+    // Every page anchors its content at this margin so the five views line up with
+    // each other when you switch between them. Kept tight on purpose: this is a
+    // dense data app, not a marketing page, and 32px on every edge ate a visible
+    // slice of the grid.
+    readonly property int pageMargin:      20
+    // Gap between the header, the toolbar and the content beneath them.
+    readonly property int sectionGap:      12
+    // Inset between a card's edge and its content. Cards are small and numerous
+    // here, so 16 on all four sides added up to a lot of unused surface.
+    readonly property int cardPadding:     12
+    // Text and charts stop growing past this. Without it a maximised window on a
+    // wide display stretches a two-column layout into unreadable full-width runs.
+    readonly property int contentMaxWidth: 1440
+    readonly property int controlHeight:   34
+    readonly property int chipHeight:      26
 
     // ── Shapes ──
 
-    readonly property int radiusSmall:  4
-    readonly property int radiusMedium: 8
-    readonly property int radiusLarge:  16
+    readonly property int radiusSmall:   4
+    readonly property int radiusMedium:  8
+    readonly property int radiusLarge:   16
+    readonly property int radiusControl: 8
+    readonly property int radiusCard:    12
+    readonly property int radiusPill:    999
+
+    // ── Motion ──
+
+    readonly property int durationFast:   120   // hover / press feedback
+    readonly property int durationMedium: 200   // page and dialog transitions
+    readonly property int durationSlow:   320   // entrances that should be noticed
+
+    readonly property int easeOut:   Easing.OutCubic
+    readonly property int easeInOut: Easing.InOutQuad
+    readonly property int easeBack:  Easing.OutBack
 
     // ── Helpers ──
+
+    // Swatches for the theme picker in Settings. These mirror the three palettes
+    // above; keep them in sync when a palette changes.
+    function previewColors(themeKey) {
+        switch (themeKey) {
+            case "minimalist_light": return ["#E8E8E8", "#F5F5F5", "#554940"];
+            case "classic":          return ["#1D1617", "#2A2225", "#9F6932"];
+            default:                 return ["#121216", "#23242C", "#949C9E"];
+        }
+    }
 
     function statusColor(status) {
         switch (status) {

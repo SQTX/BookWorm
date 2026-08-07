@@ -151,9 +151,9 @@ Item {
             // can still be cleared without leaving the tab.
             // ═══════════════════════════════════
             Row {
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
-                Layout.topMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                Layout.topMargin: Theme.spacingLarge
                 spacing: Theme.spacingSmall
 
                 Repeater {
@@ -200,9 +200,9 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
-                Layout.topMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                Layout.topMargin: Theme.spacingLarge
                 spacing: Theme.spacingMedium
                 visible: sessionsPage.hasAnyData
 
@@ -240,12 +240,12 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
-                Layout.topMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                Layout.topMargin: Theme.spacingLarge
                 visible: statsProvider.readingProjections.length > 0
-                implicitHeight: projectionColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: projectionColumn.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -253,7 +253,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -364,12 +364,12 @@ Item {
             // Empty state for the whole tab (no sessions recorded at all yet)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
-                Layout.topMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                Layout.topMargin: Theme.spacingLarge
                 visible: !sessionsPage.hasAnyData
-                implicitHeight: emptyColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: emptyColumn.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -400,15 +400,15 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.preferredHeight: 320
-                radius: Theme.radiusMedium
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingSmall
 
                     Text {
@@ -486,10 +486,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
-                implicitHeight: weekdayColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                implicitHeight: weekdayColumn.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -497,7 +497,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -579,11 +579,11 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 visible: statsProvider.heatmapDays.length > 0
-                implicitHeight: heatmapColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: heatmapColumn.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 readonly property real cell: 13
@@ -594,7 +594,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -715,10 +715,10 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL
-                Layout.rightMargin: Theme.spacingXL
-                implicitHeight: recentColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                implicitHeight: recentColumn.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
 
                 ColumnLayout {
@@ -726,7 +726,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -853,7 +853,7 @@ Item {
             }
 
             // Bottom spacer
-            Item { Layout.preferredHeight: Theme.spacingXL }
+            Item { Layout.preferredHeight: Theme.spacingLarge }
         }
     }
 
@@ -998,7 +998,7 @@ Item {
         property color accent: Theme.primary
 
         implicitHeight: 90
-        radius: Theme.radiusMedium
+        radius: Theme.radiusCard
         color: cardHover.containsMouse ? Theme.surfaceVariant : Theme.surface
         scale: cardHover.containsMouse ? 1.03 : 1.0
         border.width: cardHover.containsMouse ? 1 : 0

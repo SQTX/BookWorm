@@ -22,39 +22,26 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Theme.spacingXL
-        spacing: Theme.spacingLarge
+        anchors.margins: Theme.pageMargin
+        spacing: Theme.sectionGap
 
         // Header
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-
-            Text {
-                text: Theme.tr("Series")
-                color: Theme.textOnBackground
-                font.pixelSize: Theme.fontSizeHeader
-                font.bold: true
-            }
-
-            Item { Layout.fillWidth: true }
-
-            Text {
-                text: seriesPage.seriesData.length + " " + Theme.tr("series")
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSizeSmall
-                verticalAlignment: Text.AlignVCenter
-            }
+            title: Theme.tr("Series")
+            subtitle: seriesPage.seriesData.length > 0
+                      ? seriesPage.seriesData.length + " " + Theme.tr("series")
+                      : ""
         }
 
         // Empty state
-        Text {
+        EmptyState {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
             visible: seriesPage.seriesData.length === 0
-            Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: Theme.spacingXL
-            text: Theme.tr("No series yet")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSizeLarge
-            font.italic: true
+            icon: "qrc:/qt/qml/BookWorm/src/img/icons/book-cover.svg"
+            title: Theme.tr("No series yet")
+            hint: Theme.tr("Fill in the Series field on a book and it will show up here, grouped with the rest of its cycle.")
         }
 
         // Series list
@@ -78,21 +65,25 @@ Item {
                     model: seriesPage.seriesData
 
                     // ── One series card ──
-                    Rectangle {
+                    Panel {
                         id: seriesCard
                         required property var modelData
                         property bool expanded: false
 
                         width: seriesColumn.width
-                        implicitHeight: cardColumn.implicitHeight + Theme.spacingLarge * 2
-                        radius: Theme.radiusMedium
-                        color: Theme.surface
+                        implicitHeight: cardColumn.implicitHeight + Theme.cardPadding * 2
+                        interactive: true
+                        accent: Theme.statusRead
+
+                        Behavior on implicitHeight {
+                            NumberAnimation { duration: Theme.durationMedium; easing.type: Theme.easeOut }
+                        }
 
                         Column {
                             id: cardColumn
-                            x: Theme.spacingLarge
-                            y: Theme.spacingLarge
-                            width: parent.width - Theme.spacingLarge * 2
+                            x: Theme.cardPadding
+                            y: Theme.cardPadding
+                            width: parent.width - Theme.cardPadding * 2
                             spacing: Theme.spacingMedium
 
                             // Header (click toggles expand)
@@ -105,10 +96,18 @@ Item {
                                     width: parent.width
                                     spacing: Theme.spacingMedium
 
+                                    // One glyph that turns, rather than two that
+                                    // swap — the rotation shows the panel opening.
                                     Text {
-                                        text: seriesCard.expanded ? "▾" : "▸"
-                                        color: Theme.textSecondary
+                                        text: "▸"
+                                        color: seriesCard.expanded ? Theme.statusRead : Theme.textSecondary
                                         font.pixelSize: Theme.fontSizeMedium
+                                        rotation: seriesCard.expanded ? 90 : 0
+
+                                        Behavior on rotation {
+                                            NumberAnimation { duration: Theme.durationMedium; easing.type: Theme.easeOut }
+                                        }
+                                        Behavior on color { ColorAnimation { duration: Theme.durationFast } }
                                     }
 
                                     ColumnLayout {
@@ -174,8 +173,10 @@ Item {
                                         required property var modelData
                                         width: parent.width
                                         height: 34
-                                        radius: Theme.radiusSmall
-                                        color: bookMouse.containsMouse ? Theme.surfaceVariant : "transparent"
+                                        radius: Theme.radiusControl
+                                        color: bookMouse.containsMouse ? Theme.hover : "transparent"
+
+                                        Behavior on color { ColorAnimation { duration: Theme.durationFast } }
 
                                         RowLayout {
                                             anchors.fill: parent

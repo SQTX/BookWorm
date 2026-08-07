@@ -1,6 +1,63 @@
 .pragma library
 
 var _pl = {
+    // ── Settings dialog (rebuilt UI) ──
+    "General": "Ogólne",
+    "Appearance": "Wygląd",
+    "Backup": "Kopia zapasowa",
+    "Data": "Dane",
+    "Restore": "Przywracanie",
+    "Language": "Język",
+    "The interface language changes immediately — no restart needed.":
+        "Język interfejsu zmienia się od razu — restart nie jest potrzebny.",
+    "Library layout": "Układ biblioteki",
+    "Fitted to the window width": "Dopasowane do szerokości okna",
+    "Fixed number of columns": "Stała liczba kolumn",
+    "Flagged books get their own section on top":
+        "Oznaczone książki dostają własną sekcję na górze",
+    "Flagged books on top": "Oznaczone książki na górze",
+    "Backup folder": "Folder kopii zapasowych",
+    "Change": "Zmień",
+    "Checked once at every app start": "Sprawdzane raz przy każdym starcie aplikacji",
+    "Days": "Dni",
+    "Months": "Miesiące",
+    "Years": "Lata",
+    "A backup is a ZIP with the full database, every cover image and a manifest. CSV export is not a backup.":
+        "Kopia zapasowa to ZIP z pełną bazą danych, wszystkimi okładkami i manifestem. Eksport CSV to nie jest kopia zapasowa.",
+    "Restoring replaces your entire library with the contents of an archive. A safety backup is taken first.":
+        "Przywracanie zastępuje całą bibliotekę zawartością archiwum. Najpierw tworzona jest kopia bezpieczeństwa.",
+    "Import and export": "Import i eksport",
+    "Danger zone": "Strefa ryzyka",
+    "Import": "Importuj",
+    "Export": "Eksportuj",
+    "Books and their fields as a spreadsheet. Quotes, highlights and sessions are not included.":
+        "Książki i ich pola jako arkusz. Bez cytatów, zaznaczeń i sesji czytania.",
+    "Add books from a CSV file. Existing books are kept.":
+        "Dodaje książki z pliku CSV. Istniejące książki zostają zachowane.",
+    "Quotes, highlights, summaries and reviews for the whole library in one file.":
+        "Cytaty, zaznaczenia, streszczenia i recenzje z całej biblioteki w jednym pliku.",
+    "Deletes every book, tag, quote, challenge and reading session. This cannot be undone.":
+        "Usuwa każdą książkę, tag, cytat, wyzwanie i sesję czytania. Operacja jest nieodwracalna.",
+    "Reset": "Wyczyść",
+    "Changes are saved as you make them": "Zmiany zapisują się na bieżąco",
+
+    // ── Empty states ──
+    "Your library is empty": "Twoja biblioteka jest pusta",
+    "Add your first book to start tracking what you read.":
+        "Dodaj pierwszą książkę, aby zacząć śledzić swoje czytanie.",
+    "Try a different search term, or clear the filters.":
+        "Spróbuj innej frazy albo wyczyść filtry.",
+    "Clear filters": "Wyczyść filtry",
+    "Add Book": "Dodaj książkę",
+    "Fill in the Series field on a book and it will show up here, grouped with the rest of its cycle.":
+        "Uzupełnij pole Seria przy książce, a pojawi się tutaj razem z resztą cyklu.",
+    "No challenges yet": "Brak wyzwań",
+    "New challenge": "Nowe wyzwanie",
+    "Set a target — books, pages, or pages per day — and a deadline, and track how you are doing against it.":
+        "Ustaw cel — książki, strony lub strony dziennie — oraz termin, i śledź swoje postępy.",
+    "active": "aktywne",
+    "completed": "ukończone",
+
     // ── Navigation ──
     "Library": "Biblioteka",
     "Table": "Tabela",

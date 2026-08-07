@@ -54,7 +54,8 @@ Item {
 
         ColumnLayout {
             id: mainColumn
-            width: parent.width
+            width: Math.min(parent.width, Theme.contentMaxWidth)
+            x: (parent.width - width) / 2
             spacing: 0
 
             // ═══════════════════════════════════
@@ -62,7 +63,7 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingLarge
+                Layout.margins: Theme.pageMargin
                 spacing: Theme.spacingMedium
 
                 Button {
@@ -105,15 +106,15 @@ Item {
             // ═══════════════════════════════════
             RowLayout {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 spacing: Theme.spacingXL
 
                 // Cover
                 Rectangle {
                     Layout.preferredWidth: 200
                     Layout.preferredHeight: 300
-                    radius: Theme.radiusMedium
+                    radius: Theme.radiusCard
                     color: Theme.surfaceVariant
 
                     Image {
@@ -334,13 +335,15 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
-                Layout.topMargin: Theme.spacingXL
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                Layout.topMargin: Theme.spacingLarge
                 Layout.bottomMargin: 0
-                implicitHeight: reviewCol.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: reviewCol.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
                 visible: (bookData.status || "") === "read"
 
                 ColumnLayout {
@@ -348,7 +351,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -390,12 +393,14 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: notesContent.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: notesContent.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
                 visible: (bookData.notes || "") !== ""
 
                 ColumnLayout {
@@ -403,7 +408,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     Text {
@@ -428,19 +433,21 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: quotesColumn.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: quotesColumn.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
 
                 ColumnLayout {
                     id: quotesColumn
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     RowLayout {
@@ -517,19 +524,21 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: highlightsCol.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: highlightsCol.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
 
                 ColumnLayout {
                     id: highlightsCol
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     RowLayout {
@@ -628,12 +637,14 @@ Item {
             // ═══════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.leftMargin: Theme.spacingXL * 2
-                Layout.rightMargin: Theme.spacingXL * 2
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
                 Layout.topMargin: Theme.spacingLarge
-                implicitHeight: summaryCol.implicitHeight + Theme.spacingLarge * 2
-                radius: Theme.radiusMedium
+                implicitHeight: summaryCol.implicitHeight + Theme.cardPadding * 2
+                radius: Theme.radiusCard
                 color: Theme.surface
+                border.width: 1
+                border.color: Theme.outline
 
                 property bool expanded: false
 
@@ -642,7 +653,7 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: Theme.spacingLarge
+                    anchors.margins: Theme.cardPadding
                     spacing: Theme.spacingMedium
 
                     RowLayout {
@@ -847,7 +858,7 @@ Item {
             // Footer
             RowLayout {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingLarge
+                Layout.margins: Theme.pageMargin
                 spacing: Theme.spacingMedium
 
                 Item { Layout.fillWidth: true }
@@ -975,7 +986,7 @@ Item {
             // Footer
             RowLayout {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingLarge
+                Layout.margins: Theme.pageMargin
                 spacing: Theme.spacingMedium
 
                 Item { Layout.fillWidth: true }

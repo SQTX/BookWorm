@@ -40,6 +40,30 @@ Item {
         return Theme.tr("Books read");
     }
 
+    // Human-readable span, used for both "elapsed" (pass a start, no end) and
+    // "remaining" (pass no start, an end). Months are approximated at 30 days,
+    // which is what the card showed before and is accurate enough for a progress
+    // line.
+    function humanSpan(fromIso, toIso) {
+        var from = fromIso !== "" ? new Date(fromIso) : new Date();
+        var to   = toIso   !== "" ? new Date(toIso)   : new Date();
+        var diffMs = to - from;
+        if (diffMs <= 0)
+            return toIso !== "" ? Theme.tr("expired") : Theme.tr("< 1 day");
+
+        var days = toIso !== "" ? Math.ceil(diffMs / 86400000)
+                                : Math.floor(diffMs / 86400000);
+        if (days < 1)   return Theme.tr("< 1 day");
+        if (days === 1) return Theme.tr("1 day");
+        if (days < 30)  return days + " " + Theme.tr("days");
+
+        var months = Math.floor(days / 30);
+        var remDays = days % 30;
+        var tail = remDays > 0 ? ", " + remDays + "d" : "";
+        return months === 1 ? Theme.tr("1 month") + tail
+                            : months + " " + Theme.tr("months") + tail;
+    }
+
     // Timer to refresh elapsed time every minute
     Timer {
         interval: 60000
@@ -50,30 +74,27 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Theme.spacingXL
-        spacing: Theme.spacingLarge
+        anchors.margins: Theme.pageMargin
+        spacing: Theme.sectionGap
 
         // Header
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-            spacing: Theme.spacingLarge
-
-            Text {
-                text: Theme.tr("Challenges")
-                color: Theme.textOnBackground
-                font.pixelSize: Theme.fontSizeHeader
-                font.bold: true
+            title: Theme.tr("Challenges")
+            subtitle: {
+                if (challengesPage.challenges.length === 0)
+                    return "";
+                var done = 0;
+                for (var i = 0; i < challengesPage.challenges.length; i++)
+                    if (challengesPage.challenges[i].progress >= 1.0)
+                        done++;
+                return challengesPage.challenges.length + " " + Theme.tr("active")
+                       + "  ·  " + done + " " + Theme.tr("completed");
             }
 
-            Item { Layout.fillWidth: true }
-
-            RoundButton {
-                text: "+"
-                font.pixelSize: 18
-                font.bold: true
-                width: 36; height: 36
-                Material.background: Theme.primary
-                Material.foreground: Theme.textOnPrimary
+            AppButton {
+                variant: "primary"
+                text: Theme.tr("New challenge")
                 onClicked: addChallengeDialog.open()
             }
         }
@@ -98,24 +119,28 @@ Item {
                 Repeater {
                     model: challengesPage.challenges
 
-                    Rectangle {
+                    Panel {
                         required property var modelData
                         required property int index
 
                         Layout.fillWidth: true
-                        implicitHeight: cardContent.implicitHeight + Theme.spacingLarge * 2
-                        radius: Theme.radiusMedium
-                        color: Theme.surface
+                        implicitHeight: cardContent.implicitHeight + Theme.cardPadding * 2
+                        interactive: true
+                        accent: modelData.progress >= 1.0 ? Theme.statusRead : Theme.primary
+
+                        Behavior on implicitHeight {
+                            NumberAnimation { duration: Theme.durationMedium; easing.type: Theme.easeOut }
+                        }
 
                         ColumnLayout {
                             id: cardContent
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            anchors.margins: Theme.spacingLarge
+                            anchors.margins: Theme.cardPadding
                             spacing: Theme.spacingMedium
 
-                            // Top row: name + deadline + delete
+                            // Top row: name + metric + deadline + delete
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingMedium
@@ -129,44 +154,45 @@ Item {
                                     elide: Text.ElideRight
                                 }
 
+                                // What is being counted. A label, not a control.
+                                Chip {
+                                    text: challengesPage.metricLabel(modelData.metric)
+                                    interactive: false
+                                }
+
                                 // Deadline badge
                                 Rectangle {
+                                    readonly property bool isDone: modelData.progress >= 1.0
+                                    readonly property bool isLate: new Date(modelData.deadline) < new Date()
+
                                     implicitWidth: deadlineText.implicitWidth + Theme.spacingLarge
-                                    implicitHeight: 24
-                                    radius: 12
-                                    color: {
-                                        var dl = new Date(modelData.deadline);
-                                        var now = new Date();
-                                        if (modelData.progress >= 1.0) return Theme.statusRead;
-                                        if (dl < now) return Theme.error;
-                                        return Theme.surfaceVariant;
-                                    }
+                                    implicitHeight: Theme.chipHeight
+                                    radius: height / 2
+                                    color: isDone ? Theme.statusRead
+                                                  : (isLate ? Theme.error : Theme.surfaceVariant)
+                                    border.width: 1
+                                    border.color: isDone || isLate ? "transparent" : Theme.outline
 
                                     Text {
                                         id: deadlineText
                                         anchors.centerIn: parent
                                         text: {
-                                            if (modelData.progress >= 1.0) return "\u2714 " + Theme.tr("Completed");
-                                            var dl = new Date(modelData.deadline);
-                                            var now = new Date();
-                                            if (dl < now) return Theme.tr("Expired");
+                                            if (parent.isDone) return "✔ " + Theme.tr("Completed");
+                                            if (parent.isLate) return Theme.tr("Expired");
                                             return Theme.tr("Due:") + " " + modelData.deadline;
                                         }
-                                        color: {
-                                            if (modelData.progress >= 1.0) return "#000000";
-                                            var dl = new Date(modelData.deadline);
-                                            var now = new Date();
-                                            if (dl < now) return "#FFFFFF";
-                                            return Theme.textSecondary;
-                                        }
+                                        color: parent.isDone ? Theme.textOnPrimary
+                                                             : (parent.isLate ? "#FFFFFF" : Theme.textSecondary)
                                         font.pixelSize: Theme.fontSizeSmall
                                         font.bold: true
                                     }
                                 }
 
                                 ToolButton {
-                                    text: "\u2715"
-                                    font.pixelSize: 12
+                                    implicitWidth: 26
+                                    implicitHeight: 26
+                                    text: "✕"
+                                    font.pixelSize: 11
                                     Material.foreground: Theme.error
                                     onClicked: {
                                         bookController.deleteChallenge(modelData.id);
@@ -175,7 +201,7 @@ Item {
                                 }
                             }
 
-                            // Progress info
+                            // Counts + percentage, on one line with the bar below it
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: Theme.spacingMedium
@@ -187,23 +213,27 @@ Item {
                                     font.pixelSize: Theme.fontSizeMedium
                                 }
 
-                                // Metric type chip
-                                Rectangle {
-                                    implicitWidth: metricChip.implicitWidth + Theme.spacingMedium
-                                    implicitHeight: 20
-                                    radius: 10
-                                    color: Theme.surfaceVariant
-
-                                    Text {
-                                        id: metricChip
-                                        anchors.centerIn: parent
-                                        text: challengesPage.metricLabel(modelData.metric)
-                                        color: Theme.textSecondary
-                                        font.pixelSize: Theme.fontSizeSmall - 1
+                                // How much is still missing. The label used to be
+                                // "To go:" followed by a value that already ended in
+                                // "left", which read as "8 books left left" in PL.
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: modelData.progress < 1.0
+                                    text: {
+                                        if (modelData.metric === "pages_per_day") {
+                                            return "· " + Theme.tr("target") + " " + modelData.targetValue
+                                                   + " " + Theme.tr("pg/day");
+                                        }
+                                        var left = Math.max(0, modelData.targetValue - modelData.currentValue);
+                                        return "· " + left + " " + challengesPage.metricUnit(modelData.metric)
+                                               + " " + Theme.tr("left");
                                     }
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    elide: Text.ElideRight
                                 }
 
-                                Item { Layout.fillWidth: true }
+                                Item { Layout.fillWidth: true; visible: modelData.progress >= 1.0 }
 
                                 Text {
                                     text: Math.round(modelData.progress * 100) + "%"
@@ -216,163 +246,91 @@ Item {
                             // Progress bar
                             Rectangle {
                                 Layout.fillWidth: true
-                                height: 8
-                                radius: 4
+                                height: 6
+                                radius: 3
                                 color: Theme.surfaceVariant
 
                                 Rectangle {
-                                    width: parent.width * modelData.progress
+                                    width: parent.width * Math.min(modelData.progress, 1.0)
                                     height: parent.height
-                                    radius: 4
+                                    radius: 3
                                     color: modelData.progress >= 1.0 ? Theme.statusRead : Theme.primary
 
-                                    Behavior on width { NumberAnimation { duration: 300 } }
+                                    Behavior on width { NumberAnimation { duration: Theme.durationSlow; easing.type: Theme.easeOut } }
                                 }
                             }
 
-                            // ── Timer / Stats row ──
-                            Rectangle {
+                            // ── Meta line ──
+                            // Elapsed, remaining, the date range and the expander all
+                            // on one row. This was a boxed two-row panel whose two
+                            // columns sat at opposite edges of a very wide card with
+                            // nothing in between.
+                            RowLayout {
                                 Layout.fillWidth: true
-                                implicitHeight: timerCol.implicitHeight + Theme.spacingMedium * 2
-                                radius: Theme.radiusSmall
-                                color: Theme.surfaceVariant
-
-                                ColumnLayout {
-                                    id: timerCol
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.top: parent.top
-                                    anchors.margins: Theme.spacingMedium
-                                    spacing: 6
-
-                                    // Elapsed time
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacingMedium
-
-                                        Text {
-                                            text: "\u23F1 " + Theme.tr("Elapsed:")
-                                            color: Theme.textSecondary
-                                            font.pixelSize: Theme.fontSizeSmall
-                                        }
-
-                                        Text {
-                                            text: {
-                                                var start = new Date(modelData.createdAt);
-                                                var now = new Date();
-                                                var diffMs = now - start;
-                                                var days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                                                if (days < 1) return Theme.tr("< 1 day");
-                                                if (days === 1) return Theme.tr("1 day");
-                                                if (days < 30) return days + " " + Theme.tr("days");
-                                                var months = Math.floor(days / 30);
-                                                var remDays = days % 30;
-                                                if (months === 1) return Theme.tr("1 month") + (remDays > 0 ? ", " + remDays + "d" : "");
-                                                return months + " " + Theme.tr("months") + (remDays > 0 ? ", " + remDays + "d" : "");
-                                            }
-                                            color: Theme.textOnSurface
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            font.bold: true
-                                        }
-
-                                        Item { Layout.fillWidth: true }
-
-                                        Text {
-                                            text: "\u23F3 " + Theme.tr("Remaining:")
-                                            color: Theme.textSecondary
-                                            font.pixelSize: Theme.fontSizeSmall
-                                        }
-
-                                        Text {
-                                            text: {
-                                                var dl = new Date(modelData.deadline);
-                                                var now = new Date();
-                                                var diffMs = dl - now;
-                                                if (diffMs <= 0) return Theme.tr("expired");
-                                                var days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                                                if (days === 1) return Theme.tr("1 day");
-                                                if (days < 30) return days + " " + Theme.tr("days");
-                                                var months = Math.floor(days / 30);
-                                                var remDays = days % 30;
-                                                if (months === 1) return Theme.tr("1 month") + (remDays > 0 ? ", " + remDays + "d" : "");
-                                                return months + " " + Theme.tr("months") + (remDays > 0 ? ", " + remDays + "d" : "");
-                                            }
-                                            color: {
-                                                var dl = new Date(modelData.deadline);
-                                                var now = new Date();
-                                                var diffMs = dl - now;
-                                                if (diffMs <= 0) return Theme.error;
-                                                var days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                                                if (days <= 7) return Theme.error;
-                                                return Theme.textOnSurface;
-                                            }
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            font.bold: true
-                                        }
-                                    }
-
-                                    // Remaining to the goal (metric-aware)
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacingMedium
-                                        visible: modelData.progress < 1.0
-
-                                        Text {
-                                            text: "\u{1F3AF} " + Theme.tr("To go:")
-                                            color: Theme.textSecondary
-                                            font.pixelSize: Theme.fontSizeSmall
-                                        }
-
-                                        Text {
-                                            text: {
-                                                if (modelData.metric === "pages_per_day") {
-                                                    // Average is a rate, not a countdown \u2014 show target vs current pace.
-                                                    return Theme.tr("target") + " " + modelData.targetValue + " "
-                                                           + Theme.tr("pg/day") + " \u00B7 " + Theme.tr("now")
-                                                           + " " + Math.round(modelData.currentValue);
-                                                }
-                                                var left = Math.max(0, modelData.targetValue - modelData.currentValue);
-                                                return left + " " + challengesPage.metricUnit(modelData.metric)
-                                                       + " " + Theme.tr("left");
-                                            }
-                                            color: Theme.textOnSurface
-                                            font.pixelSize: Theme.fontSizeSmall
-                                            font.bold: true
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Period info
-                            Text {
-                                text: modelData.createdAt + "  \u2192  " + modelData.deadline
-                                color: Theme.textSecondary
-                                font.pixelSize: Theme.fontSizeSmall
-                            }
-
-                            // Expand/collapse books button
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 28
-                                radius: Theme.radiusSmall
-                                color: expandBtn.containsMouse ? Theme.surfaceVariant : "transparent"
+                                Layout.topMargin: Theme.spacingXS
+                                spacing: Theme.spacingMedium
 
                                 Text {
-                                    anchors.centerIn: parent
-                                    text: challengesPage.expandedId === modelData.id
-                                          ? "\u25B2 " + Theme.tr("Hide books") : "\u25BC " + Theme.tr("Show books")
-                                    color: Theme.primary
+                                    text: Theme.tr("Elapsed:") + " " + challengesPage.humanSpan(modelData.createdAt, "")
+                                    color: Theme.textSecondary
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
 
-                                MouseArea {
-                                    id: expandBtn
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        challengesPage.expandedId =
-                                            challengesPage.expandedId === modelData.id ? -1 : modelData.id;
+                                Text {
+                                    text: "·"
+                                    color: Theme.outline
+                                    font.pixelSize: Theme.fontSizeSmall
+                                }
+
+                                Text {
+                                    text: Theme.tr("Remaining:") + " " + challengesPage.humanSpan("", modelData.deadline)
+                                    color: {
+                                        var days = (new Date(modelData.deadline) - new Date()) / 86400000;
+                                        return days <= 7 ? Theme.error : Theme.textSecondary;
+                                    }
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    font.bold: {
+                                        var days = (new Date(modelData.deadline) - new Date()) / 86400000;
+                                        return days <= 7;
+                                    }
+                                }
+
+                                Text {
+                                    text: "·"
+                                    color: Theme.outline
+                                    font.pixelSize: Theme.fontSizeSmall
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.createdAt + " → " + modelData.deadline
+                                    color: Theme.textSecondary
+                                    opacity: 0.7
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    elide: Text.ElideRight
+                                }
+
+                                // Expand/collapse books
+                                Text {
+                                    readonly property bool isOpen: challengesPage.expandedId === modelData.id
+
+                                    text: (isOpen ? "▴ " : "▾ ")
+                                          + (isOpen ? Theme.tr("Hide books") : Theme.tr("Show books"))
+                                    color: expandBtn.containsMouse ? Theme.primary : Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+
+                                    Behavior on color { ColorAnimation { duration: Theme.durationFast } }
+
+                                    MouseArea {
+                                        id: expandBtn
+                                        anchors.fill: parent
+                                        anchors.margins: -Theme.spacingSmall
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            challengesPage.expandedId =
+                                                challengesPage.expandedId === modelData.id ? -1 : modelData.id;
+                                        }
                                     }
                                 }
                             }
@@ -429,13 +387,15 @@ Item {
                 }
 
                 // Empty state
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.topMargin: Theme.spacingXL * 2
+                EmptyState {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Theme.spacingXXL
                     visible: challengesPage.challenges.length === 0
-                    text: Theme.tr("No challenges yet. Click + to create one!")
-                    color: Theme.textSecondary
-                    font.pixelSize: Theme.fontSizeLarge
+                    icon: "qrc:/qt/qml/BookWorm/src/img/icons/challenges.svg"
+                    title: Theme.tr("No challenges yet")
+                    hint: Theme.tr("Set a target — books, pages, or pages per day — and a deadline, and track how you are doing against it.")
+                    actionText: Theme.tr("New challenge")
+                    onActionClicked: addChallengeDialog.open()
                 }
             }
         }
