@@ -14,6 +14,16 @@ import pg from 'pg';
 const { Pool } = pg;
 
 /**
+ * Hand DATE columns back as the string PostgreSQL sent.
+ *
+ * By default `pg` parses a DATE (OID 1082) into a JavaScript Date at local
+ * midnight. Serialised to JSON that becomes an instant in UTC, so east of
+ * Greenwich a book finished on the 8th comes back as the 7th. The column has no
+ * time and no zone; giving it one is the bug.
+ */
+pg.types.setTypeParser(1082, (value) => value);
+
+/**
  * @param {{ databaseUrl: string }} config
  */
 export function createPool(config) {
