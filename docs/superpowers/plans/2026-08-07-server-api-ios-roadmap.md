@@ -1,10 +1,10 @@
 # Server, API and iOS Client — Roadmap
 
-**Goal:** Move BookWorm from a single-user desktop app talking to `localhost:5432` to a multi-tenant service: PostgreSQL and a REST API on a VPS, the existing Qt desktop app as the first API client, and a free/test iOS app as the second.
+**Goal:** Move BookWorm from a desktop app talking to `localhost:5432` to a private hosted service: PostgreSQL and a REST API on a VPS, the existing Qt desktop app as the first API client, and a free/test iOS app as the second. One account, the author's own ([D7](#d7--single-user-private-system-decided-2026-08-08)).
 
 **Baseline:** `v1.0.0` (commit `2dbe3c3`) — the last desktop-only version. Everything in this roadmap is measured against it.
 
-**Status:** Planning. No phase started.
+**Status:** Phase 0 complete (monorepo layout, server scaffold, baseline migration). Phase 1 designed, not started.
 
 **Server stack:** Node.js, plain JavaScript, npm. Fastify, `pg` with hand-written SQL, `node-pg-migrate`. One repository, three directories. See [Decisions](#decisions).
 
@@ -92,6 +92,8 @@ Covers are ~98% of the volume. Text is noise.
 
 **40 GB VPS disk**, after subtracting OS (2–3 GB), PostgreSQL + WAL (1–2 GB), runtime and images (2–5 GB) and 20% headroom, leaves **~25–28 GB for user data** — provided backups go off-box.
 
+Scale rows beyond the first are hypothetical under [D7](#d7--single-user-private-system-decided-2026-08-08), kept because they set the ceiling if that decision is ever revisited.
+
 | Scale | Usage | Fits in 40 GB? |
 | --- | --- | --- |
 | 1–10 accounts × 500 books | 0.05–0.5 GB | Enormous headroom |
@@ -103,7 +105,7 @@ Verdict: 40 GB is ample for the intended scale. **RAM is the real constraint** �
 
 Two decisions are cheap now and expensive to retrofit, so they belong in Phase 2, not "later":
 1. **Server-side re-encoding on upload.** The grid card renders covers at 180×300; storing a 1.34 MB original is waste.
-2. **Content-addressed storage** — filename is the SHA-256 of the file bytes. The same popular cover is stored once for all users, so the marginal cover cost of a new account approaches zero.
+2. **Content-addressed storage** — filename is the SHA-256 of the file bytes. With one account ([D7](#d7--single-user-private-system-decided-2026-08-08)) this only collapses re-uploads of the same file, which is minor; its real payoff is cross-account dedupe, so it is worth doing for the cheap idempotency it gives uploads rather than for the storage saving.
 
 ---
 
@@ -193,6 +195,23 @@ So everything below stays mandatory from Phase 2, monorepo or not:
 
 **Migration into this layout** (Phase 0): `git mv` the existing tree into `desktop/`, leaving `docs/`, `README.md` and `.gitignore` at the root. History is preserved. CMake resource paths are relative to `CMakeLists.txt` and the tree moves as a unit, so they stay valid; `qrc:` paths are unaffected entirely. What must be updated: the build commands and paths in `CLAUDE.md`, `.gitignore`'s `build/` entry, and any absolute path in CI. The local `build/` directory is regenerated, not moved.
 
+### D7 — Single-user private system *(decided 2026-08-08)*
+
+The server exists for the author's own devices. Not a product, not a family instance, no public registration. Recorded as "for now" — the conditions that would revisit it are written into the Phase 1 spec, not left implicit.
+
+**This reverses an earlier recommendation in this document.** The global-catalogue/per-user split was argued for on retrofit cost. That argument does not survive one user: the split exists so several accounts can share one copy of a book's metadata and cover, so with one account it buys nothing and costs a join on every read. The retrofit it was meant to avoid is one migration over a few hundred rows, on a machine the author controls, with no other clients to coordinate. **Deferred.**
+
+The `user_id` scoping stays, because the asymmetry runs the other way:
+
+| | Now (1 user) | Later (retrofit) |
+| --- | --- | --- |
+| Add `user_id` | One `ALTER`, backfill one value | Same `ALTER`, plus rewriting every query and endpoint written without it |
+| Catalogue split | Two tables, joins everywhere, no benefit | One migration over a few hundred rows |
+
+Do the cheap-now/expensive-later thing; skip the expensive-now/cheap-later thing.
+
+Authentication is **not** deferred. A private system reachable from the internet still needs a lock, and one account means exactly one password to brute-force — which makes rate limiting on login more useful, not less.
+
 ---
 
 ## Phases
@@ -214,24 +233,27 @@ Removes the assumptions that would otherwise block everything else.
 
 **Exit:** the repository is in the `desktop/` + `server/` layout and the desktop app still builds and runs from its new location against a password-protected local PostgreSQL, configured at runtime; `server/` holds a baseline migration that reproduces the current schema exactly; both CI workflows are green.
 
-### Phase 1 — Multi-tenant schema
+### Phase 1 — Ownership *(scope reduced by [D7](#d7--single-user-private-system-decided-2026-08-08))*
 
-The largest and least reversible change. Do it locally, against a scratch database, before any VPS exists.
+Design: [2026-08-08-single-user-ownership-design.md](../specs/2026-08-08-single-user-ownership-design.md)
 
-- [ ] `users` table: id, email, password hash (Argon2id), created_at, verified flag
-- [ ] Split the global book catalogue from per-user data. Title, author, ISBN, publisher, publication year, cover — global and shareable. Status, rating, current page, dates, `is_priority`, `read_count`, notes, summary, review — per user
-- [ ] Add owner scoping to `tags`, `book_tags`, `favorite_quotes`, `highlights`, `challenges`, `reading_sessions`
-- [ ] Composite indexes leading with the owner column on every scoped table
-- [ ] Row-level security policies as defence in depth, so an API bug cannot leak across accounts
-- [ ] Migration that assigns all existing rows to a first user account, run against a restored copy of the real dump and verified by row counts per table
+Do it locally, against a scratch database, before any VPS exists.
 
-**Exit:** a restored copy of the real database migrates cleanly, all 95 books belong to one account, and the desktop app still shows exactly what it showed at `v1.0.0`.
+- [ ] `users` table: id, email (CITEXT), Argon2id password hash, created_at. Exactly one row, inserted by a seed script from environment variables — never a literal in a migration, which is committed to a public repository
+- [ ] Add `user_id NOT NULL` to `books`, `tags`, `challenges`, `reading_sessions`. Not to `book_tags`, `favorite_quotes` or `highlights` — they inherit their owner through the book's existing `ON DELETE CASCADE`, and duplicating it there creates two truths that can disagree
+- [ ] Composite indexes leading with `user_id`; drop the single-column ones they supersede
+- [ ] Migration adds the column nullable, backfills, then sets `NOT NULL` — a `NOT NULL` column with no default cannot be added to a populated table
+- [ ] Verify on a restored copy of the real dump: 1 user, no `user_id IS NULL` anywhere, 95 books, and the `reading_sessions` unique constraint unchanged
 
-> The catalogue/instance split is the part to get right now. Bolting it on after covers and API clients exist means rewriting both.
+**Exit:** a restored copy of the real database migrates cleanly, every row belongs to the single account, and the desktop app still runs untouched against its own database.
+
+> **Not** in this phase, by decision: the global-catalogue split, row-level security, self-registration, email verification and password reset. Each is recorded in the spec with the condition that would bring it back.
+
+> The migration lands on the server's database only. Applying it to the developer's live database before Phase 4 would break the desktop app immediately, because the app does not know about `user_id`. This is the most likely way to break the working app by accident.
 
 ### Phase 2 — API and authentication
 
-- [ ] Auth: registration, login, refresh tokens, password reset. Argon2id via a native binding, short-lived access tokens
+- [ ] Auth: login and refresh tokens only. Argon2id via a native binding, short-lived access tokens. No registration, email verification or password reset — [D7](#d7--single-user-private-system-decided-2026-08-08); the single account is created by a seed script
 - [ ] CRUD endpoints mirroring `BookController`'s invokable surface
 - [ ] Progress endpoints that preserve the invariant: recording pages writes the book *and* the session in one transaction, server-side
 - [ ] Session merge stays `ON CONFLICT ... LEAST/GREATEST` — idempotent, order-independent
@@ -282,13 +304,12 @@ The desktop app is the proving ground: real data, real usage, and a UI already k
 
 These block specific phases and should be answered before that phase starts, not during it.
 
-> **Resolved:** stack, language, framework, data layer, migration tool and repository layout — see [D1](#d1--server-stack-nodejs-decided-2026-08-07)–[D6](#d6--three-repositories-decided-2026-08-08). Nothing now blocks Phase 0.
+> **Resolved:** stack, language, framework, data layer, migration tool, repository layout and tenancy scope — see [D1](#d1--server-stack-nodejs-decided-2026-08-07)–[D7](#d7--single-user-private-system-decided-2026-08-08). Nothing blocks Phase 0 or Phase 1.
 
 1. **Hosting provider and OS image?** Blocks Phase 3, not Phase 0. Needs to support 4 GB RAM / 2 vCPU / 40 GB and a current LTS Linux.
 2. **iOS: native SwiftUI or Qt?** Blocks Phase 5. Qt reuses QML but is a poor fit for App Store polish and iOS conventions. If the phone client stays read-focused, a native SwiftUI app over the REST API is small and will feel better. This choice does not affect Phases 0–4, so it can wait — but it should be answered before Phase 5 opens, not mid-phase.
 3. **Distribution?** Blocks Phase 5. Without the Apple Developer Program ($99/year) the only route is sideloading via Xcode onto the user's own device: certificates expire after 7 days and there is a 3-app limit. TestFlight requires the paid account. "Test app for me" works free; "give it to someone to try" does not.
-4. **Multi-user, or just the user's own devices?** Affects how much of Phase 1's tenancy work is actually needed and whether registration must be public. Cheaper to build the scoping now either way, but public registration brings abuse handling, email verification and GDPR-shaped obligations that a private instance does not.
-5. **Conflict policy for concurrent book edits?** Reading sessions merge cleanly by construction. Editing the same book's rating on two devices while offline does not. Last-write-wins per field is probably enough at this scale, but it should be a decision, not an accident.
+4. **Conflict policy for concurrent book edits?** Reading sessions merge cleanly by construction. Editing the same book's rating on two devices while offline does not. Last-write-wins per field is probably enough at this scale, but it should be a decision, not an accident.
 
 ---
 
