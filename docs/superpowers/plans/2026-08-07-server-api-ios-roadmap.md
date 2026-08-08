@@ -281,13 +281,18 @@ Do it locally, against a scratch database, before any VPS exists.
 
 The desktop app is the proving ground: real data, real usage, and a UI already known to work.
 
-- [ ] Reimplement `DatabaseManager`'s public interface over HTTP so `BookController` and all QML stay untouched
-- [ ] Login UI and secure token storage (macOS Keychain)
-- [ ] Local cache so the app is usable offline, flushing queued changes on reconnect
-- [ ] One-time upload of the existing 95 books and their covers
-- [ ] Sensible failure states — the app must not look broken when the network is down
+Design: [2026-08-08-sync-protocol-design.md](../specs/2026-08-08-sync-protocol-design.md)
 
-**Exit:** the desktop app runs entirely against the VPS, the user's real library is intact, and pulling the network cable degrades gracefully instead of crashing.
+The desktop keeps its local database as a **mirror** rather than becoming a thin API client. That is less work, not more: `StatisticsProvider`, `BookController`, `BookModel` and all QML keep querying a local database and stay untouched, so the sync layer is additive instead of a rewrite — and the app still works with no network.
+
+- [ ] Schema: soft deletes (`deleted_at`), `updated_at` on every synced table, and a `uuid` identity that survives being created offline on two devices at once
+- [ ] `GET /v1/sync?since=` and `POST /v1/sync`, push before pull in one exchange
+- [ ] A durable write queue in the local database, so a crash mid-push loses nothing
+- [ ] Login UI and token storage in the macOS Keychain, never `QSettings` (a plaintext plist)
+- [ ] One-time upload of the existing 95 books
+- [ ] Offline is a quiet indicator, not a dialog — the network must never block the UI
+
+**Exit:** the library round-trips through the server with the fingerprint unchanged, a book deleted on one device stays deleted on the other, and every statistic still renders with the network unplugged.
 
 ### Phase 5 — iOS client
 
@@ -309,7 +314,7 @@ These block specific phases and should be answered before that phase starts, not
 1. **Hosting provider and OS image?** Blocks Phase 3, not Phase 0. Needs to support 4 GB RAM / 2 vCPU / 40 GB and a current LTS Linux.
 2. **iOS: native SwiftUI or Qt?** Blocks Phase 5. Qt reuses QML but is a poor fit for App Store polish and iOS conventions. If the phone client stays read-focused, a native SwiftUI app over the REST API is small and will feel better. This choice does not affect Phases 0–4, so it can wait — but it should be answered before Phase 5 opens, not mid-phase.
 3. **Distribution?** Blocks Phase 5. Without the Apple Developer Program ($99/year) the only route is sideloading via Xcode onto the user's own device: certificates expire after 7 days and there is a 3-app limit. TestFlight requires the paid account. "Test app for me" works free; "give it to someone to try" does not.
-4. **Conflict policy for concurrent book edits?** Reading sessions merge cleanly by construction. Editing the same book's rating on two devices while offline does not. Last-write-wins per field is probably enough at this scale, but it should be a decision, not an accident.
+4. ~~**Conflict policy for concurrent book edits?**~~ — answered in the [sync protocol design](../specs/2026-08-08-sync-protocol-design.md): sessions merge by construction, book rows are last-write-wins on `updated_at`, tombstones beat edits.
 
 ---
 
