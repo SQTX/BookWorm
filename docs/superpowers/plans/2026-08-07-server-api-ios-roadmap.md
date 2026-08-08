@@ -4,7 +4,18 @@
 
 **Baseline:** `v1.0.0` (commit `2dbe3c3`) — the last desktop-only version. Everything in this roadmap is measured against it.
 
-**Status:** Phase 0 complete (monorepo layout, server scaffold, baseline migration). Phase 1 designed, not started.
+**Status (2026-08-08):** the server is **complete** for what the desktop client needs.
+
+| Phase | State |
+| --- | --- |
+| 0 — Groundwork | Done, except moving DB credentials out of `constants.h` and putting a password on the local role — both are desktop-side and belong with Phase 4 |
+| 1 — Ownership | Done: `users`, `user_id` on four tables, Argon2id, login with token rotation |
+| 2 — API | Done: books with atomic progress, tags, quotes, highlights, challenges, and the sync protocol. **Covers are not built** — their own phase |
+| 3 — VPS | Not started. Nothing is deployed |
+| 4 — Desktop | Not started. Next |
+| 5 — iOS | Not started |
+
+**The live `wormbook` database has never been modified.** The desktop app runs exactly as it did at `v1.1.0`: no `user_id` column, no `pgmigrations` table, 95 books. Every migration was verified against a restored copy, and `npm run migrate:*` refuses to run against it.
 
 **Server stack:** Node.js, plain JavaScript, npm. Fastify, `pg` with hand-written SQL, `node-pg-migrate`. One repository, three directories. See [Decisions](#decisions).
 
