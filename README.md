@@ -67,40 +67,49 @@ User --> QML Signal --> BookController (Q_INVOKABLE) --> DatabaseManager --> Pos
 
 ### Project Structure
 
+The repository is a monorepo. Each top-level directory is one codebase with its own
+toolchain and its own release cadence; `desktop/` is the only one that exists today.
+
 ```
 BookWorm/
-├── CMakeLists.txt
 ├── README.md
-├── qml/
-│   ├── Main.qml                     # Root window, sidebar, navigation, menus, settings
-│   ├── theme/
-│   │   ├── Theme.qml                # Singleton — colors, fonts, spacing, i18n helpers
-│   │   └── translations.js          # Polish translation dictionary (~200 entries)
-│   └── components/
-│       ├── BookCard.qml             # Card for grid view
-│       ├── BookForm.qml             # Add/edit dialog
-│       ├── BookDetails.qml          # Full detail view with quotes & highlights
-│       ├── BookListView.qml         # Grid (Library) view
-│       ├── BookTableView.qml        # Spreadsheet table view
-│       ├── StatisticsView.qml       # Charts and statistics
-│       └── ChallengesView.qml       # Reading challenges
-├── src/
-│   ├── main.cpp                     # Entry point, plugin paths, context properties
-│   ├── constants.h                  # DB config, app info
-│   ├── database/
-│   │   └── databasemanager.h/.cpp   # Singleton PostgreSQL manager
-│   ├── models/
-│   │   ├── book.h/.cpp              # Book struct (23 fields)
-│   │   └── bookmodel.h/.cpp         # QAbstractListModel (22 roles)
-│   ├── controllers/
-│   │   └── bookcontroller.h/.cpp    # QML bridge
-│   ├── statistics/
-│   │   └── statisticsprovider.h/.cpp
-│   └── img/                         # SVG icons and PNG assets
-├── sql/
-│   └── init.sql                     # Reference database schema
+├── desktop/                          # Qt6 C++/QML desktop app — C++17, CMake
+│   ├── CMakeLists.txt
+│   ├── qml/
+│   │   ├── Main.qml                  # Root window, sidebar, navigation, menus, settings
+│   │   ├── theme/
+│   │   │   ├── Theme.qml             # Singleton — colors, fonts, spacing, i18n helpers
+│   │   │   └── translations.js       # Polish translation dictionary (~200 entries)
+│   │   └── components/
+│   │       ├── common/               # Shared building blocks (Panel, AppButton, Chip, …)
+│   │       ├── BookCard.qml          # Card for grid view
+│   │       ├── BookForm.qml          # Add/edit dialog
+│   │       ├── BookDetails.qml       # Full detail view with quotes & highlights
+│   │       ├── BookListView.qml      # Grid (Library) view
+│   │       ├── BookTableView.qml     # Spreadsheet table view
+│   │       ├── StatisticsView.qml    # Charts and statistics
+│   │       ├── ChallengesView.qml    # Reading challenges
+│   │       └── SeriesView.qml        # Series list with progress
+│   ├── src/
+│   │   ├── main.cpp                  # Entry point, plugin paths, context properties
+│   │   ├── constants.h               # DB config, app info
+│   │   ├── database/
+│   │   │   └── databasemanager.h/.cpp  # Singleton PostgreSQL manager
+│   │   ├── models/
+│   │   │   ├── book.h/.cpp           # Book struct
+│   │   │   └── bookmodel.h/.cpp      # QAbstractListModel
+│   │   ├── controllers/
+│   │   │   └── bookcontroller.h/.cpp # QML bridge
+│   │   ├── statistics/
+│   │   │   └── statisticsprovider.h/.cpp
+│   │   ├── backup/
+│   │   │   └── backupmanager.h/.cpp  # ZIP backup and restore
+│   │   └── img/                      # SVG icons and PNG assets
+│   └── sql/
+│       └── init.sql                  # Reference database schema
 └── docs/
-    └── img/                         # README images
+    ├── img/                          # README images
+    └── superpowers/                  # Specs and implementation plans
 ```
 
 ## Getting Started
@@ -122,15 +131,17 @@ brew services start postgresql@16
 createdb wormbook
 
 # (Optional) Initialize schema from reference file
-psql wormbook < sql/init.sql
+psql wormbook < desktop/sql/init.sql
 ```
 
 > The app runs idempotent migrations on every launch, so manual schema init is optional.
 
 ### Build
 
+Run from the repository root — the desktop app builds out of `desktop/`.
+
 ```bash
-mkdir -p build && cd build
+mkdir -p desktop/build && cd desktop/build
 cmake .. \
   -DCMAKE_PREFIX_PATH="/opt/homebrew/Cellar/qtbase/6.10.2;/opt/homebrew/Cellar/qtdeclarative/6.10.2;/opt/homebrew/Cellar/qtcharts/6.10.2;/opt/homebrew/Cellar/qtshadertools/6.10.2" \
   -DQt6Qml_DIR="/opt/homebrew/Cellar/qtdeclarative/6.10.2/lib/cmake/Qt6Qml" \
@@ -145,7 +156,7 @@ cmake .. \
 ### Run
 
 ```bash
-./build/BookWorm.app/Contents/MacOS/BookWorm
+./desktop/build/BookWorm.app/Contents/MacOS/BookWorm
 ```
 
 ## Screenshots
