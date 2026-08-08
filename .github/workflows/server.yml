@@ -1,0 +1,57 @@
+name: server
+
+# Path-filtered so the Node pipeline never runs for a desktop-only change, and
+# vice versa. This is what makes one repository holding several toolchains
+# practical (D6 in the roadmap).
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'server/**'
+      - '.github/workflows/server.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - '.github/workflows/server.yml'
+
+# Least privilege: this workflow only reads the code. Without an explicit block
+# the job inherits the repository default, which may include write scopes it has
+# no use for.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: server
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Single source of truth for the Node version — the same file nvm
+          # reads locally, so CI cannot drift from a developer's machine.
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      # ci, not install: installs exactly the committed lockfile and fails if
+      # package.json and the lockfile disagree.
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # D1: the dependency tree is the attack surface in this ecosystem, so a
+      # high-severity advisory should stop a merge rather than sit in a report
+      # nobody reads. Moderate and below do not fail the build.
+      - name: Audit
+        run: npm audit --audit-level=high
