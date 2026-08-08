@@ -6,7 +6,7 @@
 
 **Status:** Planning. No phase started.
 
-**Server stack:** Node.js, plain JavaScript, npm. Fastify, `pg` with hand-written SQL, `node-pg-migrate`. Three repositories. See [Decisions](#decisions).
+**Server stack:** Node.js, plain JavaScript, npm. Fastify, `pg` with hand-written SQL, `node-pg-migrate`. One repository, three directories. See [Decisions](#decisions).
 
 **Branch policy:** Every phase, and every fix inside a phase, gets its own branch and its own PR into `dev`. Nothing is committed straight to `dev` or `main`. `main` moves only at release time, and every release gets an annotated tag.
 
@@ -160,26 +160,38 @@ Once the server exists, that assumption breaks: "whichever client starts first d
 - `initializeSchema()`'s DDL is retired once the desktop app moves onto the API (Phase 4), and the schema it currently creates becomes the numbered baseline migration in Phase 0.
 - The same tool must produce that baseline *and* the Phase 1 tenancy migration. Picking it after Phase 1 would mean hand-reconciling the most dangerous migration in the project.
 
-### D6 — Three repositories *(decided 2026-08-08)*
+### D6 — One repository, three directories *(decided 2026-08-08, supersedes the earlier three-repo decision)*
 
-| Repo | Contents | Toolchain |
-| --- | --- | --- |
-| `BookWorm` (this one) | Desktop app | C++/Qt, CMake |
-| `BookWorm-Server` *(new)* | API, migrations, API contract | Node.js, npm |
-| `BookWorm-iOS` *(new)* | Mobile client | Xcode |
+All three codebases live in this repository:
 
-Three separate toolchains, three release cadences, no shared build. Keeping them in one repo would put CMake and npm in the same CI pipeline for no benefit.
+```
+BookWorm/
+├── desktop/     C++/Qt, CMake      — the existing app
+├── server/      Node.js, npm       — API and migrations
+├── ios/         Xcode              — mobile client
+└── docs/        shared planning
+```
 
-**The cost this buys, and how it is paid:** split repos let the API contract drift out of sync with its clients. A field renamed server-side breaks a phone that has not been updated — and phone updates cannot be forced.
+**Why this reverses the earlier call.** The first version of D6 chose three separate repositories and then listed contract drift as a cost to be managed by discipline. That weighed CI hygiene above contract integrity, which is the wrong order. A monorepo removes the drift structurally instead of asking a human to prevent it:
 
-Therefore, mandatory from Phase 2:
+- **A server change and its client changes are one commit.** Half of a contract change cannot be merged — either the whole thing lands or none of it does. Across three repos the same change is three pull requests that someone has to keep in step, and eventually will not.
+- **One working directory for a coding agent or a developer.** One `git status`, one branch, one review covering the whole change. Split repos force context switching and produce three disconnected PRs that no reviewer sees as a unit.
+- The original objection — CMake and npm colliding in CI — is solved by path-filtered workflows (`on.push.paths`). The desktop workflow runs only for `desktop/**`, the server workflow only for `server/**`. That is configuration, not architecture.
 
-- **The API contract is a versioned OpenAPI document in `BookWorm-Server`.** It is the interface definition; clients follow it.
+**What a monorepo does not fix, and must not be assumed to fix.**
+
+It removes drift *in source*. It does nothing about drift *in what is deployed*. The server updates in seconds; a phone in a user's pocket does not update at all until they choose to, and there is no way to force it. One commit in a repository does not change that.
+
+So everything below stays mandatory from Phase 2, monorepo or not:
+
+- **The API contract is a versioned OpenAPI document in `server/`.** It is the interface definition; clients follow it.
 - **The API is versioned in the URL** (`/v1/...`) and a released version never changes meaning.
 - **Breaking changes ship as a new version**, with the old one kept alive until clients have moved. Additive changes go to the existing version.
-- Clients send a version identifier, so the server can tell a user their app is too old rather than failing obscurely.
+- Clients send a version identifier, so the server can tell a user their app is too old instead of failing obscurely.
 
-Not decided yet: see [Open Questions](#open-questions).
+> The trap to avoid: concluding that because the repo is unified, versioning is unnecessary. The monorepo protects the developer at edit time. Versioning protects the user at run time. They solve different problems and neither substitutes for the other.
+
+**Migration into this layout** (Phase 0): `git mv` the existing tree into `desktop/`, leaving `docs/`, `README.md` and `.gitignore` at the root. History is preserved. CMake resource paths are relative to `CMakeLists.txt` and the tree moves as a unit, so they stay valid; `qrc:` paths are unaffected entirely. What must be updated: the build commands and paths in `CLAUDE.md`, `.gitignore`'s `build/` entry, and any absolute path in CI. The local `build/` directory is regenerated, not moved.
 
 ---
 
@@ -195,11 +207,12 @@ Removes the assumptions that would otherwise block everything else.
 - [ ] Set a password on the local `wormbook` role and prove the app works with authentication on
 - [ ] Write down the full current schema as a numbered baseline migration, so the server and desktop share one source of truth instead of `initializeSchema()` being the only definition
 - [x] ~~Decide the API stack~~ — see [D1](#d1--server-stack-nodejs-decided-2026-08-07)–[D6](#d6--three-repositories-decided-2026-08-08)
-- [ ] Create the `BookWorm-Server` repository *(D6)*
-- [ ] Scaffold it: Fastify, `pg`, `node-pg-migrate`, pinned LTS in `.nvmrc` and `engines`, committed lockfile, lint + format, test runner, `npm ci` in CI
+- [ ] Restructure into the monorepo layout: `git mv` the existing tree into `desktop/`, update `CLAUDE.md` build paths and `.gitignore`, confirm a clean build from the new location *(D6)*
+- [ ] Add path-filtered CI workflows so `desktop/**` and `server/**` build independently
+- [ ] Scaffold `server/`: Fastify, `pg`, `node-pg-migrate`, pinned LTS in `.nvmrc` and `engines`, committed lockfile, lint + format, test runner, `npm ci` in CI
 - [ ] Port the schema `initializeSchema()` currently creates into the numbered baseline migration *(D5)* — verified by diffing a database built from the migrations against a restored dump of the real one
 
-**Exit:** desktop app runs against a password-protected local PostgreSQL, configured at runtime; `BookWorm-Server` exists with a baseline migration that reproduces the current schema exactly, and builds and tests green in CI.
+**Exit:** the repository is in the `desktop/` + `server/` layout and the desktop app still builds and runs from its new location against a password-protected local PostgreSQL, configured at runtime; `server/` holds a baseline migration that reproduces the current schema exactly; both CI workflows are green.
 
 ### Phase 1 — Multi-tenant schema
 
