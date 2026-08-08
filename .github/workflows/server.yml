@@ -55,3 +55,62 @@ jobs:
       # nobody reads. Moderate and below do not fail the build.
       - name: Audit
         run: npm audit --audit-level=high
+
+  # Applies the migrations against a real PostgreSQL. The unit tests stub the
+  # pool and never touch a database, so without this a broken migration would
+  # reach main unnoticed and only fail on someone's machine.
+  migrations:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Matches the production target (postgresql@16 locally).
+        image: postgres:16
+        env:
+          POSTGRES_USER: bookworm
+          POSTGRES_PASSWORD: bookworm
+          POSTGRES_DB: bookworm_ci
+        ports:
+          - 5432:5432
+        # Without a health check the job races the container and fails
+        # intermittently on a connection refused.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://bookworm:bookworm@localhost:5432/bookworm_ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx node-pg-migrate up
+
+      # A down migration nobody runs is a down migration that does not work.
+      # Exercising the full round trip proves the rollback path before it is
+      # ever needed on real data.
+      - name: Roll back and re-apply
+        run: |
+          npx node-pg-migrate down
+          npx node-pg-migrate up
+
+      - name: Verify the expected tables exist
+        run: |
+          psql "$DATABASE_URL" -qtA -c "
+            SELECT string_agg(tablename, ',' ORDER BY tablename)
+            FROM pg_tables
+            WHERE schemaname = 'public' AND tablename <> 'pgmigrations';
+          " | grep -qx 'book_tags,books,challenges,favorite_quotes,highlights,reading_sessions,tags' \
+            || { echo 'Unexpected set of tables after migration'; exit 1; }
