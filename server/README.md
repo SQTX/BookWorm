@@ -2,8 +2,9 @@
 
 Multi-tenant REST API backing the desktop and iOS clients.
 
-**Status:** scaffold plus the baseline schema. Health endpoint, configuration and
-migrations — no data endpoints and no authentication yet. See the
+**Status:** the API is complete for what the desktop client needs — auth, books,
+progress, tags, quotes, highlights, challenges, and sync. **Covers do not sync
+yet** (their own phase), and nothing is deployed to a VPS. See the
 [roadmap](../docs/superpowers/plans/2026-08-07-server-api-ios-roadmap.md).
 
 ## Stack
@@ -68,6 +69,10 @@ curl -s localhost:3000/v1/ -H "authorization: Bearer $TOKEN"
 | `GET/POST/PATCH/DELETE /v1/books[/:id]` | Bearer | Owner-scoped; another account's book is a 404 |
 | `POST /v1/books/:id/progress` | Bearer | Moves the page **and** logs a session, atomically |
 | `POST /v1/books/:id/complete` | Bearer | Status, end date, reread tally, closing session |
+| `GET/POST/PATCH/DELETE /v1/tags[/:id]` | Bearer | Unique per owner; re-adding a deleted name revives it |
+| `GET/POST /v1/books/:id/quotes`, `DELETE /v1/quotes/:id` | Bearer | Ownership reached through the book |
+| `GET/POST /v1/books/:id/highlights`, `DELETE /v1/highlights/:id` | Bearer | Same |
+| `GET/POST/PATCH/DELETE /v1/challenges[/:id]` | Bearer | `target_books` kept in step with `targetValue` |
 | `GET /v1/sync?since=` | Bearer | Everything changed since the cursor, tombstones included |
 | `POST /v1/sync` | Bearer | Push a batch, then get the canonical state back |
 | everything else under `/v1` | Bearer | Enforced for the prefix, not per route |
@@ -130,6 +135,8 @@ server/
 │   ├── auth/
 │   │   ├── routes.js  login, refresh, logout
 │   │   └── tokens.js  Issuing, rotation, reuse detection
+│   ├── collections/   Tags, quotes, highlights, challenges
+│   ├── sync/          Pull, push, conflict resolution
 │   ├── books/
 │   │   ├── routes.js      Endpoints and schemas
 │   │   ├── repository.js  SQL — every query owner-scoped
