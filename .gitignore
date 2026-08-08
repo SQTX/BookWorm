@@ -1,6 +1,17 @@
 # Build (matches at any depth, so desktop/build/ is covered)
 build/
 
+# Node (server/)
+node_modules/
+coverage/
+npm-debug.log*
+
+# Secrets — never commit. This repo is public; a leaked credential is indexed
+# within minutes and git revert does not remove it from history.
+.env
+.env.*
+!.env.example
+
 # Private assets (original resources)
 Priv/
 
