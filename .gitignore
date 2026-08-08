@@ -1,4 +1,4 @@
-# Build
+# Build (matches at any depth, so desktop/build/ is covered)
 build/
 
 # Private assets (original resources)
