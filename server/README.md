@@ -68,7 +68,28 @@ curl -s localhost:3000/v1/ -H "authorization: Bearer $TOKEN"
 | `GET/POST/PATCH/DELETE /v1/books[/:id]` | Bearer | Owner-scoped; another account's book is a 404 |
 | `POST /v1/books/:id/progress` | Bearer | Moves the page **and** logs a session, atomically |
 | `POST /v1/books/:id/complete` | Bearer | Status, end date, reread tally, closing session |
+| `GET /v1/sync?since=` | Bearer | Everything changed since the cursor, tombstones included |
+| `POST /v1/sync` | Bearer | Push a batch, then get the canonical state back |
 | everything else under `/v1` | Bearer | Enforced for the prefix, not per route |
+
+### Sync
+
+Push and pull happen in one exchange, push first: the client's own writes come
+back as the server's canonical version, so it settles on what actually landed
+rather than assuming its version won.
+
+**The cursor is `serverTime` from the response, never the client's own clock.**
+A clock a few seconds fast would skip every row written in the gap, permanently
+and silently.
+
+**Two timestamps, deliberately.** `updated_at` is server time and drives the
+cursor; `client_updated_at` is the user's edit time and decides last-write-wins.
+Using one column for both is a silent data-loss bug — see the
+[design](../docs/superpowers/specs/2026-08-08-sync-protocol-design.md).
+
+**Reading sessions do not use last-write-wins.** They merge with
+`LEAST`/`GREATEST` on `(book_id, session_date, source)`, so two devices pushing
+the same reading day converge in any order and pages read can only widen.
 
 ### Why progress is its own endpoint
 

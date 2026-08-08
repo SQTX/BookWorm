@@ -20,7 +20,14 @@ UNION ALL SELECT 'favorite_quotes=' || count(*) FROM favorite_quotes
 UNION ALL SELECT 'highlights=' || count(*) FROM highlights
 UNION ALL SELECT 'challenges=' || count(*) FROM challenges
 UNION ALL SELECT 'reading_sessions=' || count(*) FROM reading_sessions
-UNION ALL SELECT 'status_' || status || '=' || count(*) FROM books GROUP BY status
+-- Ordered explicitly. GROUP BY imposes no order, so these rows came back in
+-- whatever sequence the plan produced — which changes after anything that
+-- rewrites the table, such as ADD COLUMN with a volatile default. A comparison
+-- tool that is not deterministic reports differences that are not there, and
+-- teaches you to ignore the ones that are.
+UNION ALL SELECT * FROM (
+    SELECT 'status_' || status || '=' || count(*) FROM books GROUP BY status ORDER BY status
+) AS status_counts
 UNION ALL SELECT 'total_pages_read=' || coalesce(sum(page_end - page_start), 0) FROM reading_sessions
 UNION ALL SELECT 'sum_read_count=' || coalesce(sum(read_count), 0) FROM books
 UNION ALL SELECT 'books_fingerprint=' || md5(string_agg(
