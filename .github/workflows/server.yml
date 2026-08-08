@@ -150,9 +150,24 @@ jobs:
       # A down migration nobody runs is a down migration that does not work.
       # Rolling the whole stack back and re-applying proves it before it is ever
       # needed on real data.
-      - name: Roll back everything and re-apply
+      - name: Roll back ownership and re-apply
         run: |
+          # down 2 unwinds ownership and users, leaving the baseline applied —
+          # so the baseline's 7 tables are expected to remain, and `users` and
+          # the user_id columns are what must disappear.
           npx node-pg-migrate down 2
+
+          psql "$DATABASE_URL" -qtA -c "SELECT to_regclass('public.users') IS NULL;" \
+            | grep -qx 't' || { echo 'users table survived the rollback'; exit 1; }
+
+          psql "$DATABASE_URL" -qtA -c "
+            SELECT count(*) FROM information_schema.columns WHERE column_name = 'user_id';
+          " | grep -qx '0' || { echo 'user_id columns survived the rollback'; exit 1; }
+
           psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';" \
-            | grep -qx '0' || { echo 'Rollback left tables behind'; exit 1; }
+            | grep -qx '7' || { echo 'Rollback disturbed the baseline tables'; exit 1; }
+
           npx node-pg-migrate up
+
+          psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';" \
+            | grep -qx '8' || { echo 'Re-apply did not restore the full schema'; exit 1; }
