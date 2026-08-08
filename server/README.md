@@ -24,8 +24,12 @@ tree *is* the attack surface, so anything added should earn its place.
 ```bash
 cd server
 npm ci
+createdb bookworm_dev     # the server's own database — NOT wormbook
 cp .env.example .env
 ```
+
+`wormbook` is the desktop app's live library and the migrations refuse to run
+against it; see [MIGRATIONS.md](MIGRATIONS.md).
 
 Then edit `.env`. **It is gitignored and must stay that way** — this repository
 is public, and a committed credential is indexed by scanners within minutes.

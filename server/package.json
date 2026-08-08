@@ -14,9 +14,10 @@
     "test": "node --test \"test/**/*.test.js\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "migrate": "node-pg-migrate --envPath .env",
-    "migrate:up": "node-pg-migrate --envPath .env up",
-    "migrate:down": "node-pg-migrate --envPath .env down"
+    "guard": "node --env-file-if-exists=.env scripts/guard-database.js",
+    "migrate": "npm run guard && node-pg-migrate --envPath .env",
+    "migrate:up": "npm run guard && node-pg-migrate --envPath .env up",
+    "migrate:down": "npm run guard && node-pg-migrate --envPath .env down"
   },
   "dependencies": {
     "fastify": "^5.2.1",

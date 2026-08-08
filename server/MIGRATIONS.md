@@ -51,6 +51,17 @@ npm run migrate:up
 Reads `DATABASE_URL` from `.env`, the same connection string the app uses, so
 the two cannot disagree about which database they are pointed at.
 
+### The guard
+
+Every `migrate` script runs `scripts/guard-database.js` first, which refuses if
+`DATABASE_URL` names the desktop app's live library (`wormbook`). The ownership
+migration adds a `NOT NULL user_id` column that the desktop app knows nothing
+about, so applying it there would stop the app inserting a book — quietly, until
+the next time someone added one.
+
+Override with `ALLOW_LIVE_DATABASE=i-understand`, which is only correct in
+Phase 4, once the desktop app talks to the API instead of to PostgreSQL.
+
 ## Rules
 
 - **Never edit a migration that has been applied anywhere.** Add a new one.
