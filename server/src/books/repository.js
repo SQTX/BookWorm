@@ -51,7 +51,9 @@ function normalise(input) {
  */
 export async function listBooks(db, userId, { status } = {}) {
   const params = [userId];
-  let where = 'WHERE b.user_id = $1';
+  // Tombstones are sync's business, not the API's: a soft-deleted book is gone
+  // as far as every reader is concerned.
+  let where = 'WHERE b.user_id = $1 AND b.deleted_at IS NULL';
 
   if (status) {
     params.push(status);
@@ -66,7 +68,7 @@ export async function listBooks(db, userId, { status } = {}) {
 }
 
 export async function getBook(db, userId, id) {
-  const { rows } = await db.query(`${SELECT_BOOK} WHERE b.user_id = $1 AND b.id = $2`, [userId, id]);
+  const { rows } = await db.query(`${SELECT_BOOK} WHERE b.user_id = $1 AND b.id = $2 AND b.deleted_at IS NULL`, [userId, id]);
   return rows[0] ?? null;
 }
 
@@ -190,11 +192,15 @@ export async function updateBook(pool, userId, id, input) {
   }
 }
 
+/**
+ * Soft delete. A hard DELETE cannot propagate: a device that never saw the row
+ * cannot tell "deleted" from "never existed", so its next pull resurrects it.
+ */
 export async function deleteBook(pool, userId, id) {
-  const { rowCount } = await pool.query('DELETE FROM books WHERE id = $1 AND user_id = $2', [
-    id,
-    userId,
-  ]);
+  const { rowCount } = await pool.query(
+    'UPDATE books SET deleted_at = NOW() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
+    [id, userId],
+  );
   return rowCount > 0;
 }
 

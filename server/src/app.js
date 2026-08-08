@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 
 import authRoutes from './auth/routes.js';
 import bookRoutes from './books/routes.js';
+import syncRoutes from './sync/routes.js';
 import { createPool } from './db.js';
 import healthRoutes from './routes/health.js';
 
@@ -105,6 +106,7 @@ export async function buildApp(config, overrides = {}) {
 
       await v1.register(authRoutes);
       await v1.register(bookRoutes);
+      await v1.register(syncRoutes);
 
       v1.get('/', async (request) => ({
         api: 'bookworm',

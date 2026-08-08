@@ -37,15 +37,25 @@ Reads filter `WHERE deleted_at IS NULL`. Sync sends tombstones. A row is hard-de
 
 This also fixes something the desktop already gets wrong: `undoDelete()` restores from an in-memory snapshot that dies with the process. With tombstones, undo is a column update.
 
-### Change tracking
+### Change tracking — two timestamps, not one
 
-Every synced table gains, or already has:
+This looked like one column and is not. The cursor and the conflict rule ask
+different questions and need different clocks:
 
-```
-updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()   -- touched on every write
-```
+| | Clock | Purpose |
+| --- | --- | --- |
+| `updated_at` | **Server**, set by a trigger | The pull cursor. Must be monotonic on the server, or a client with a skewed clock writes rows sorting before a cursor already issued — and they are never pulled again. |
+| `client_updated_at` | **Client**, never overwritten | Decides last-write-wins. "When did the user make this edit?" is not "when did the request arrive?" |
 
-`books` has it. `tags`, `challenges`, `favorite_quotes`, `highlights` and `reading_sessions` do not, and need it.
+Conflating them is a silent data-loss bug, and the first implementation had it:
+the trigger stamped server time over the very value the LWW guard compared
+against, so once a row had been updated, every realistic client edit was older
+than the stored value and was dropped — with a `200`. It survived the first
+round of tests because those used a timestamp a minute in the future, which
+cleared the server clock by luck. A real client edits milliseconds apart.
+
+`updated_at` is maintained by a trigger rather than by each query: a missed
+assignment does not fail, the row simply stops syncing.
 
 ### Stable identity across devices
 
