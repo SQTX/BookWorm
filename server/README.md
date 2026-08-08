@@ -64,7 +64,20 @@ curl -s localhost:3000/v1/ -H "authorization: Bearer $TOKEN"
 | `POST /v1/auth/login` | none | 5/minute per address |
 | `POST /v1/auth/refresh` | none | Rotates; replaying a used token revokes every session |
 | `POST /v1/auth/logout` | none | Always 204, so tokens cannot be probed |
+| `GET /v1/books` | Bearer | `?status=` filter |
+| `GET/POST/PATCH/DELETE /v1/books[/:id]` | Bearer | Owner-scoped; another account's book is a 404 |
+| `POST /v1/books/:id/progress` | Bearer | Moves the page **and** logs a session, atomically |
+| `POST /v1/books/:id/complete` | Bearer | Status, end date, reread tally, closing session |
 | everything else under `/v1` | Bearer | Enforced for the prefix, not per route |
+
+### Why progress is its own endpoint
+
+Moving the current page and recording the reading session must happen together,
+or the statistics drift away from the library. On the desktop that invariant is
+enforced in C++ (`addPages()` and `markAsRead()` are the only progress paths and
+both write the book *and* a session). Once clients speak HTTP they cannot be
+trusted with it, so the server owns it: `currentPage` remains an editable field
+for corrections, but only `/progress` creates reading.
 
 ## Testing
 
@@ -96,6 +109,10 @@ server/
 │   ├── auth/
 │   │   ├── routes.js  login, refresh, logout
 │   │   └── tokens.js  Issuing, rotation, reuse detection
+│   ├── books/
+│   │   ├── routes.js      Endpoints and schemas
+│   │   ├── repository.js  SQL — every query owner-scoped
+│   │   └── schemas.js     Field names, shared with the desktop app
 │   └── routes/
 │       └── health.js  Operational endpoints (unversioned by design)
 ├── migrations/        Numbered SQL — see MIGRATIONS.md
@@ -109,6 +126,14 @@ through `buildApp()`.
 
 - **Every SQL value is a bound parameter** (`$1`, `$2`). No ORM means injection
   is no longer prevented by construction; string-concatenated SQL is a bug.
+- **Every query filters on `user_id`.** Same reasoning: without an ORM nothing
+  adds the owner filter for you, and a query missing it is a leak waiting for a
+  second account.
+- **Another account's row is a 404, never a 403.** Distinguishing them confirms
+  that a given id exists.
+- **Unknown request fields are rejected, not stripped.** Fastify's default is to
+  remove them, which turns a client's typo into a silent data loss that looks
+  like a successful write.
 - **Client-facing routes live under `/v1`.** A released version never changes
   meaning. Phones cannot be force-updated, and the monorepo does nothing about
   that — only versioning does.
