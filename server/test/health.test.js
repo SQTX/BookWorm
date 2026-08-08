@@ -10,6 +10,7 @@ import { loadConfig } from '../src/config.js';
 
 const TEST_ENV = {
   DATABASE_URL: 'postgres://test:test@localhost:5432/test',
+  JWT_SECRET: 'test-secret-long-enough-to-pass-the-length-check',
   NODE_ENV: 'test',
   LOG_LEVEL: 'silent',
 };
@@ -58,13 +59,21 @@ test('health response exposes nothing beyond status', async (t) => {
   assert.deepEqual(Object.keys(res.json()), ['status']);
 });
 
-test('API routes live under the version prefix', async (t) => {
+test('API routes live under the version prefix and require a token', async (t) => {
   const app = await buildApp(loadConfig(TEST_ENV), { pool: stubPool({ ok: true }) });
   t.after(() => app.close());
 
-  const versioned = await app.inject({ method: 'GET', url: '/v1/' });
-  assert.equal(versioned.statusCode, 200);
-  assert.deepEqual(versioned.json(), { api: 'bookworm', version: 1 });
+  const anonymous = await app.inject({ method: 'GET', url: '/v1/' });
+  assert.equal(anonymous.statusCode, 401);
+
+  const token = app.jwt.sign({ sub: 1 });
+  const authorised = await app.inject({
+    method: 'GET',
+    url: '/v1/',
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(authorised.statusCode, 200);
+  assert.deepEqual(authorised.json(), { api: 'bookworm', version: 1, userId: 1 });
 
   // Nothing client-facing is served unversioned.
   const unversioned = await app.inject({ method: 'GET', url: '/' });

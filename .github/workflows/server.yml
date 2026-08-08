@@ -138,6 +138,16 @@ jobs:
           psql "$DATABASE_URL" -qtA -c 'SELECT count(*) FROM users;' | grep -qx '1' \
             || { echo 'Expected exactly one account'; exit 1; }
 
+      # Most of the suite stubs the pool, but the auth tests need a real
+      # PostgreSQL: rotation and reuse detection are a transaction, a FOR UPDATE
+      # lock and a bulk revoke, and a stub would only prove the code calls the
+      # queries it calls. They skip silently without this variable, so running
+      # them here is what stops that skip becoming permanent.
+      - name: Test against a real database
+        env:
+          TEST_DATABASE_URL: postgres://bookworm:bookworm@localhost:5432/bookworm_ci
+        run: npm test
+
       - name: Refuse to overwrite an existing account without the force flag
         env:
           SEED_EMAIL: other@example.test
