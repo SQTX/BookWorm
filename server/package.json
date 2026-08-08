@@ -15,11 +15,13 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "guard": "node --env-file-if-exists=.env scripts/guard-database.js",
+    "seed:user": "node --env-file-if-exists=.env scripts/seed-user.js",
     "migrate": "npm run guard && node-pg-migrate --envPath .env",
     "migrate:up": "npm run guard && node-pg-migrate --envPath .env up",
     "migrate:down": "npm run guard && node-pg-migrate --envPath .env down"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.2.1",
     "pg": "^8.13.1"
   },

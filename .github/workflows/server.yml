@@ -98,19 +98,76 @@ jobs:
       - name: Apply migrations
         run: npx node-pg-migrate up
 
-      # A down migration nobody runs is a down migration that does not work.
-      # Exercising the full round trip proves the rollback path before it is
-      # ever needed on real data.
-      - name: Roll back and re-apply
-        run: |
-          npx node-pg-migrate down
-          npx node-pg-migrate up
-
       - name: Verify the expected tables exist
         run: |
           psql "$DATABASE_URL" -qtA -c "
             SELECT string_agg(tablename, ',' ORDER BY tablename)
             FROM pg_tables
             WHERE schemaname = 'public' AND tablename <> 'pgmigrations';
-          " | grep -qx 'book_tags,books,challenges,favorite_quotes,highlights,reading_sessions,tags' \
+          " | grep -qx 'book_tags,books,challenges,favorite_quotes,highlights,reading_sessions,tags,users' \
             || { echo 'Unexpected set of tables after migration'; exit 1; }
+
+      # Ownership is only real if the columns are NOT NULL. A nullable user_id
+      # would let an un-owned row exist, which is the thing this phase exists to
+      # make impossible.
+      - name: Verify ownership is enforced
+        run: |
+          psql "$DATABASE_URL" -qtA -c "
+            SELECT count(*) FROM information_schema.columns
+            WHERE table_name IN ('books','tags','challenges','reading_sessions')
+              AND column_name = 'user_id' AND is_nullable = 'NO';
+          " | grep -qx '4' || { echo 'user_id is not NOT NULL on all four tables'; exit 1; }
+
+      # The key that makes session sync idempotent and order-independent. If a
+      # later migration widens it to include user_id, two clients pushing the
+      # same session stop converging - so it is pinned here.
+      - name: Verify the session merge key is intact
+        run: |
+          psql "$DATABASE_URL" -qtA -c "
+            SELECT pg_get_constraintdef(oid) FROM pg_constraint
+            WHERE conrelid = 'reading_sessions'::regclass AND contype = 'u';
+          " | grep -qx 'UNIQUE (book_id, session_date, source)' \
+            || { echo 'reading_sessions unique constraint changed'; exit 1; }
+
+      - name: Seed an account
+        env:
+          SEED_EMAIL: ci@example.test
+          SEED_PASSWORD: ci-throwaway-password
+        run: |
+          npm run seed:user
+          psql "$DATABASE_URL" -qtA -c 'SELECT count(*) FROM users;' | grep -qx '1' \
+            || { echo 'Expected exactly one account'; exit 1; }
+
+      - name: Refuse to overwrite an existing account without the force flag
+        env:
+          SEED_EMAIL: other@example.test
+          SEED_PASSWORD: another-throwaway-password
+        run: |
+          if npm run seed:user > /dev/null 2>&1; then
+            echo 'seed:user overwrote an existing account without SEED_FORCE'; exit 1
+          fi
+
+      # A down migration nobody runs is a down migration that does not work.
+      # Rolling the whole stack back and re-applying proves it before it is ever
+      # needed on real data.
+      - name: Roll back ownership and re-apply
+        run: |
+          # down 2 unwinds ownership and users, leaving the baseline applied —
+          # so the baseline's 7 tables are expected to remain, and `users` and
+          # the user_id columns are what must disappear.
+          npx node-pg-migrate down 2
+
+          psql "$DATABASE_URL" -qtA -c "SELECT to_regclass('public.users') IS NULL;" \
+            | grep -qx 't' || { echo 'users table survived the rollback'; exit 1; }
+
+          psql "$DATABASE_URL" -qtA -c "
+            SELECT count(*) FROM information_schema.columns WHERE column_name = 'user_id';
+          " | grep -qx '0' || { echo 'user_id columns survived the rollback'; exit 1; }
+
+          psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';" \
+            | grep -qx '7' || { echo 'Rollback disturbed the baseline tables'; exit 1; }
+
+          npx node-pg-migrate up
+
+          psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';" \
+            | grep -qx '8' || { echo 'Re-apply did not restore the full schema'; exit 1; }

@@ -21,10 +21,39 @@ Order of work:
 1. ~~**Baseline**~~ — done: `1786206990363_baseline-schema.sql` reproduces the
    schema `initializeSchema()` produces, verified byte-for-byte against a
    `pg_dump --schema-only` of the live database.
-2. **Multi-tenancy** (Phase 1) — `users`, the global-catalogue/per-user split,
-   owner scoping and row-level security.
+2. ~~**Ownership**~~ — done: `..._users.sql` and `..._ownership.sql`.
 3. `initializeSchema()`'s DDL is retired when the desktop app moves onto the API
    in Phase 4.
+
+## Why ownership is two migrations, not one
+
+On a database that already holds rows the two steps deadlock if combined: the
+backfill needs an account to assign existing rows to, but the account cannot be
+created before the `users` table exists. Splitting lets an operator stop in
+between:
+
+```bash
+npx node-pg-migrate up 1     # users table exists
+npm run seed:user            # create the account
+npx node-pg-migrate up       # ownership, backfills to that account
+```
+
+On an empty database — which is what the server actually has, since the real
+library arrives through the API in Phase 4 — order does not matter: `up` applies
+both, the backfill finds nothing to do, and the account is seeded afterwards.
+
+Run against rows with no account, the ownership migration raises and the whole
+thing rolls back rather than inventing an owner.
+
+## Creating the account
+
+```bash
+SEED_EMAIL=you@example.com SEED_PASSWORD='...' npm run seed:user
+```
+
+Credentials come from the environment, never a file — this repository is public.
+There is no registration endpoint, so this is the only way an account exists.
+Re-running refuses to overwrite unless `SEED_FORCE=yes`.
 
 ## Why the baseline is a plain CREATE TABLE
 
