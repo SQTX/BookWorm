@@ -104,8 +104,12 @@ jobs:
             SELECT string_agg(tablename, ',' ORDER BY tablename)
             FROM pg_tables
             WHERE schemaname = 'public' AND tablename <> 'pgmigrations';
-          " | grep -qx 'book_tags,books,challenges,favorite_quotes,highlights,reading_sessions,tags,users' \
+          " | grep -qx 'book_tags,books,challenges,favorite_quotes,highlights,reading_sessions,refresh_tokens,tags,users' \
             || { echo 'Unexpected set of tables after migration'; exit 1; }
+
+          # The list above is deliberately exact rather than a subset check:
+          # adding a table should be an explicit act declared here, not
+          # something that slips in unnoticed.
 
       # Ownership is only real if the columns are NOT NULL. A nullable user_id
       # would let an un-owned row exist, which is the thing this phase exists to
@@ -138,6 +142,16 @@ jobs:
           psql "$DATABASE_URL" -qtA -c 'SELECT count(*) FROM users;' | grep -qx '1' \
             || { echo 'Expected exactly one account'; exit 1; }
 
+      # Most of the suite stubs the pool, but the auth tests need a real
+      # PostgreSQL: rotation and reuse detection are a transaction, a FOR UPDATE
+      # lock and a bulk revoke, and a stub would only prove the code calls the
+      # queries it calls. They skip silently without this variable, so running
+      # them here is what stops that skip becoming permanent.
+      - name: Test against a real database
+        env:
+          TEST_DATABASE_URL: postgres://bookworm:bookworm@localhost:5432/bookworm_ci
+        run: npm test
+
       - name: Refuse to overwrite an existing account without the force flag
         env:
           SEED_EMAIL: other@example.test
@@ -150,24 +164,21 @@ jobs:
       # A down migration nobody runs is a down migration that does not work.
       # Rolling the whole stack back and re-applying proves it before it is ever
       # needed on real data.
-      - name: Roll back ownership and re-apply
+      - name: Roll back everything and re-apply
         run: |
-          # down 2 unwinds ownership and users, leaving the baseline applied —
-          # so the baseline's 7 tables are expected to remain, and `users` and
-          # the user_id columns are what must disappear.
-          npx node-pg-migrate down 2
+          # Counted from the directory rather than hardcoded: a fixed number
+          # here breaks on every new migration, which is noise rather than
+          # signal.
+          COUNT=$(ls -1 migrations/*.sql | wc -l | tr -d ' ')
+          BEFORE=$(psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';")
 
-          psql "$DATABASE_URL" -qtA -c "SELECT to_regclass('public.users') IS NULL;" \
-            | grep -qx 't' || { echo 'users table survived the rollback'; exit 1; }
-
-          psql "$DATABASE_URL" -qtA -c "
-            SELECT count(*) FROM information_schema.columns WHERE column_name = 'user_id';
-          " | grep -qx '0' || { echo 'user_id columns survived the rollback'; exit 1; }
+          npx node-pg-migrate down "$COUNT"
 
           psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';" \
-            | grep -qx '7' || { echo 'Rollback disturbed the baseline tables'; exit 1; }
+            | grep -qx '0' || { echo 'Full rollback left tables behind'; exit 1; }
 
           npx node-pg-migrate up
 
-          psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';" \
-            | grep -qx '8' || { echo 'Re-apply did not restore the full schema'; exit 1; }
+          AFTER=$(psql "$DATABASE_URL" -qtA -c "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename<>'pgmigrations';")
+          [ "$BEFORE" = "$AFTER" ] \
+            || { echo "Re-apply did not restore the schema: $BEFORE tables before, $AFTER after"; exit 1; }

@@ -26,6 +26,9 @@ cd server
 npm ci
 createdb bookworm_dev     # the server's own database — NOT wormbook
 cp .env.example .env
+openssl rand -base64 48   # paste into JWT_SECRET
+npm run migrate:up
+SEED_EMAIL=you@example.com SEED_PASSWORD='...' npm run seed:user
 ```
 
 `wormbook` is the desktop app's live library and the migrations refuse to run
@@ -47,8 +50,21 @@ never faces the internet directly.
 
 ```bash
 curl -s localhost:3000/health   # {"status":"ok"} — 503 if the database is down
-curl -s localhost:3000/v1/
+
+# Everything under /v1 needs a token.
+TOKEN=$(curl -s localhost:3000/v1/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"you@example.com","password":"..."}' | jq -r .accessToken)
+
+curl -s localhost:3000/v1/ -H "authorization: Bearer $TOKEN"
 ```
+
+| Route | Auth | Notes |
+| --- | --- | --- |
+| `POST /v1/auth/login` | none | 5/minute per address |
+| `POST /v1/auth/refresh` | none | Rotates; replaying a used token revokes every session |
+| `POST /v1/auth/logout` | none | Always 204, so tokens cannot be probed |
+| everything else under `/v1` | Bearer | Enforced for the prefix, not per route |
 
 ## Testing
 
@@ -56,8 +72,17 @@ curl -s localhost:3000/v1/
 npm test
 ```
 
-`node:test` plus Fastify's `inject()`. No port is bound and no PostgreSQL is
-needed — the pool is stubbed. Nothing here touches a real database.
+`node:test` plus Fastify's `inject()`. No port is bound and the pool is stubbed,
+so most of the suite needs no PostgreSQL.
+
+The auth tests are the exception and are skipped unless `TEST_DATABASE_URL` is
+set. Rotation and reuse detection are SQL — a transaction, a `FOR UPDATE` lock
+and a bulk revoke — and a stub would only assert that the code calls the queries
+it calls, which is not the same as the behaviour being right.
+
+```bash
+TEST_DATABASE_URL=postgres://sqtx@localhost:5432/bookworm_dev npm test
+```
 
 ## Layout
 
@@ -68,6 +93,9 @@ server/
 │   ├── app.js         Fastify factory — testable, binds nothing
 │   ├── config.js      Environment validation, fails fast at startup
 │   ├── db.js          pg pool and liveness probe
+│   ├── auth/
+│   │   ├── routes.js  login, refresh, logout
+│   │   └── tokens.js  Issuing, rotation, reuse detection
 │   └── routes/
 │       └── health.js  Operational endpoints (unversioned by design)
 ├── migrations/        Numbered SQL — see MIGRATIONS.md

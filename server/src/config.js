@@ -39,6 +39,31 @@ function optionalPort(name, env, fallback) {
   return port;
 }
 
+const MIN_SECRET_LENGTH = 32;
+
+/**
+ * A signing secret that is present but weak is worse than a missing one — it
+ * boots, looks fine, and forges cleanly. Length is a crude proxy for entropy,
+ * but it rules out the failure that actually happens: someone pasting
+ * "changeme" to get the server running.
+ *
+ * @param {string} name
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string}
+ */
+function requireStrongSecret(name, env) {
+  const value = required(name, env);
+
+  if (value.length < MIN_SECRET_LENGTH) {
+    throw new Error(
+      `${name} must be at least ${MIN_SECRET_LENGTH} characters. ` +
+        'Generate one with: openssl rand -base64 48',
+    );
+  }
+
+  return value;
+}
+
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'];
 
 /**
@@ -57,6 +82,9 @@ export function loadConfig(env = process.env) {
     isProduction: nodeEnv === 'production',
     logLevel,
     databaseUrl: required('DATABASE_URL', env),
+    // Signs access tokens. Rotating it invalidates every issued token, which
+    // for one user is an acceptable way to force a logout everywhere.
+    jwtSecret: requireStrongSecret('JWT_SECRET', env),
     // Loopback by default: the reverse proxy is the only thing that should
     // reach this port. Binding 0.0.0.0 has to be a deliberate choice.
     host: env.HOST ?? '127.0.0.1',
