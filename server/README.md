@@ -2,8 +2,8 @@
 
 Multi-tenant REST API backing the desktop and iOS clients.
 
-**Status:** scaffold. Health endpoint and configuration only — no data endpoints,
-no authentication, no schema yet. See the
+**Status:** scaffold plus the baseline schema. Health endpoint, configuration and
+migrations — no data endpoints and no authentication yet. See the
 [roadmap](../docs/superpowers/plans/2026-08-07-server-api-ios-roadmap.md).
 
 ## Stack
@@ -66,7 +66,7 @@ server/
 │   ├── db.js          pg pool and liveness probe
 │   └── routes/
 │       └── health.js  Operational endpoints (unversioned by design)
-├── migrations/        node-pg-migrate; see its README
+├── migrations/        Numbered SQL — see MIGRATIONS.md
 └── test/
 ```
 

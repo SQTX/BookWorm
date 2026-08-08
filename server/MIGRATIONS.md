@@ -1,7 +1,12 @@
 # Migrations
 
-Numbered SQL migrations applied by `node-pg-migrate`, which records what it has
-already run in a `pgmigrations` table.
+Numbered SQL migrations live in `migrations/` and are applied by
+`node-pg-migrate`, which records what it has already run in a `pgmigrations`
+table.
+
+> This document sits here rather than in `migrations/` because node-pg-migrate
+> requires a numeric prefix on **every** file in that directory and aborts the
+> whole run on anything it cannot parse — a README included.
 
 **The server owns the schema.** Clients never issue DDL. This matters because
 the desktop app currently creates the schema itself, in
@@ -13,13 +18,29 @@ and lets two machines drift apart.
 
 Order of work:
 
-1. **Baseline** — transcribe the schema `initializeSchema()` produces today into
-   the first numbered migration. Verified by diffing a database built from the
-   migration against a restored dump of the real one; it must be an exact match.
+1. ~~**Baseline**~~ — done: `1786206990363_baseline-schema.sql` reproduces the
+   schema `initializeSchema()` produces, verified byte-for-byte against a
+   `pg_dump --schema-only` of the live database.
 2. **Multi-tenancy** (Phase 1) — `users`, the global-catalogue/per-user split,
    owner scoping and row-level security.
 3. `initializeSchema()`'s DDL is retired when the desktop app moves onto the API
    in Phase 4.
+
+## Why the baseline is a plain CREATE TABLE
+
+It is written as final-state `CREATE TABLE` with inline constraints, not as a
+replay of the app's `CREATE`-then-`ALTER` history. PostgreSQL derives object
+names from the DDL form, so the inline style reproduces the live names exactly:
+
+| DDL form | Generated name |
+| --- | --- |
+| `SERIAL PRIMARY KEY` | `<table>_id_seq`, `<table>_pkey` |
+| inline `CHECK` | `<table>_<column>_check` |
+| inline `UNIQUE` | `<table>_<columns>_key` |
+| inline `REFERENCES` | `<table>_<column>_fkey` |
+
+Column order is part of the comparison too, which is why the columns the app
+added later (`item_type` onward) stay last, in the order it added them.
 
 ## Running
 
