@@ -6,7 +6,7 @@
 
 **Status:** Planning. No phase started.
 
-**Server stack:** Node.js, JavaScript, npm — decided 2026-08-07. See [Decisions](#decisions).
+**Server stack:** Node.js, plain JavaScript, npm. Fastify, `pg` with hand-written SQL, `node-pg-migrate`. Three repositories. See [Decisions](#decisions).
 
 **Branch policy:** Every phase, and every fix inside a phase, gets its own branch and its own PR into `dev`. Nothing is committed straight to `dev` or `main`. `main` moves only at release time, and every release gets an annotated tag.
 
@@ -122,7 +122,64 @@ Consequences that shape the phases below:
 - **`npm ci` with a committed lockfile** for reproducible deploys. Never `npm install` on the server.
 - **Dependency surface is the security surface.** npm's transitive dependency depth makes supply chain the most likely attack path in this stack. Keep direct dependencies few, enable `npm audit` in CI, and prefer the standard library where it is adequate.
 
-Not decided by D1, and still open: framework, data-access layer, migration tool, and whether to add TypeScript. See [Open Questions](#open-questions).
+### D2 — JavaScript, not TypeScript *(decided 2026-08-07)*
+
+The server is written in plain JavaScript. TypeScript was considered and rejected as overkill for a storage-and-sync service.
+
+Consequence: the type safety TS would have given at compile time has to come from somewhere else at runtime, or it does not exist at all. Two cheap substitutes, both required rather than optional:
+
+- **Request and response schemas on every endpoint** (D3 gives them for free). Malformed input is rejected at the edge, before it reaches any handler.
+- **JSDoc type annotations** on shared helpers and data shapes. Editors read them, so autocomplete and obvious-mistake detection still work without a build step.
+
+### D3 — Framework: Fastify *(decided 2026-08-08)*
+
+Chosen over Express and Nest.
+
+- **Schema-based validation is built in, not bolted on.** With two independent clients (desktop and iOS) writing to one database, per-endpoint schemas are the barrier that stops a client bug from writing garbage — this matters more here than framework popularity.
+- Express would need validation added as a separate dependency and applied by hand on every route; easy to forget one.
+- Nest is heavier and designed around TypeScript decorators, which conflicts with [D2](#d2--javascript-not-typescript-decided-2026-08-07).
+
+### D4 — Data access: `pg` with hand-written SQL *(decided 2026-08-08)*
+
+No ORM, no query builder. The `pg` driver, parameterised SQL written by hand.
+
+- **The schema already depends on what ORMs abstract worst:** `ON CONFLICT ... LEAST/GREATEST` session merging, `CHECK` constraints on rating and status, and the row-level security planned for Phase 1.
+- **The queries already exist** in `DatabaseManager`. Porting known-good SQL from C++ beats re-deriving it through an abstraction.
+- Prisma's main payoff is its generated types, which [D2](#d2--javascript-not-typescript-decided-2026-08-07) rules out.
+- **Every query must be parameterised** (`$1`, `$2`). Hand-written SQL means SQL injection is now a live risk that an ORM would have removed by construction — string-concatenated SQL is a bug, not a shortcut.
+
+### D5 — Migrations: numbered files, owned by the server *(decided 2026-08-08)*
+
+Tool: `node-pg-migrate`. Plain SQL in numbered files, applied in order, with applied versions tracked in the database.
+
+The project already has migrations — `DatabaseManager::initializeSchema()` runs idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` on every launch. That works only while exactly one program owns the database.
+
+Once the server exists, that assumption breaks: "whichever client starts first defines the schema" has no single source of truth and lets two machines drift apart. So:
+
+- **The server owns the schema.** Clients never issue DDL.
+- `initializeSchema()`'s DDL is retired once the desktop app moves onto the API (Phase 4), and the schema it currently creates becomes the numbered baseline migration in Phase 0.
+- The same tool must produce that baseline *and* the Phase 1 tenancy migration. Picking it after Phase 1 would mean hand-reconciling the most dangerous migration in the project.
+
+### D6 — Three repositories *(decided 2026-08-08)*
+
+| Repo | Contents | Toolchain |
+| --- | --- | --- |
+| `BookWorm` (this one) | Desktop app | C++/Qt, CMake |
+| `BookWorm-Server` *(new)* | API, migrations, API contract | Node.js, npm |
+| `BookWorm-iOS` *(new)* | Mobile client | Xcode |
+
+Three separate toolchains, three release cadences, no shared build. Keeping them in one repo would put CMake and npm in the same CI pipeline for no benefit.
+
+**The cost this buys, and how it is paid:** split repos let the API contract drift out of sync with its clients. A field renamed server-side breaks a phone that has not been updated — and phone updates cannot be forced.
+
+Therefore, mandatory from Phase 2:
+
+- **The API contract is a versioned OpenAPI document in `BookWorm-Server`.** It is the interface definition; clients follow it.
+- **The API is versioned in the URL** (`/v1/...`) and a released version never changes meaning.
+- **Breaking changes ship as a new version**, with the old one kept alive until clients have moved. Additive changes go to the existing version.
+- Clients send a version identifier, so the server can tell a user their app is too old rather than failing obscurely.
+
+Not decided yet: see [Open Questions](#open-questions).
 
 ---
 
@@ -137,12 +194,12 @@ Removes the assumptions that would otherwise block everything else.
 - [ ] Move DB credentials out of `constants.h` into runtime configuration (env vars / `QSettings`), keeping the current local defaults so nothing breaks
 - [ ] Set a password on the local `wormbook` role and prove the app works with authentication on
 - [ ] Write down the full current schema as a numbered baseline migration, so the server and desktop share one source of truth instead of `initializeSchema()` being the only definition
-- [x] ~~Decide the API stack~~ — Node.js, see [D1](#d1--server-stack-nodejs-decided-2026-08-07)
-- [ ] Answer the remaining stack sub-questions (framework, data layer, migration tool, TypeScript) — Q1 in Open Questions
-- [ ] Scaffold the Node project: pinned LTS in `.nvmrc` and `engines`, committed lockfile, lint + format, test runner, `npm ci` in CI
-- [ ] Decide where the API lives — same repo (`server/`) or a separate one *(Q2)*
+- [x] ~~Decide the API stack~~ — see [D1](#d1--server-stack-nodejs-decided-2026-08-07)–[D6](#d6--three-repositories-decided-2026-08-08)
+- [ ] Create the `BookWorm-Server` repository *(D6)*
+- [ ] Scaffold it: Fastify, `pg`, `node-pg-migrate`, pinned LTS in `.nvmrc` and `engines`, committed lockfile, lint + format, test runner, `npm ci` in CI
+- [ ] Port the schema `initializeSchema()` currently creates into the numbered baseline migration *(D5)* — verified by diffing a database built from the migrations against a restored dump of the real one
 
-**Exit:** desktop app runs against a password-protected local PostgreSQL, configured at runtime, with the schema captured as a versioned migration, and an empty Node service that builds and tests green in CI.
+**Exit:** desktop app runs against a password-protected local PostgreSQL, configured at runtime; `BookWorm-Server` exists with a baseline migration that reproduces the current schema exactly, and builds and tests green in CI.
 
 ### Phase 1 — Multi-tenant schema
 
@@ -212,18 +269,13 @@ The desktop app is the proving ground: real data, real usage, and a UI already k
 
 These block specific phases and should be answered before that phase starts, not during it.
 
-> **Resolved:** *API stack* → Node.js, see [D1](#d1--server-stack-nodejs-decided-2026-08-07).
+> **Resolved:** stack, language, framework, data layer, migration tool and repository layout — see [D1](#d1--server-stack-nodejs-decided-2026-08-07)–[D6](#d6--three-repositories-decided-2026-08-08). Nothing now blocks Phase 0.
 
-1. **Node sub-choices?** Blocks Phase 0. Four separate calls, all cheap now and progressively more expensive later:
-   - **Framework** — Fastify (fast, schema-based validation built in) vs Express (ubiquitous, more examples) vs Nest (structure out of the box, heaviest).
-   - **Data layer** — `pg` driver with hand-written SQL vs a query builder vs an ORM. Note the existing schema already leans on SQL features an ORM will abstract badly: `ON CONFLICT ... LEAST/GREATEST`, `CHECK` constraints, and planned row-level security. Hand-written SQL is a legitimate choice here, not a primitive one.
-   - **Migration tool** — must be picked before the Phase 1 tenancy migration, not after, and must be the same tool that produces Phase 0's baseline migration.
-   - **TypeScript?** The stated stack is JavaScript, so plain JS is the default. Worth a deliberate second look before Phase 2 rather than a drift decision: an API with two independent clients and a hand-rolled sync layer is exactly where a type contract earns back its cost, and retrofitting types across a finished codebase costs far more than starting with them. Either answer is defensible — an accidental answer is not.
-2. **One repo or two?** Blocks Phase 0. A `server/` directory in this repo keeps schema and API in lockstep and matches the current single-repo history; a separate repo keeps the C++/CMake and Node toolchains from colliding in CI. Leaning single repo at this scale.
-3. **iOS: native SwiftUI or Qt?** Blocks Phase 5. Qt reuses QML but is a poor fit for App Store polish and iOS conventions. If the phone client stays read-focused, a native SwiftUI app over the REST API is small and will feel better. This choice does not affect Phases 0–4, so it can wait — but it should be answered before Phase 5 opens, not mid-phase.
-4. **Distribution?** Blocks Phase 5. Without the Apple Developer Program ($99/year) the only route is sideloading via Xcode onto the user's own device: certificates expire after 7 days and there is a 3-app limit. TestFlight requires the paid account. "Test app for me" works free; "give it to someone to try" does not.
-5. **Multi-user, or just the user's own devices?** Affects how much of Phase 1's tenancy work is actually needed and whether registration must be public. Cheaper to build the scoping now either way, but public registration brings abuse handling, email verification and GDPR-shaped obligations that a private instance does not.
-6. **Conflict policy for concurrent book edits?** Reading sessions merge cleanly by construction. Editing the same book's rating on two devices while offline does not. Last-write-wins per field is probably enough at this scale, but it should be a decision, not an accident.
+1. **Hosting provider and OS image?** Blocks Phase 3, not Phase 0. Needs to support 4 GB RAM / 2 vCPU / 40 GB and a current LTS Linux.
+2. **iOS: native SwiftUI or Qt?** Blocks Phase 5. Qt reuses QML but is a poor fit for App Store polish and iOS conventions. If the phone client stays read-focused, a native SwiftUI app over the REST API is small and will feel better. This choice does not affect Phases 0–4, so it can wait — but it should be answered before Phase 5 opens, not mid-phase.
+3. **Distribution?** Blocks Phase 5. Without the Apple Developer Program ($99/year) the only route is sideloading via Xcode onto the user's own device: certificates expire after 7 days and there is a 3-app limit. TestFlight requires the paid account. "Test app for me" works free; "give it to someone to try" does not.
+4. **Multi-user, or just the user's own devices?** Affects how much of Phase 1's tenancy work is actually needed and whether registration must be public. Cheaper to build the scoping now either way, but public registration brings abuse handling, email verification and GDPR-shaped obligations that a private instance does not.
+5. **Conflict policy for concurrent book edits?** Reading sessions merge cleanly by construction. Editing the same book's rating on two devices while offline does not. Last-write-wins per field is probably enough at this scale, but it should be a decision, not an accident.
 
 ---
 
