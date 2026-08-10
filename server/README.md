@@ -3,8 +3,8 @@
 Multi-tenant REST API backing the desktop and iOS clients.
 
 **Status:** the API is complete for what the desktop client needs — auth, books,
-progress, tags, quotes, highlights, challenges, and sync. **Covers do not sync
-yet** (their own phase), and nothing is deployed to a VPS. See the
+progress, tags, quotes, highlights, challenges, covers and sync. Nothing is deployed to a VPS
+yet — see [deploy/RUNBOOK.md](deploy/RUNBOOK.md). See the
 [roadmap](../docs/superpowers/plans/2026-08-07-server-api-ios-roadmap.md).
 
 ## Stack
@@ -73,6 +73,8 @@ curl -s localhost:3000/v1/ -H "authorization: Bearer $TOKEN"
 | `GET/POST /v1/books/:id/quotes`, `DELETE /v1/quotes/:id` | Bearer | Ownership reached through the book |
 | `GET/POST /v1/books/:id/highlights`, `DELETE /v1/highlights/:id` | Bearer | Same |
 | `GET/POST/PATCH/DELETE /v1/challenges[/:id]` | Bearer | `target_books` kept in step with `targetValue` |
+| `POST /v1/covers` | Bearer | Multipart upload; returns a content hash |
+| `GET /v1/covers/:hash[/thumb]` | Bearer | WebP, immutable, cacheable forever |
 | `GET /v1/sync?since=` | Bearer | Everything changed since the cursor, tombstones included |
 | `POST /v1/sync` | Bearer | Push a batch, then get the canonical state back |
 | everything else under `/v1` | Bearer | Enforced for the prefix, not per route |
@@ -136,6 +138,7 @@ server/
 │   │   ├── routes.js  login, refresh, logout
 │   │   └── tokens.js  Issuing, rotation, reuse detection
 │   ├── collections/   Tags, quotes, highlights, challenges
+│   ├── covers/        Upload, validation, re-encoding, dedupe, GC
 │   ├── sync/          Pull, push, conflict resolution
 │   ├── books/
 │   │   ├── routes.js      Endpoints and schemas

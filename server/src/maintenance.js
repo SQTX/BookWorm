@@ -6,9 +6,13 @@
  * line lives outside the repository and reliably gets lost.
  */
 import { pruneExpiredTokens } from './auth/tokens.js';
+import { collectGarbage } from './covers/storage.js';
 
 /** Hourly is far more often than needed; the sweep is a single indexed DELETE. */
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Daily: cover garbage touches the filesystem, so it is not free. */
+const COVER_GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Delete refresh tokens that can no longer authenticate anything.
@@ -35,7 +39,22 @@ export function startMaintenance(app) {
     }
   };
 
+  // Covers referenced by no book at all — an upload that was never attached,
+  // usually because the user abandoned the form. A soft-deleted book still
+  // references its cover, so this cannot strip the image from something
+  // undoDelete() might yet restore.
+  const sweepCovers = async () => {
+    try {
+      const removed = await collectGarbage(app.pg, app.coverDir);
+      if (removed > 0) app.log.info({ removed }, 'collected unreferenced covers');
+    } catch (err) {
+      app.log.error({ err }, 'cover garbage collection failed');
+    }
+  };
+
   const timer = setInterval(sweep, PRUNE_INTERVAL_MS);
+  const coverTimer = setInterval(sweepCovers, COVER_GC_INTERVAL_MS);
+  coverTimer.unref();
   // Do not hold the event loop open: without this the process refuses to exit
   // on SIGTERM until the timer fires.
   timer.unref();
@@ -44,7 +63,10 @@ export function startMaintenance(app) {
   // still sweeps.
   sweep();
 
-  app.addHook('onClose', async () => clearInterval(timer));
+  app.addHook('onClose', async () => {
+    clearInterval(timer);
+    clearInterval(coverTimer);
+  });
 
   return timer;
 }

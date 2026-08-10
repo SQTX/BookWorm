@@ -104,7 +104,7 @@ jobs:
             SELECT string_agg(tablename, ',' ORDER BY tablename)
             FROM pg_tables
             WHERE schemaname = 'public' AND tablename <> 'pgmigrations';
-          " | grep -qx 'book_tags,books,challenges,favorite_quotes,highlights,reading_sessions,refresh_tokens,tags,users' \
+          " | grep -qx 'book_tags,books,challenges,covers,favorite_quotes,highlights,reading_sessions,refresh_tokens,tags,users' \
             || { echo 'Unexpected set of tables after migration'; exit 1; }
 
           # The list above is deliberately exact rather than a subset check:

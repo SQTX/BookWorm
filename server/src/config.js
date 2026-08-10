@@ -100,5 +100,8 @@ export function loadConfig(env = process.env) {
     // firewall, but it should never happen without someone having chosen it.
     bindsPublicly: (env.HOST ?? '127.0.0.1') !== '127.0.0.1' && (env.HOST ?? '') !== 'localhost',
     port: optionalPort('PORT', env, 3000),
+    // Outside the repository checkout on purpose: covers are user data and must
+    // survive `git pull` and a redeploy.
+    coverDir: env.COVER_DIR ?? '/var/lib/bookworm/covers',
   };
 }

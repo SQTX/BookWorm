@@ -22,7 +22,7 @@ in short, disk is not the constraint at this scale — RAM is.
 
 ```bash
 adduser --system --group --home /opt/bookworm bookworm
-mkdir -p /var/lib/bookworm/backups /etc/bookworm
+mkdir -p /var/lib/bookworm/backups /var/lib/bookworm/covers /etc/bookworm
 chown -R bookworm:bookworm /opt/bookworm /var/lib/bookworm
 ```
 
@@ -66,6 +66,7 @@ DATABASE_URL=postgres://bookworm:PASSWORD@localhost:5432/bookworm
 JWT_SECRET=<openssl rand -base64 48>
 PORT=3000
 HOST=127.0.0.1
+COVER_DIR=/var/lib/bookworm/covers
 LOG_LEVEL=info
 ```
 
@@ -120,6 +121,11 @@ script verifies each dump with `pg_restore --list` before promoting it out of
 `.part`, and rotates **only after** a successful run so a failing backup can
 never delete the last good one.
 
+**Covers are included in the backup.** They are files, not rows: a
+database-only dump restores a library in which every image is missing, and the
+loss is silent because the book rows still carry their hashes. The script
+archives `COVER_DIR` alongside the dump.
+
 **Copy backups off the machine.** A dump on the same disk as the database
 protects against a mistaken `DELETE`, not against losing the machine.
 
@@ -137,6 +143,15 @@ pg_restore -d bookworm_restore_check /var/lib/bookworm/backups/<newest>.dump
 psql -qtA -d bookworm_restore_check -c 'SELECT count(*) FROM books;'
 psql -qtA -d bookworm_restore_check -c 'SELECT count(*) FROM users;'
 
+# Covers restore separately — they are files.
+mkdir -p /tmp/cover_check && tar -C /tmp/cover_check -xf /var/lib/bookworm/backups/covers_<same-stamp>.tar.zst
+# Every hash the database references should have a file:
+psql -qtA -d bookworm_restore_check -c 'SELECT cover_hash FROM books WHERE cover_hash IS NOT NULL' \
+  | while read -r h; do
+      [ -f "/tmp/cover_check/${h:0:2}/${h:2:2}/$h.full.webp" ] || echo "MISSING $h"
+    done
+
+rm -rf /tmp/cover_check
 dropdb bookworm_restore_check
 ```
 
@@ -170,8 +185,6 @@ Run the backup before the migration, not after.
 
 ## Known gaps
 
-- **Covers do not sync.** `cover_image_path` travels as a string pointing at a
-  path that exists on one machine only. Their own phase.
 - **No monitoring beyond the health endpoint.** Nothing pages anyone.
 - **One account.** No registration, no password reset — re-run `seed:user` with
   `SEED_FORCE=yes` to change the password.

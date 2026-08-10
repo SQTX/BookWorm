@@ -130,7 +130,7 @@ Delete on one device, edit on another: the delete wins. `undoDelete()` exists an
 
 **Does not sync:**
 
-- **Cover images.** Their own phase: upload, re-encode, content-addressed storage. Until then `cover_image_path` syncs as a string and points at a path that only exists on one machine — a known gap, not an oversight.
+- **`cover_image_path`.** The image itself now syncs, but as `cover_hash` — the content hash. The path is per-machine by definition (it points at wherever that user picked the file) and is deliberately excluded: sending it would give the other device a string that resolves to nothing. A client fetches `GET /v1/covers/:hash` instead.
 - **Statistics.** Derived; the mirror recomputes them locally. Nothing to sync.
 - **Settings** — theme, language, cards per row. `QSettings`, per-machine on purpose.
 - **CSV and Markdown export.** Local file operations that never involved the server.

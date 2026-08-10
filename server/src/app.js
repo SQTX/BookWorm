@@ -1,11 +1,13 @@
 import fastifyHelmet from '@fastify/helmet';
 import fastifyJwt from '@fastify/jwt';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyRateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import authRoutes from './auth/routes.js';
 import bookRoutes from './books/routes.js';
 import collectionRoutes from './collections/routes.js';
+import coverRoutes from './covers/routes.js';
 import syncRoutes from './sync/routes.js';
 import { createPool } from './db.js';
 import { startMaintenance } from './maintenance.js';
@@ -67,6 +69,7 @@ export async function buildApp(config, overrides = {}) {
   const ownsPool = overrides.pool === undefined;
   const pool = overrides.pool ?? createPool(config);
   app.decorate('pg', pool);
+  app.decorate('coverDir', config.coverDir);
 
   if (ownsPool) {
     app.addHook('onClose', async () => {
@@ -83,6 +86,12 @@ export async function buildApp(config, overrides = {}) {
     // the VPS and false locally — so it follows the environment rather than
     // being asserted unconditionally.
     hsts: config.isProduction ? { maxAge: 15552000, includeSubDomains: true } : false,
+  });
+
+  await app.register(fastifyMultipart, {
+    // The global bodyLimit stays 1 MB for JSON; images get their own, larger
+    // allowance on their own route rather than raising it for everything.
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   });
 
   await app.register(fastifyJwt, { secret: config.jwtSecret });
@@ -121,6 +130,7 @@ export async function buildApp(config, overrides = {}) {
       await v1.register(authRoutes);
       await v1.register(bookRoutes);
       await v1.register(collectionRoutes);
+      await v1.register(coverRoutes);
       await v1.register(syncRoutes);
 
       v1.get('/', async (request) => ({
