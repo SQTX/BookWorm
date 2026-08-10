@@ -1,0 +1,58 @@
+[Unit]
+Description=BookWorm API
+Documentation=https://github.com/SQTX/BookWorm
+# PostgreSQL runs on the same host and on loopback only. Without this the API
+# starts first after a reboot and spends its first seconds failing.
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=bookworm
+Group=bookworm
+WorkingDirectory=/opt/bookworm/server
+
+# Secrets live in a root-owned file readable only by this user — never in the
+# unit, which is world-readable, and never in the repository, which is public.
+EnvironmentFile=/etc/bookworm/api.env
+Environment=NODE_ENV=production
+
+# The heap cap is not a detail. V8 sizes its old space against total system
+# memory, so on a 4 GB box shared with PostgreSQL the two end up competing for
+# the same pages under load and the kernel picks a victim.
+ExecStart=/usr/bin/node --max-old-space-size=512 src/server.js
+
+Restart=on-failure
+RestartSec=5s
+# Give in-flight requests a chance to finish; server.js closes the pool on
+# SIGTERM so queries are not severed mid-transaction.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# --- Hardening -------------------------------------------------------------
+# The process needs to read its own directory, talk to PostgreSQL over a local
+# socket, and nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bookworm
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+# The API listens on loopback for the reverse proxy; it never needs raw sockets.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# journald captures stdout, which is where pino writes. No log file to rotate.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bookworm-api
+
+[Install]
+WantedBy=multi-user.target
