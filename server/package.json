@@ -24,10 +24,12 @@
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
     "@fastify/jwt": "^10.2.1",
+    "@fastify/multipart": "^10.1.0",
     "@fastify/rate-limit": "^11.2.0",
     "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.2.1",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

@@ -14,7 +14,7 @@ const SELECT_BOOK = `
          b.start_date AS "startDate", b.end_date AS "endDate", b.rating, b.status,
          b.notes, b.isbn, b.publisher, b.publication_year AS "publicationYear",
          b.publication_date AS "publicationDate", b.language,
-         b.cover_image_path AS "coverImagePath", b.item_type AS "itemType",
+         b.cover_image_path AS "coverImagePath", b.cover_hash AS "coverHash", b.item_type AS "itemType",
          b.is_non_fiction AS "isNonFiction", b.is_priority AS "isPriority",
          b.audio_mode AS "audioMode", b.current_page AS "currentPage", b.series,
          b.summary, b.review, b.read_count AS "readCount",
