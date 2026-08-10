@@ -64,6 +64,8 @@ function requireStrongSecret(name, env) {
   return value;
 }
 
+const NODE_ENVS = ['production', 'development', 'test'];
+
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'];
 
 /**
@@ -72,6 +74,12 @@ const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'
 export function loadConfig(env = process.env) {
   const nodeEnv = env.NODE_ENV ?? 'development';
   const logLevel = env.LOG_LEVEL ?? 'info';
+
+  // A typo used to fall through to development silently, so a server meant for
+  // production would run with development defaults and nothing would say so.
+  if (!NODE_ENVS.includes(nodeEnv)) {
+    throw new Error(`NODE_ENV must be one of ${NODE_ENVS.join(', ')}, got "${nodeEnv}".`);
+  }
 
   if (!LOG_LEVELS.includes(logLevel)) {
     throw new Error(`LOG_LEVEL must be one of ${LOG_LEVELS.join(', ')}, got "${logLevel}".`);
@@ -88,6 +96,9 @@ export function loadConfig(env = process.env) {
     // Loopback by default: the reverse proxy is the only thing that should
     // reach this port. Binding 0.0.0.0 has to be a deliberate choice.
     host: env.HOST ?? '127.0.0.1',
+    // Reported at startup. Binding every interface is legitimate behind a
+    // firewall, but it should never happen without someone having chosen it.
+    bindsPublicly: (env.HOST ?? '127.0.0.1') !== '127.0.0.1' && (env.HOST ?? '') !== 'localhost',
     port: optionalPort('PORT', env, 3000),
   };
 }

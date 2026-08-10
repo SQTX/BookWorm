@@ -30,6 +30,26 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
+// Say plainly what is running. A server accidentally left in development mode,
+// or accidentally bound to every interface, should be obvious in the first log
+// line rather than discovered later.
+app.log.info(
+  { env: config.nodeEnv, host: config.host, port: config.port },
+  `starting in ${config.nodeEnv} mode`,
+);
+
+if (config.bindsPublicly) {
+  app.log.warn(
+    { host: config.host },
+    'binding a non-loopback interface — this must be behind a firewall and a TLS proxy',
+  );
+}
+
+if (!config.isProduction && config.bindsPublicly) {
+  app.log.error('refusing to expose a non-production server on a public interface');
+  process.exit(1);
+}
+
 try {
   await app.listen({ host: config.host, port: config.port });
 } catch (err) {

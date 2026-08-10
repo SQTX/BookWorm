@@ -9,7 +9,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node --max-old-space-size=512 src/server.js",
     "dev": "node --watch --env-file=.env src/server.js",
     "test": "node --test \"test/**/*.test.js\"",
     "lint": "eslint .",
@@ -18,9 +18,11 @@
     "seed:user": "node --env-file-if-exists=.env scripts/seed-user.js",
     "migrate": "npm run guard && node-pg-migrate --envPath .env",
     "migrate:up": "npm run guard && node-pg-migrate --envPath .env up",
-    "migrate:down": "npm run guard && node-pg-migrate --envPath .env down"
+    "migrate:down": "npm run guard && node-pg-migrate --envPath .env down",
+    "backup": "./scripts/backup-db.sh"
   },
   "dependencies": {
+    "@fastify/helmet": "^13.1.0",
     "@fastify/jwt": "^10.2.1",
     "@fastify/rate-limit": "^11.2.0",
     "@node-rs/argon2": "^2.0.2",

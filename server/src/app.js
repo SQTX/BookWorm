@@ -1,3 +1,4 @@
+import fastifyHelmet from '@fastify/helmet';
 import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
@@ -7,6 +8,7 @@ import bookRoutes from './books/routes.js';
 import collectionRoutes from './collections/routes.js';
 import syncRoutes from './sync/routes.js';
 import { createPool } from './db.js';
+import { startMaintenance } from './maintenance.js';
 import healthRoutes from './routes/health.js';
 
 /**
@@ -72,6 +74,17 @@ export async function buildApp(config, overrides = {}) {
     });
   }
 
+  await app.register(fastifyHelmet, {
+    // This serves JSON to native clients, never a browser page, so the
+    // policies that matter are the transport and sniffing ones. CSP is left
+    // off rather than configured to a value nothing enforces.
+    contentSecurityPolicy: false,
+    // HSTS is only meaningful once TLS terminates in front, which is true on
+    // the VPS and false locally — so it follows the environment rather than
+    // being asserted unconditionally.
+    hsts: config.isProduction ? { maxAge: 15552000, includeSubDomains: true } : false,
+  });
+
   await app.register(fastifyJwt, { secret: config.jwtSecret });
   await app.register(fastifyRateLimit, {
     global: false,
@@ -118,6 +131,8 @@ export async function buildApp(config, overrides = {}) {
     },
     { prefix: API_PREFIX },
   );
+
+  startMaintenance(app);
 
   return app;
 }
