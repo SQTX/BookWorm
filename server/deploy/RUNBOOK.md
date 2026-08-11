@@ -1,5 +1,29 @@
 # Deployment Runbook
 
+## The short version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SQTX/BookWorm/dev/server/deploy/install.sh \
+  | sudo bash -s -- --domain api.example.com
+```
+
+Without `--domain` it uses `<your-ipv4>.nip.io`, which gets a real Let's Encrypt
+certificate without buying anything. `--no-tls` serves plain HTTP for a private
+network.
+
+It asks for one thing: the password for the API account. The database password
+and the token signing key are generated and never shown, because nothing
+outside the machine needs them — and every manual edit is somewhere a
+placeholder can be left behind, which is exactly what happened the first time
+this was done by hand.
+
+Idempotent. Re-running upgrades the code and leaves existing secrets alone.
+
+The rest of this document is what the script does, for when it fails or you want
+to understand a step.
+
+---
+
 Target: **Ubuntu LTS**, 4 GB RAM, 2 vCPU, 40 GB disk. Sizing reasoning is in the
 [roadmap](../../docs/superpowers/plans/2026-08-07-server-api-ios-roadmap.md); in
 short, disk is not the constraint at this scale — RAM is.
