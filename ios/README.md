@@ -3,6 +3,10 @@
 Nothing is built yet. This directory exists so that the decisions which have to
 be made *before* code are written down somewhere other than a chat log.
 
+**The first thing to build is scoped in [`BRIEF.md`](BRIEF.md)** — a
+single-purpose progress tracker, not the library. This file is the longer view
+around it.
+
 The server is finished and running, so this phase is a client against a contract
 that already exists rather than two moving targets at once. Read
 [`docs/API.md`](../docs/API.md) first — it is the contract, written so nothing
@@ -15,15 +19,14 @@ metadata, writing reviews. A phone is where reading is *recorded* — a few taps
 while putting a book down. Those are different jobs, and the phone should do its
 one well rather than the desktop's badly.
 
-First cut:
+The first cut is narrower still than that, and deliberately: the books currently
+being read, and a slider to move the page count. One screen. See
+[`BRIEF.md`](BRIEF.md).
 
-- the library, as a list, with cover thumbnails
-- one book's detail
-- record pages read
-- mark a book as read
-
-That is the whole of it. Editing, tags, quotes, statistics and challenges are the
-desktop's, until using this proves otherwise.
+Everything else — adding books, editing metadata, tags, quotes, statistics,
+challenges — is the desktop's, until using this proves otherwise. Each of them is
+also a reason the app stops being a five-second interaction, which is the only
+thing it is for.
 
 ## What has to be decided first
 
