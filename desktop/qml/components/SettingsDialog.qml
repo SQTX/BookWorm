@@ -1056,7 +1056,7 @@ Dialog {
                                     Chip {
                                         interactive: false
                                         visible: SyncManager.status !== ""
-                                        text: SyncManager.status
+                                        text: Theme.tr(SyncManager.status)
                                         accent: SyncManager.busy ? Theme.statusReading : Theme.statusRead
                                     }
                                 }
@@ -1125,7 +1125,6 @@ Dialog {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 40
                                         text: SyncManager.serverUrl
-                                        placeholderText: "https://example.com"
                                         selectByMouse: true
                                         font.pixelSize: Theme.fontSizeMedium
                                         Material.accent: Theme.primary
@@ -1179,7 +1178,7 @@ Dialog {
                                 Text {
                                     Layout.fillWidth: true
                                     visible: SyncManager.status !== ""
-                                    text: SyncManager.status
+                                    text: Theme.tr(SyncManager.status)
                                     color: Theme.textSecondary
                                     font.pixelSize: Theme.fontSizeSmall
                                     wrapMode: Text.WordWrap
