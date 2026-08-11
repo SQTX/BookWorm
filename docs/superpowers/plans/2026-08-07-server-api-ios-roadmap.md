@@ -217,6 +217,20 @@ Two consequences worth stating here rather than leaving in the spec:
 - **The synced columns are added for everyone**, sync or not. Two schema variants would put a conditional in every query for the sake of 16 bytes a row. One schema; enabling sync becomes a settings change rather than a migration.
 - **The first connection cannot always decide which way data should flow.** Empty server plus populated client means upload; the reverse means download; both populated is ambiguous and the client must ask. Local UUIDs are minted per machine, not derived from content, so the same book on two independently-migrated machines has two identities and "upload everything" produces a duplicate library rather than a merge.
 
+### D9 — iOS ships on free personal signing *(decided 2026-08-12)*
+
+A free Apple ID and Xcode's Personal Team. No paid Developer Program, and therefore no TestFlight — the app runs on the one phone it is built for.
+
+The cost is a provisioning profile that expires after seven days, after which the app stops launching until it is re-deployed from Xcode. For one app on one phone that is the right trade: the paid account buys convenience, not capability, and nothing planned for iOS needs a capability a Personal Team cannot sign.
+
+What it bounds, and what it therefore rules out of the design rather than merely out of the budget:
+
+- **No push notifications, App Groups or CloudKit.** A design that starts wanting one has grown past its brief; that is the signal, not an argument for the subscription.
+- **Re-deployment is routine, not exceptional.** If a rebuild reinstalls rather than re-signs, stored credentials go with it, so "no session, sign in again" has to be an ordinary, well-worded path. The desktop reached the same conclusion from the other direction — [D8](#d8--sync-is-opt-in-decided-2026-08-11)'s Keychain problem is the same identity-changed-underneath failure.
+- **The build must work from a clean checkout.** It will be repeated for as long as the app is used, sometimes months apart. Remembered manual steps in Xcode are how that stops being true.
+
+Reversible at any time by paying: nothing about the app changes if the account does. Which is the reason not to design around a subscription the user has declined.
+
 ### D7 — Single-user private system *(decided 2026-08-08)*
 
 The server exists for the author's own devices. Not a product, not a family instance, no public registration. Recorded as "for now" — the conditions that would revisit it are written into the Phase 1 spec, not left implicit.
@@ -324,7 +338,7 @@ Scoped in [`ios/README.md`](../../../ios/README.md); the contract it builds agai
 Starting from a better position than Phase 4 did: the server is finished, deployed, and
 exercised by a real client, so this is one moving part rather than two.
 
-- [ ] Confirm the distribution route *(gates the whole phase — decide before anything else)*
+- [x] Distribution: free personal signing, no paid account *(decided 2026-08-12 — seven-day profile, re-deployed from Xcode; no TestFlight, no push, no App Groups)*
 - [ ] Decide the offline model: read-only cache, or a local store with queued writes
 - [ ] Read-focused first cut: library list, book detail, add pages, mark as read
 - [ ] Cover thumbnails, not full images, on list screens

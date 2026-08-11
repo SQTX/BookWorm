@@ -30,11 +30,14 @@ thing it is for.
 
 ## What has to be decided first
 
-**Distribution gates everything.** Without a paid Apple Developer account an app
-can be installed on a personal device but the signature expires in seven days and
-it has to be rebuilt. That is tolerable for one person and not for anything else,
-and it changes what is worth building. Nothing else in this phase should start
-before it is settled.
+**Distribution — settled 2026-08-12: free personal signing.** A free Apple ID and
+Xcode's Personal Team, no paid Developer Program. The provisioning profile expires
+after seven days, so the app is re-deployed from Xcode when it does; TestFlight is
+not available on a free account, so this runs on one phone and nowhere else.
+
+That is the right trade at this size — the paid account buys convenience rather
+than capability — and it bounds the phase: anything needing push notifications,
+App Groups or CloudKit is out of reach, and nothing planned here needs them.
 
 **Language and UI framework** — Swift and SwiftUI is the obvious answer and
 should be taken unless something argues against it.

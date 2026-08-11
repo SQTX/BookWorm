@@ -83,14 +83,39 @@ Store both tokens in the Keychain, never in `UserDefaults`.
 
 ## Decisions to make before writing code
 
-### 1. Distribution — ask the user first, this gates everything
+### 1. Distribution — decided: free personal signing
 
-Without a paid Apple Developer account, an app can be installed on a personal
-device but its signature expires after seven days and it must be rebuilt from
-Xcode. That is workable for one person on one phone, and it is the difference
-between "a tool I use" and "a thing I re-install every week".
+*(decided 2026-08-12)*
 
-Put the options to the user plainly and let them choose. Do not assume.
+A free Apple ID and Xcode's Personal Team. No paid Developer Program, no
+TestFlight — TestFlight requires the paid account, so "beta" here means the app
+runs on the one phone it was built for, and nowhere else.
+
+**The provisioning profile expires after seven days.** When it does, the app
+stops launching and has to be re-deployed from Xcode with the phone connected.
+That is the entire cost, and for one app on one phone it is the right trade: the
+paid account buys convenience, not capability, and this app needs no capability
+it cannot have.
+
+Three consequences that shape the build:
+
+- **Re-deploying is a normal event, not an error.** Do not build anything that
+  assumes continuous installation. If the app is reinstalled rather than
+  re-signed, its Keychain items go with it — so "no stored session, ask the user
+  to sign in" must be an ordinary path with a clear prompt, not an error state.
+  The desktop learned this the hard way for the same underlying reason: an
+  identity that changes underneath stored credentials.
+- **Restrict yourself to entitlements a Personal Team can sign.** Push
+  notifications, App Groups and CloudKit are not available. This app needs none
+  of them. If a design starts to want one, that is a signal the design has grown
+  past the brief.
+- **Keep the build reproducible from a clean checkout.** It will be rebuilt
+  roughly weekly, potentially months apart. A build that needs remembered manual
+  steps in Xcode is a build that will not work the third time.
+
+If the weekly rebuild becomes genuinely irritating, the paid account is the fix
+and nothing about this app has to change for it. Do not pre-emptively design
+around a subscription the user has declined.
 
 ### 2. Offline
 
