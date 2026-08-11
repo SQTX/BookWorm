@@ -145,12 +145,22 @@ install -m 0640 -o root -g bookworm /dev/null /etc/bookworm/api.env
 ```
 
 ```ini
-DATABASE_URL=postgres://bookworm:PASSWORD@localhost:5432/bookworm
-JWT_SECRET=<openssl rand -base64 48>
+DATABASE_URL=postgres://bookworm:REPLACE_WITH_DB_PASSWORD@localhost:5432/bookworm
+JWT_SECRET=REPLACE_WITH_OPENSSL_OUTPUT
 PORT=3000
 HOST=127.0.0.1
 COVER_DIR=/var/lib/bookworm/covers
 LOG_LEVEL=info
+```
+
+Both `REPLACE_WITH_` values are placeholders. Left in place they produce
+`password authentication failed` and a refusal to start — failures that look
+like a wrong password and a broken build rather than an unfinished edit.
+Confirm the substitution rather than assuming it:
+
+```bash
+grep -E '^(DATABASE_URL|JWT_SECRET)' /etc/bookworm/api.env | grep REPLACE_WITH \
+  && echo 'STOP: placeholders still present' || echo 'placeholders replaced'
 ```
 
 Root-owned, group-readable by `bookworm`. Not in the repository, not in the
