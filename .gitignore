@@ -44,3 +44,11 @@ CMakeLists.txt.user
 moc_*
 qrc_*
 ui_*
+
+# iOS / Xcode
+ios/**/xcuserdata/
+ios/**/*.xcworkspace/xcuserdata/
+ios/**/DerivedData/
+ios/**/.swiftpm/
+ios/**/build/
+*.xcuserstate
