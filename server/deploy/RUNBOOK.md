@@ -141,7 +141,13 @@ way to revoke everything.
 ## 6. Schema and account
 
 ```bash
-export $(grep -v '^#' /etc/bookworm/api.env | xargs)
+cd /opt/bookworm/server
+# `set -a` exports everything the file defines. Do NOT use
+# `export $(grep ... | xargs)`: word-splitting mangles any value containing a
+# space or a quote, so a strong password silently becomes a wrong one and the
+# failure looks like bad credentials.
+set -a; . /etc/bookworm/api.env; set +a
+
 npm run migrate:up
 SEED_EMAIL=you@example.com SEED_PASSWORD='...' npm run seed:user
 ```
@@ -261,13 +267,16 @@ Never restore over the live database to "test" it.
 ## Upgrades
 
 ```bash
+systemctl start bookworm-backup.service     # backup BEFORE the migration
 cd /opt/bookworm && git pull
 cd server && npm ci --omit=dev
-npm run migrate:up          # take a backup first
+set -a; . /etc/bookworm/api.env; set +a
+npm run migrate:up
 systemctl restart bookworm-api
 ```
 
-Run the backup before the migration, not after.
+The backup goes before the migration, not after — afterwards it captures the
+state you might need to undo.
 
 ---
 
