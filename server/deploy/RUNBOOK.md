@@ -116,6 +116,10 @@ npm ci --omit=dev
 `npm ci`, never `npm install`: it installs exactly the committed lockfile and
 fails if that lockfile and `package.json` disagree.
 
+`node-pg-migrate` is a runtime dependency, not a development one, precisely
+because migrations run here — `--omit=dev` must not remove the tool the next
+step needs.
+
 ## 5. Configuration
 
 ```bash
@@ -137,6 +141,35 @@ systemd unit — the unit is world-readable.
 `JWT_SECRET` must be at least 32 characters; the server refuses to start
 otherwise. Rotating it logs every device out, which is a blunt but effective
 way to revoke everything.
+
+### The database password goes inside a URL
+
+`DATABASE_URL` is parsed as a URL, so a password containing `#`, `/`, `?` or a
+second `:` does not mean what it looks like — `#` starts a fragment, `/` starts
+a path. The failure surfaces as `password authentication failed`, which sends
+you hunting for a wrong password rather than a quoting problem.
+
+`@` and `!` happen to survive; the others do not. The reliable fix is to avoid
+the question:
+
+```bash
+# A password with nothing a URL can misread.
+openssl rand -base64 24 | tr -d '/+=' 
+```
+
+If you must keep a password containing special characters, percent-encode it in
+the URL (`#` → `%23`, `/` → `%2F`, `?` → `%3F`, `:` → `%3A`).
+
+### Prove the connection before going further
+
+```bash
+set -a; . /etc/bookworm/api.env; set +a
+psql "$DATABASE_URL" -c 'SELECT 1'
+```
+
+One command, and it separates "wrong password" from "wrong URL" from "server not
+listening" before any migration is involved. If this fails, nothing after it can
+work.
 
 ## 6. Schema and account
 
