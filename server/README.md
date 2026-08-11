@@ -125,6 +125,20 @@ it calls, which is not the same as the behaviour being right.
 TEST_DATABASE_URL=postgres://sqtx@localhost:5432/bookworm_dev npm test
 ```
 
+## Verifying a deployment
+
+```bash
+./scripts/smoke-test.sh https://api.example.com you@example.com
+```
+
+Runs the whole round trip against a live instance from outside it: health,
+anonymous rejection, login, create, progress, sync, token rotation, delete,
+logout. Everything it creates is removed before it exits.
+
+It prompts for the password rather than taking an argument — arguments land in
+shell history and in the process list, where any other user on the machine can
+read them.
+
 ## Layout
 
 ```
