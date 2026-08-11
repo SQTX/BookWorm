@@ -2,6 +2,7 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QVector>
 #include <QSqlDatabase>
 #include <QString>
 
@@ -40,6 +41,55 @@ public:
     void clearTombstones(const QJsonArray &tombstones);
 
     int bookCount() const;
+
+    /** One cover that has to move, in either direction. */
+    struct CoverJob {
+        int bookId = 0;
+        QString path;   ///< Where the file is, or is going.
+        QString hash;   ///< Empty when uploading — that is what comes back.
+        QString supersedes;   ///< Mirror file this one replaces, if any.
+    };
+
+    /**
+     * Books whose cover exists here but not on the server.
+     *
+     * A book qualifies when its file is readable and its recorded hash does not
+     * match the file's contents, which covers both "never uploaded" and
+     * "replaced since". The hash is recomputed from the bytes rather than
+     * trusted, because nothing stops the user swapping the image behind the
+     * application's back.
+     *
+     * One exception, and it matters: files this machine downloaded are skipped
+     * outright, recognised by living in coverDir(). The server stores the hash
+     * of what was *uploaded* and serves back a re-encoded WebP, so their bytes
+     * hash differently from the name they were given. Hashing them would make
+     * every downloaded cover look modified, upload it, receive a third hash,
+     * and go round forever.
+     */
+    QVector<CoverJob> coversToUpload() const;
+
+    /** Books that name a cover this machine does not have a file for. */
+    QVector<CoverJob> coversToDownload() const;
+
+    void setCoverHash(int bookId, const QString &hash);
+
+    /**
+     * Delete a mirror file that nothing needs any more.
+     *
+     * Does nothing when another book still points at it. Covers are shared by
+     * content, so a file being superseded for one book is routinely still the
+     * cover of another; deleting it would blank that one.
+     */
+    void retireMirror(const QString &path, int exceptBookId);
+
+    /** Point a book at a freshly downloaded file, hash and path together. */
+    void setCoverFile(int bookId, const QString &hash, const QString &path);
+
+    /** SHA-256 of a file's contents, hex. Empty when it cannot be read. */
+    static QString hashFile(const QString &path);
+
+    /** Where downloaded covers live: <AppDataLocation>/covers. */
+    static QString coverDir();
 
 private:
     QJsonArray collectBooks(const QDateTime &since) const;

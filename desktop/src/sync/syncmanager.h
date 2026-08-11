@@ -122,8 +122,38 @@ private:
 
     void decideFirstSync();
     void performUpload();
+    void sendWholeLibrary();
     void performDownload();
     void performIncremental();
+    void pushAndPull();
+
+    /**
+     * Send every cover the server does not have, one at a time, then run @p then.
+     *
+     * Sequential on purpose. Re-encoding an image is CPU-bound and the server
+     * has two cores, so a hundred covers fired at once would starve every other
+     * request on the box — which is also why the server rate-limits the route.
+     * One at a time keeps well under that and finishes a first library in
+     * seconds.
+     *
+     * Runs before the push rather than after, so the hashes it learns travel
+     * with the same exchange instead of waiting for the next one.
+     *
+     * Failure is never fatal. A rejected or unreachable upload leaves the book
+     * without a hash, which is exactly the state that makes the next sync try
+     * again; @p then runs either way, because a cover must not be able to stop
+     * the library itself from syncing.
+     */
+    void uploadCovers(std::function<void()> then);
+
+    /**
+     * Fetch covers this machine is missing, one at a time.
+     *
+     * Runs after the pull, when the newly arrived rows have named the hashes it
+     * needs. Nothing waits on it: an image is worth showing a moment late, and
+     * is not worth holding a sync open for.
+     */
+    void downloadCovers();
 
     QDateTime cursor() const;
     void setCursor(const QString &serverTime);
