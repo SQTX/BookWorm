@@ -1,8 +1,23 @@
 # Deployment Runbook
 
-Target: 4 GB RAM, 2 vCPU, 40 GB disk, current LTS Linux. Sizing reasoning is in
-the [roadmap](../../docs/superpowers/plans/2026-08-07-server-api-ios-roadmap.md);
-in short, disk is not the constraint at this scale — RAM is.
+Target: **Ubuntu LTS**, 4 GB RAM, 2 vCPU, 40 GB disk. Sizing reasoning is in the
+[roadmap](../../docs/superpowers/plans/2026-08-07-server-api-ios-roadmap.md); in
+short, disk is not the constraint at this scale — RAM is.
+
+Check the release first, because it decides the PostgreSQL version and every
+config path below:
+
+```bash
+lsb_release -ds                          # e.g. Ubuntu 24.04.1 LTS
+PG=$(pg_config --version 2>/dev/null | grep -oE '[0-9]+' | head -1)
+```
+
+| Ubuntu | Default PostgreSQL |
+| --- | --- |
+| 24.04 LTS | 16 |
+| 22.04 LTS | 14 |
+
+Either works — the migrations need 13 or newer for `gen_random_uuid()`.
 
 ---
 
@@ -21,28 +36,74 @@ in short, disk is not the constraint at this scale — RAM is.
 ## 1. Host
 
 ```bash
+apt update && apt install -y git curl ufw zstd
 adduser --system --group --home /opt/bookworm bookworm
 mkdir -p /var/lib/bookworm/backups /var/lib/bookworm/covers /etc/bookworm
 chown -R bookworm:bookworm /opt/bookworm /var/lib/bookworm
 ```
 
-SSH keys only, password authentication off, firewall default-deny with 22, 80
-and 443 open. **Not 5432.**
+`zstd` is what the backup script prefers for the cover archive; without it the
+script falls back to gzip, which works but compresses less well.
+
+Firewall — default deny, and **not 5432**:
+
+```bash
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp
+ufw enable && ufw status
+```
+
+SSH keys only. In `/etc/ssh/sshd_config` set `PasswordAuthentication no`, then
+`systemctl restart ssh`. Confirm you can still log in from a second terminal
+**before** closing the first one.
 
 ## 2. PostgreSQL
 
 ```bash
-# postgresql.conf
-listen_addresses = 'localhost'
+apt update
+apt install -y postgresql postgresql-contrib
+```
 
-createuser bookworm --pwprompt
-createdb --owner=bookworm bookworm
+**`postgresql-contrib` is not optional.** It provides `citext`, which the
+accounts migration uses for case-insensitive email. Without it `npm run
+migrate:up` fails on the very first migration with `could not open extension
+control file`, which reads like a broken migration rather than a missing
+package.
+
+Confirm the bind address — check it, do not assume it:
+
+```bash
+PGVER=$(ls /etc/postgresql)            # 16 on 24.04, 14 on 22.04
+grep ^listen_addresses /etc/postgresql/$PGVER/main/postgresql.conf
+```
+
+It must be `localhost`. That is Ubuntu's default, but a VPS image may have been
+changed.
+
+```bash
+sudo -u postgres createuser bookworm --pwprompt
+sudo -u postgres createdb --owner=bookworm bookworm
+
+# Prove citext is available before going further.
+sudo -u postgres psql -d bookworm -c 'CREATE EXTENSION IF NOT EXISTS citext;'
 ```
 
 ## 3. Node
 
-Match the version in `.nvmrc` — currently 24. Dev/prod parity is the point;
-"whatever the distro packages" drifts.
+Ubuntu's own `nodejs` package lags well behind, so use NodeSource and match
+`.nvmrc` — currently 24. Dev/prod parity is the point; "whatever the distro
+packages" drifts.
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+apt install -y nodejs
+node --version                          # must be v24.x
+```
+
+`sharp` and `@node-rs/argon2` ship prebuilt binaries for linux-x64 and
+linux-arm64, so no compiler is needed — which is what the "no build toolchain on
+the server" rule in D1 was protecting.
 
 ## 4. Application
 
@@ -80,7 +141,13 @@ way to revoke everything.
 ## 6. Schema and account
 
 ```bash
-export $(grep -v '^#' /etc/bookworm/api.env | xargs)
+cd /opt/bookworm/server
+# `set -a` exports everything the file defines. Do NOT use
+# `export $(grep ... | xargs)`: word-splitting mangles any value containing a
+# space or a quote, so a strong password silently becomes a wrong one and the
+# failure looks like bad credentials.
+set -a; . /etc/bookworm/api.env; set +a
+
 npm run migrate:up
 SEED_EMAIL=you@example.com SEED_PASSWORD='...' npm run seed:user
 ```
@@ -102,6 +169,32 @@ The first log line reports the mode and the bind address. If it says
 `development`, the environment file is not being read.
 
 ## 8. Reverse proxy and TLS
+
+Caddy is not in Ubuntu's repositories; add its own:
+
+```bash
+apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+  | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+  | tee /etc/apt/sources.list.d/caddy-stable.list
+apt update && apt install -y caddy
+```
+
+`/etc/caddy/Caddyfile`:
+
+```
+api.example.com {
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+```bash
+systemctl reload caddy
+```
+
+Caddy obtains and renews the certificate itself, provided the DNS A record
+already points here and ports 80 and 443 are open.
 
 Terminate TLS at the proxy and forward to `127.0.0.1:3000`. The app sets
 `trustProxy`, so the proxy must set `X-Forwarded-For` — rate limiting keys on
@@ -164,6 +257,7 @@ Never restore over the live database to "test" it.
 | | |
 | --- | --- |
 | Service | `systemctl status bookworm-api` |
+| Mode | `journalctl -u bookworm-api | grep 'starting in'` — must say `production` |
 | Logs | `journalctl -u bookworm-api -f` |
 | Health | `curl -s localhost:3000/health` — `503` means the database is unreachable |
 | Disk | `df -h` — covers will dominate once they exist |
@@ -173,13 +267,16 @@ Never restore over the live database to "test" it.
 ## Upgrades
 
 ```bash
+systemctl start bookworm-backup.service     # backup BEFORE the migration
 cd /opt/bookworm && git pull
 cd server && npm ci --omit=dev
-npm run migrate:up          # take a backup first
+set -a; . /etc/bookworm/api.env; set +a
+npm run migrate:up
 systemctl restart bookworm-api
 ```
 
-Run the backup before the migration, not after.
+The backup goes before the migration, not after — afterwards it captures the
+state you might need to undo.
 
 ---
 
