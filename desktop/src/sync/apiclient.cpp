@@ -150,8 +150,15 @@ void ApiClient::send(const QByteArray &verb, const QString &path,
 
         res.ok = res.httpStatus >= 200 && res.httpStatus < 300;
         if (!res.ok && res.error.isEmpty()) {
-            res.error = res.body.value("error").toString(
-                QStringLiteral("Server returned %1").arg(res.httpStatus));
+            // "message" first: on a validation failure Fastify puts the useful
+            // part there ("body/books/0 must have required property ...") and
+            // leaves "error" as the generic status name. Reading only "error"
+            // turns a precise complaint into "Bad Request".
+            res.error = res.body.value("message").toString();
+            if (res.error.isEmpty())
+                res.error = res.body.value("error").toString();
+            if (res.error.isEmpty())
+                res.error = QStringLiteral("Server returned %1").arg(res.httpStatus);
         }
 
         if (done) done(res);
