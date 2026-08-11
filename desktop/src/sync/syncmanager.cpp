@@ -141,7 +141,17 @@ void SyncManager::decideFirstSync()
         g_pendingServerChanges = res.body.value("changes").toObject();
         g_pendingServerTime = res.body.value("serverTime").toString();
 
-        const int serverBooks = g_pendingServerChanges.value("books").toArray().size();
+        // Live rows only. A pull returns tombstones too — that is the point of
+        // them — but a server holding nothing except deletions is empty as far
+        // as this decision is concerned. Counting them made a clean server look
+        // populated and sent the first connection down the "ask the user" path
+        // for no reason.
+        int serverBooks = 0;
+        for (const QJsonValue &v : g_pendingServerChanges.value("books").toArray()) {
+            const QJsonObject b = v.toObject();
+            if (b.value("deletedAt").isNull() || !b.contains("deletedAt"))
+                ++serverBooks;
+        }
         const int localBooks = m_repo->bookCount();
 
         if (localBooks > 0 && serverBooks == 0) {
