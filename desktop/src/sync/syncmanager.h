@@ -2,8 +2,10 @@
 
 #include <QDateTime>
 #include <QObject>
-#include <QQmlEngine>
 #include <QString>
+
+#include <functional>
+#include <vector>
 
 #include "apiclient.h"
 
@@ -19,8 +21,6 @@ class SyncRepository;
 class SyncManager : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
-    QML_SINGLETON
 
     Q_PROPERTY(bool enabled READ enabled NOTIFY configChanged)
     Q_PROPERTY(QString serverUrl READ serverUrl NOTIFY configChanged)
@@ -41,8 +41,6 @@ public:
 
     explicit SyncManager(QObject *parent = nullptr);
     ~SyncManager() override;
-
-    static SyncManager *create(QQmlEngine *, QJSEngine *);
 
     bool enabled() const { return m_enabled; }
     QString serverUrl() const { return m_serverUrl; }
@@ -70,6 +68,25 @@ public:
     /** Push what changed here, then take what changed there. */
     Q_INVOKABLE void syncNow();
 
+    /**
+     * Exchange on launch.
+     *
+     * Pushes before pulling rather than only pulling: a pull alone would strand
+     * anything edited while the last run was offline, or after it ended without
+     * a final exchange. Pushing first cannot harm the server — a row older than
+     * the stored copy is rejected by the merge rule, not applied.
+     */
+    void syncOnStart();
+
+    /**
+     * Exchange during shutdown, bounded by a deadline.
+     *
+     * Quitting must never wait on the network indefinitely. Exceeding the
+     * deadline costs nothing: the cursor advances and the deletion queue clears
+     * only on success, so the next launch simply sends it again.
+     */
+    void syncOnQuit();
+
 signals:
     void configChanged();
     void statusChanged();
@@ -84,6 +101,22 @@ signals:
 
 private:
     void loadSettings();
+
+    /**
+     * Read the stored tokens on a worker thread, then run @p then.
+     *
+     * Never on the main thread. SecItemCopyMatching can decide it needs the
+     * user's permission and put up a system panel, and until that panel is
+     * answered the call does not return — which freezes the interface, or
+     * worse, freezes QML construction so no interface ever appears. A stack
+     * trace caught exactly that: the whole application parked inside
+     * SecItemCopyMatching with SecurityAgent waiting for a click.
+     *
+     * The panel appears when the item was written by a different binary — after
+     * an update, or in testing. Rare, and the cost of getting it wrong is the
+     * application never starting, so it is worth a thread.
+     */
+    void withSession(std::function<void(bool)> then);
     void saveSettings();
     void setStatus(const QString &status, bool busy = false);
 
@@ -103,4 +136,7 @@ private:
     QString m_email;
     QString m_status;
     bool m_busy = false;
+    bool m_sessionChecked = false;
+    bool m_sessionReading = false;
+    std::vector<std::function<void(bool)>> m_sessionWaiters;
 };

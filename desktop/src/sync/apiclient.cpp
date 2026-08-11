@@ -84,6 +84,12 @@ bool ApiClient::restoreSession(const QString &email)
     return !m_refreshToken.isEmpty();
 }
 
+void ApiClient::adoptTokens(const QString &access, const QString &refresh)
+{
+    m_accessToken = access;
+    m_refreshToken = refresh;
+}
+
 void ApiClient::get(const QString &path, Callback done)
 {
     send("GET", path, {}, done, /*allowRetry=*/true);

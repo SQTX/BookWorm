@@ -58,6 +58,9 @@ public:
     /** Load tokens saved by a previous run. @returns false when there are none. */
     bool restoreSession(const QString &email);
 
+    /** Take tokens read elsewhere — the Keychain is read off the main thread. */
+    void adoptTokens(const QString &access, const QString &refresh);
+
     bool hasSession() const { return !m_accessToken.isEmpty(); }
     QString account() const { return m_email; }
 

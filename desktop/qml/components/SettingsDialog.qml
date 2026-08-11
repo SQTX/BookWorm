@@ -1007,7 +1007,7 @@ Dialog {
                         Panel {
                             Layout.fillWidth: true
                             Layout.preferredHeight: connectedCol.implicitHeight + Theme.spacingLarge * 2
-                            visible: SyncManager.enabled
+                            visible: syncManager.enabled
 
                             ColumnLayout {
                                 id: connectedCol
@@ -1022,10 +1022,10 @@ Dialog {
                                     Rectangle {
                                         Layout.alignment: Qt.AlignVCenter
                                         width: 10; height: 10; radius: 5
-                                        color: SyncManager.busy ? Theme.statusReading : Theme.statusRead
+                                        color: syncManager.busy ? Theme.statusReading : Theme.statusRead
 
                                         SequentialAnimation on opacity {
-                                            running: SyncManager.busy
+                                            running: syncManager.busy
                                             loops: Animation.Infinite
                                             NumberAnimation { to: 0.3; duration: Theme.durationSlow }
                                             NumberAnimation { to: 1.0; duration: Theme.durationSlow }
@@ -1039,7 +1039,7 @@ Dialog {
                                         Text {
                                             Layout.fillWidth: true
                                             elide: Text.ElideMiddle
-                                            text: SyncManager.email
+                                            text: syncManager.email
                                             color: Theme.textOnSurface
                                             font.pixelSize: Theme.fontSizeMedium
                                             font.bold: true
@@ -1047,7 +1047,7 @@ Dialog {
                                         Text {
                                             Layout.fillWidth: true
                                             elide: Text.ElideMiddle
-                                            text: SyncManager.serverUrl
+                                            text: syncManager.serverUrl
                                             color: Theme.textSecondary
                                             font.pixelSize: Theme.fontSizeSmall
                                         }
@@ -1055,9 +1055,9 @@ Dialog {
 
                                     Chip {
                                         interactive: false
-                                        visible: SyncManager.status !== ""
-                                        text: Theme.tr(SyncManager.status)
-                                        accent: SyncManager.busy ? Theme.statusReading : Theme.statusRead
+                                        visible: syncManager.status !== ""
+                                        text: Theme.tr(syncManager.status)
+                                        accent: syncManager.busy ? Theme.statusReading : Theme.statusRead
                                     }
                                 }
 
@@ -1069,8 +1069,8 @@ Dialog {
 
                                 Text {
                                     Layout.fillWidth: true
-                                    visible: SyncManager.pendingDeletions > 0
-                                    text: Theme.tr("Waiting to be sent: %1").arg(SyncManager.pendingDeletions)
+                                    visible: syncManager.pendingDeletions > 0
+                                    text: Theme.tr("Waiting to be sent: %1").arg(syncManager.pendingDeletions)
                                     color: Theme.textSecondary
                                     font.pixelSize: Theme.fontSizeSmall
                                 }
@@ -1081,14 +1081,14 @@ Dialog {
 
                                     AppButton {
                                         text: Theme.tr("Sync now")
-                                        enabled: !SyncManager.busy
-                                        onClicked: SyncManager.syncNow()
+                                        enabled: !syncManager.busy
+                                        onClicked: syncManager.syncNow()
                                     }
                                     AppButton {
                                         variant: "outline"
                                         text: Theme.tr("Disconnect")
-                                        enabled: !SyncManager.busy
-                                        onClicked: SyncManager.disconnectFromServer()
+                                        enabled: !syncManager.busy
+                                        onClicked: syncManager.disconnectFromServer()
                                     }
                                     Item { Layout.fillWidth: true }
                                 }
@@ -1099,7 +1099,7 @@ Dialog {
                         Panel {
                             Layout.fillWidth: true
                             Layout.preferredHeight: connectCol.implicitHeight + Theme.spacingLarge * 2
-                            visible: !SyncManager.enabled
+                            visible: !syncManager.enabled
 
                             ColumnLayout {
                                 id: connectCol
@@ -1124,7 +1124,7 @@ Dialog {
                                         id: syncUrlField
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 40
-                                        text: SyncManager.serverUrl
+                                        text: syncManager.serverUrl
                                         selectByMouse: true
                                         font.pixelSize: Theme.fontSizeMedium
                                         Material.accent: Theme.primary
@@ -1144,7 +1144,7 @@ Dialog {
                                         id: syncEmailField
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 40
-                                        text: SyncManager.email
+                                        text: syncManager.email
                                         selectByMouse: true
                                         font.pixelSize: Theme.fontSizeMedium
                                         Material.accent: Theme.primary
@@ -1177,8 +1177,8 @@ Dialog {
 
                                 Text {
                                     Layout.fillWidth: true
-                                    visible: SyncManager.status !== ""
-                                    text: Theme.tr(SyncManager.status)
+                                    visible: syncManager.status !== ""
+                                    text: Theme.tr(syncManager.status)
                                     color: Theme.textSecondary
                                     font.pixelSize: Theme.fontSizeSmall
                                     wrapMode: Text.WordWrap
@@ -1190,13 +1190,13 @@ Dialog {
 
                                     AppButton {
                                         id: syncConnectButton
-                                        text: SyncManager.busy ? Theme.tr("Connecting…") : Theme.tr("Connect")
-                                        enabled: !SyncManager.busy
+                                        text: syncManager.busy ? Theme.tr("Connecting…") : Theme.tr("Connect")
+                                        enabled: !syncManager.busy
                                                  && syncUrlField.text.trim() !== ""
                                                  && syncEmailField.text.trim() !== ""
                                                  && syncPasswordField.text !== ""
                                         onClicked: {
-                                            SyncManager.connectToServer(syncUrlField.text.trim(),
+                                            syncManager.connectToServer(syncUrlField.text.trim(),
                                                                         syncEmailField.text.trim(),
                                                                         syncPasswordField.text)
                                             syncPasswordField.text = ""
@@ -1208,7 +1208,7 @@ Dialog {
                         }
 
                         Connections {
-                            target: SyncManager
+                            target: syncManager
                             function onFirstSyncDecisionRequired(localBooks, serverBooks) {
                                 firstSyncDialog.localBooks = localBooks
                                 firstSyncDialog.serverBooks = serverBooks
@@ -1298,16 +1298,16 @@ Dialog {
             AppButton {
                 variant: "outline"
                 text: Theme.tr("Cancel")
-                onClicked: { SyncManager.resolveFirstSync("cancel"); firstSyncDialog.close() }
+                onClicked: { syncManager.resolveFirstSync("cancel"); firstSyncDialog.close() }
             }
             AppButton {
                 variant: "outline"
                 text: Theme.tr("Download from server")
-                onClicked: { SyncManager.resolveFirstSync("download"); firstSyncDialog.close() }
+                onClicked: { syncManager.resolveFirstSync("download"); firstSyncDialog.close() }
             }
             AppButton {
                 text: Theme.tr("Upload from here")
-                onClicked: { SyncManager.resolveFirstSync("upload"); firstSyncDialog.close() }
+                onClicked: { syncManager.resolveFirstSync("upload"); firstSyncDialog.close() }
             }
 
             Item { width: Theme.spacingLarge }

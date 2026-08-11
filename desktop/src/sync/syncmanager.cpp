@@ -1,8 +1,17 @@
 #include "syncmanager.h"
 #include "syncrepository.h"
+#include "keychain.h"
 #include "../database/databasemanager.h"
 
+#include <QDir>
+#include <QThread>
+#include <thread>
+#include <QEventLoop>
+#include <QFile>
 #include <QJsonArray>
+#include <QStandardPaths>
+#include <QTextStream>
+#include <QTimer>
 #include <QSettings>
 
 namespace {
@@ -15,6 +24,38 @@ constexpr const char *KEY_CURSOR = "sync/cursor";
 /** Held between the decision prompt and the user's answer. */
 QJsonObject g_pendingServerChanges;
 QString g_pendingServerTime;
+
+/**
+ * How long shutdown waits for an exchange. Long enough for a slow connection,
+ * short enough that nobody wonders why the window will not close.
+ */
+constexpr int SHUTDOWN_SYNC_TIMEOUT_MS = 6000;
+
+/**
+ * Append a line to a log on disk.
+ *
+ * Launched as a bundle, the application's stderr goes somewhere nobody will
+ * look — so a sync that quietly did nothing is indistinguishable from one that
+ * worked, which is exactly the question being asked when something is wrong.
+ *
+ * WriteOnly matters: Append alone says where writes go, not that the device is
+ * open for writing, and the open fails. An earlier version of this function got
+ * that wrong and dropped every line, which read as "the code never ran" and
+ * sent a whole afternoon in the wrong direction.
+ */
+void logSync(const QString &line)
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (dir.isEmpty())
+        return;
+    QDir().mkpath(dir);
+
+    QFile f(dir + QStringLiteral("/sync.log"));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+        return;
+
+    QTextStream(&f) << QDateTime::currentDateTime().toString(Qt::ISODate) << "  " << line << '\n';
+}
 
 } // namespace
 
@@ -29,14 +70,11 @@ SyncManager::SyncManager(QObject *parent)
         setStatus(tr("Signed out — sign in again"));
     });
 
+    // Only cheap, local state here. Anything that can block — the Keychain
+    // especially — waits until the interface exists.
     if (m_enabled && !m_email.isEmpty()) {
         m_api.setBaseUrl(m_serverUrl);
-        // Restoring only reads the Keychain; nothing touches the network until
-        // the user or a timer asks for a sync.
-        if (m_api.restoreSession(m_email))
-            setStatus(tr("Connected"));
-        else
-            setStatus(tr("Sign in required"));
+        setStatus(tr("Connected"));
     } else {
         setStatus(QString());
     }
@@ -45,11 +83,6 @@ SyncManager::SyncManager(QObject *parent)
 SyncManager::~SyncManager()
 {
     delete m_repo;
-}
-
-SyncManager *SyncManager::create(QQmlEngine *, QJSEngine *)
-{
-    return new SyncManager;
 }
 
 void SyncManager::loadSettings()
@@ -222,13 +255,103 @@ void SyncManager::performDownload()
     emit syncFinished(true, tr("Received %n row(s) from the server.", nullptr, written));
 }
 
-void SyncManager::syncNow()
+void SyncManager::withSession(std::function<void(bool)> then)
+{
+    if (m_api.hasSession()) { then(true); return; }
+
+    // A read already running: wait for it rather than starting a second one.
+    // Launch fires one immediately, and the user can press Sync Now while it is
+    // still going — two reads would mean two permission panels.
+    if (m_sessionReading) { m_sessionWaiters.push_back(std::move(then)); return; }
+    if (m_sessionChecked) { then(false); return; }
+
+    if (!m_enabled || m_email.isEmpty()) { then(false); return; }
+
+    m_sessionReading = true;
+    m_api.setBaseUrl(m_serverUrl);
+    const QString email = m_email;
+
+    // Detached: nothing waits on it, and the result comes back by hopping to
+    // the main thread, where the ApiClient lives.
+    std::thread([this, email, then]() {
+        const QString access = BookWorm::Keychain::retrieve(email, QStringLiteral("accessToken"));
+        const QString refresh = BookWorm::Keychain::retrieve(email, QStringLiteral("refreshToken"));
+
+        QMetaObject::invokeMethod(this, [this, access, refresh, then]() {
+            m_api.adoptTokens(access, refresh);
+            m_sessionReading = false;
+            m_sessionChecked = true;
+
+            const bool ok = m_api.hasSession();
+            if (!ok)
+                setStatus(tr("Sign in required"));
+
+            then(ok);
+            auto waiters = std::move(m_sessionWaiters);
+            m_sessionWaiters.clear();
+            for (const auto &waiter : waiters)
+                waiter(ok);
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void SyncManager::syncOnStart()
+{
+    if (!m_enabled) {
+        logSync(QStringLiteral("start: sync is off"));
+        return;
+    }
+    withSession([this](bool ok) {
+        if (!ok) {
+            logSync(QStringLiteral("start: no session could be restored"));
+            return;
+        }
+        logSync(QStringLiteral("start: exchanging with %1").arg(m_serverUrl));
+        performIncremental();
+    });
+}
+
+void SyncManager::syncOnQuit()
 {
     if (!m_enabled || !m_api.hasSession()) {
+        // No blocking read here: shutdown is the worst possible moment for a
+        // permission panel. If launch could not restore a session, this one
+        // simply does not run.
+        logSync(QStringLiteral("quit: nothing to do"));
+        return;
+    }
+
+    logSync(QStringLiteral("quit: exchanging before exit"));
+
+    // The request is asynchronous and the application is leaving, so the event
+    // loop has to be held open for it — briefly. A sync that cannot finish is
+    // not a reason to keep a window on screen.
+    QEventLoop loop;
+    QTimer deadline;
+    deadline.setSingleShot(true);
+
+    QObject::connect(this, &SyncManager::syncFinished, &loop, &QEventLoop::quit);
+    QObject::connect(&deadline, &QTimer::timeout, &loop, [&loop]() {
+        logSync(QStringLiteral("quit: timed out; resumes next launch"));
+        loop.quit();
+    });
+
+    performIncremental();
+
+    deadline.start(SHUTDOWN_SYNC_TIMEOUT_MS);
+    loop.exec();
+}
+
+void SyncManager::syncNow()
+{
+    if (!m_enabled) {
         emit syncFinished(false, tr("Not connected"));
         return;
     }
-    performIncremental();
+    withSession([this](bool ok) {
+        if (!ok) { emit syncFinished(false, tr("Not connected")); return; }
+        performIncremental();
+    });
 }
 
 void SyncManager::performIncremental()
@@ -270,12 +393,14 @@ void SyncManager::performIncremental()
             // The queue is deliberately not cleared: a failed push must not
             // lose the deletions it was carrying. Offline is a normal state
             // here, not an error worth shouting about.
+            logSync(QStringLiteral("push failed: %1").arg(res.error));
             setStatus(res.isNetworkError ? tr("Offline — will retry")
                                          : tr("Sync failed: %1").arg(res.error));
             emit syncFinished(false, m_status);
             return;
         }
 
+        logSync(QStringLiteral("push ok"));
         m_repo->clearTombstones(tombstones);
 
         const int written = m_repo->applyChanges(res.body.value("changes").toObject());
