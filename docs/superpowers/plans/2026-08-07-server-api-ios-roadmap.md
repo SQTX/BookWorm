@@ -11,8 +11,8 @@
 | 0 — Groundwork | Done, except moving DB credentials out of `constants.h` and putting a password on the local role — both are desktop-side and belong with Phase 4 |
 | 1 — Ownership | Done: `users`, `user_id` on four tables, Argon2id, login with token rotation |
 | 2 — API | Done: books with atomic progress, tags, quotes, highlights, challenges, and the sync protocol. **Covers are not built** — their own phase |
-| 3 — VPS | Not started. Nothing is deployed |
-| 4 — Desktop | Not started. Next |
+| 3 — VPS | **Done.** Live at `https://57.128.199.27.nip.io`, installed by `server/deploy/install.sh` and verified end to end |
+| 4 — Desktop | Not started. Next — and **sync is opt-in**, see [D8](#d8--sync-is-opt-in-decided-2026-08-11) |
 | 5 — iOS | Not started |
 
 **The live `wormbook` database has never been modified.** The desktop app runs exactly as it did at `v1.1.0`: no `user_id` column, no `pgmigrations` table, 95 books. Every migration was verified against a restored copy, and `npm run migrate:*` refuses to run against it.
@@ -205,6 +205,17 @@ So everything below stays mandatory from Phase 2, monorepo or not:
 > The trap to avoid: concluding that because the repo is unified, versioning is unnecessary. The monorepo protects the developer at edit time. Versioning protects the user at run time. They solve different problems and neither substitutes for the other.
 
 **Migration into this layout** (Phase 0): `git mv` the existing tree into `desktop/`, leaving `docs/`, `README.md` and `.gitignore` at the root. History is preserved. CMake resource paths are relative to `CMakeLists.txt` and the tree moves as a unit, so they stay valid; `qrc:` paths are unaffected entirely. What must be updated: the build commands and paths in `CLAUDE.md`, `.gitignore`'s `build/` entry, and any absolute path in CI. The local `build/` directory is regenerated, not moved.
+
+### D8 — Sync is opt-in *(decided 2026-08-11)*
+
+BookWorm remains a complete desktop application for someone who never sets up a server. Sync is a Settings panel: an address, a login, and a connect button. Default off.
+
+Design: [2026-08-11-optional-sync-design.md](../specs/2026-08-11-optional-sync-design.md)
+
+Two consequences worth stating here rather than leaving in the spec:
+
+- **The synced columns are added for everyone**, sync or not. Two schema variants would put a conditional in every query for the sake of 16 bytes a row. One schema; enabling sync becomes a settings change rather than a migration.
+- **The first connection cannot always decide which way data should flow.** Empty server plus populated client means upload; the reverse means download; both populated is ambiguous and the client must ask. Local UUIDs are minted per machine, not derived from content, so the same book on two independently-migrated machines has two identities and "upload everything" produces a duplicate library rather than a merge.
 
 ### D7 — Single-user private system *(decided 2026-08-08)*
 
