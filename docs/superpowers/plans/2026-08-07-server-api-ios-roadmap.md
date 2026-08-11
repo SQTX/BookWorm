@@ -318,12 +318,24 @@ The desktop keeps its local database as a **mirror** rather than becoming a thin
 
 ### Phase 5 — iOS client
 
-- [ ] Confirm the distribution route *(see Open Questions — this gates the whole phase)*
-- [ ] Read-focused first cut: library list, book detail, add pages, mark as read
-- [ ] Offline cache and queued writes, same contract as desktop
-- [ ] Cover thumbnails, not full images, on list screens
+Scoped in [`ios/README.md`](../../../ios/README.md); the contract it builds against is
+[`docs/API.md`](../../API.md), written so this phase never needs to read the server's source.
 
-**Exit:** the app installs on the user's iPhone, shows the real library, and recording progress on the phone is visible on the desktop.
+Starting from a better position than Phase 4 did: the server is finished, deployed, and
+exercised by a real client, so this is one moving part rather than two.
+
+- [ ] Confirm the distribution route *(gates the whole phase — decide before anything else)*
+- [ ] Decide the offline model: read-only cache, or a local store with queued writes
+- [ ] Read-focused first cut: library list, book detail, add pages, mark as read
+- [ ] Cover thumbnails, not full images, on list screens
+- [ ] Its own CI workflow — `server.yml` is path-filtered and will not cover this
+
+**Not in the first cut:** editing metadata, tags, quotes, statistics, challenges. A phone
+records reading; a desktop curates a library. Doing the phone's job well beats doing the
+desktop's badly.
+
+**Exit:** the app installs on the user's iPhone, shows the real library, and recording
+progress on the phone is visible on the desktop.
 
 ---
 
