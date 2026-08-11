@@ -174,8 +174,35 @@ function normaliseBook(row) {
  */
 const lwwGuard = (table) => `WHERE EXCLUDED.client_updated_at > ${table}.client_updated_at`;
 
+/**
+ * A tombstone carries a uuid and a deletion time and nothing else — the row it
+ * describes is gone on the client, so there are no fields to send.
+ *
+ * Upserting one would try to INSERT a book with no title and violate NOT NULL,
+ * failing the whole batch. Marking the existing row deleted is the only thing
+ * that makes sense; a tombstone for a row this server never had is a no-op,
+ * which is correct rather than an error.
+ *
+ * @returns true when the row was a tombstone and has been handled.
+ */
+async function applyTombstone(client, userId, table, row, scopedByUser = true) {
+  if (!row.deletedAt) return false;
+
+  const scope = scopedByUser
+    ? `uuid = $2 AND user_id = $3`
+    : `uuid = $2 AND book_id IN (SELECT id FROM books WHERE user_id = $3)`;
+
+  await client.query(
+    `UPDATE ${table} SET deleted_at = $1, client_updated_at = $1 WHERE ${scope}`,
+    [row.deletedAt, row.uuid, userId],
+  );
+  return true;
+}
+
 async function pushBooks(client, userId, rows) {
   for (const raw of rows) {
+    if (await applyTombstone(client, userId, 'books', raw)) continue;
+
     const row = normaliseBook(raw);
     const columns = ['user_id', 'uuid', 'client_updated_at', 'deleted_at'];
     const values = [userId, row.uuid, row.updatedAt, row.deletedAt ?? null];
@@ -242,6 +269,8 @@ async function replaceTags(client, userId, bookId, tags) {
  */
 async function pushTags(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'tags', row)) continue;
+
     const { rowCount } = await client.query(
       `UPDATE tags SET name = $1, color = $2, client_updated_at = $3, deleted_at = $4
         WHERE uuid = $5 AND user_id = $6 AND $3 > client_updated_at`,
@@ -261,6 +290,8 @@ async function pushTags(client, userId, rows) {
 
 async function pushChallenges(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'challenges', row)) continue;
+
     await client.query(
       `INSERT INTO challenges (user_id, uuid, name, target_books, deadline, metric,
                                target_value, period_unit, period_count, client_updated_at, deleted_at)
@@ -283,6 +314,8 @@ async function pushChallenges(client, userId, rows) {
 
 async function pushQuotes(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'favorite_quotes', row, false)) continue;
+
     const bookId = await bookIdOf(client, userId, row.bookUuid);
     // A quote whose book has not arrived yet is skipped, not an error: the next
     // sync carries it once the book exists. Failing the batch would deadlock
@@ -303,6 +336,8 @@ async function pushQuotes(client, userId, rows) {
 
 async function pushHighlights(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'highlights', row, false)) continue;
+
     const bookId = await bookIdOf(client, userId, row.bookUuid);
     if (bookId === null) continue;
 
@@ -333,16 +368,10 @@ async function pushHighlights(client, userId, rows) {
  */
 async function pushSessions(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'reading_sessions', row)) continue;
+
     const bookId = await bookIdOf(client, userId, row.bookUuid);
     if (bookId === null) continue;
-
-    if (row.deletedAt) {
-      await client.query(
-        'UPDATE reading_sessions SET deleted_at = $1 WHERE uuid = $2 AND user_id = $3',
-        [row.deletedAt, row.uuid, userId],
-      );
-      continue;
-    }
 
     await client.query(
       `INSERT INTO reading_sessions (user_id, uuid, book_id, session_date, page_start, page_end, source, client_updated_at)
