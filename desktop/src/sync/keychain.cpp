@@ -61,8 +61,17 @@ CFDictionaryRef makeQuery(const QByteArray &account)
 class NoInteraction
 {
 public:
+    // Deprecated since 10.10, and still the right call. Its replacement,
+    // kSecUseAuthenticationUI, only governs the data-protection keychain, which
+    // needs a signed application with a keychain-access-group entitlement. This
+    // one is unsigned and uses the file keychain, where this is the only switch
+    // there is. Warning suppressed here rather than project-wide so the day a
+    // real alternative exists, removing these two lines surfaces it.
+    QT_WARNING_PUSH
+    QT_WARNING_DISABLE_DEPRECATED
     NoInteraction() { SecKeychainSetUserInteractionAllowed(false); }
     ~NoInteraction() { SecKeychainSetUserInteractionAllowed(true); }
+    QT_WARNING_POP
 
     NoInteraction(const NoInteraction &) = delete;
     NoInteraction &operator=(const NoInteraction &) = delete;
