@@ -2,7 +2,7 @@
   "name": "bookworm-server",
   "version": "0.1.0",
   "private": true,
-  "description": "BookWorm API — multi-tenant storage and sync for the desktop and iOS clients",
+  "description": "BookWorm API \u2014 multi-tenant storage and sync for the desktop and iOS clients",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -16,9 +16,9 @@
     "lint:fix": "eslint . --fix",
     "guard": "node --env-file-if-exists=.env scripts/guard-database.js",
     "seed:user": "node --env-file-if-exists=.env scripts/seed-user.js",
-    "migrate": "npm run guard && node-pg-migrate --envPath .env",
-    "migrate:up": "npm run guard && node-pg-migrate --envPath .env up",
-    "migrate:down": "npm run guard && node-pg-migrate --envPath .env down",
+    "migrate": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate",
+    "migrate:up": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate up",
+    "migrate:down": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate down",
     "backup": "./scripts/backup-db.sh"
   },
   "dependencies": {
@@ -28,12 +28,12 @@
     "@fastify/rate-limit": "^11.2.0",
     "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.2.1",
+    "node-pg-migrate": "^9.0.0",
     "pg": "^8.13.1",
     "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
-    "eslint": "^9.18.0",
-    "node-pg-migrate": "^9.0.0"
+    "eslint": "^9.18.0"
   }
 }
