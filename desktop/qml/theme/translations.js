@@ -1,6 +1,11 @@
 .pragma library
 
 var _pl = {
+    "Disconnected. Your library on this computer is unchanged.": "Rozłączono. Biblioteka na tym komputerze bez zmian.",
+    "Cancelled. Nothing was changed.": "Anulowano. Nic nie zostało zmienione.",
+    "Connected. Nothing to synchronise yet.": "Połączono. Nie ma jeszcze czego synchronizować.",
+    "Synchronised.": "Zsynchronizowano.",
+
     "Server": "Serwer",
     "Server address": "Adres serwera",
     "Login": "Login",
