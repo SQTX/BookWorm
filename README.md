@@ -32,6 +32,8 @@ A desktop application for tracking your personal book library — what you're re
 - **Highlights & summaries**: Store important passages and book summaries.
 - **Reading challenges**: Set time-bound reading goals and track completion.
 - **Statistics dashboard**: Total books, pages read, average rating, genre distribution, monthly/yearly charts.
+- **Optional server sync**: Off by default and silent about it — BookWorm is a complete desktop application on its own. Point it at your own server in Settings and your library, covers included, syncs both ways: automatically on launch and shutdown, or on demand. Neither side can overwrite newer data with older, and cover images travel by content hash so the same edition is stored once.
+- **Backup & restore**: A single ZIP with a full database dump and every cover image, verified before it is written. Restoring trial-loads the archive into a scratch database first and takes a safety backup of what it is about to replace.
 - **CSV import/export**: Migrate your data in and out.
 - **Bilingual UI**: Full English and Polish translations with automatic system language detection.
 - **Three themes**: Classic (warm dark), Minimalist Dark, and Minimalist Light.
