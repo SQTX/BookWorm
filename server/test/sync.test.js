@@ -305,6 +305,31 @@ describe('sync', { skip: DATABASE_URL ? false : 'TEST_DATABASE_URL not set' }, (
     assert.equal(rows[0].count, '1');
   });
 
+  test('a tombstone carrying only a uuid deletes rather than failing', async () => {
+    // What a real client sends: the row is already gone locally, so there are
+    // no fields left to include. Upserting it tried to INSERT a book with no
+    // title and violated NOT NULL, failing the entire batch — including the
+    // unrelated rows travelling with it.
+    const book = bookRow({ title: 'To be tombstoned' });
+    await push({ books: [book] });
+
+    const res = await push({
+      books: [{ uuid: book.uuid, updatedAt: new Date().toISOString(), deletedAt: new Date().toISOString() }],
+    });
+
+    assert.equal(res.statusCode, 200);
+
+    const { rows } = await pool.query('SELECT deleted_at FROM books WHERE uuid = $1', [book.uuid]);
+    assert.ok(rows[0].deleted_at, 'the row is marked deleted');
+  });
+
+  test('a tombstone for a row the server never had is a no-op', async () => {
+    const res = await push({
+      books: [{ uuid: randomUUID(), updatedAt: new Date().toISOString(), deletedAt: new Date().toISOString() }],
+    });
+    assert.equal(res.statusCode, 200, 'nothing to delete is not an error');
+  });
+
   test('a child whose book has not arrived yet is skipped, not fatal', async () => {
     // Out-of-order arrival must not fail the batch: the next sync carries the
     // child once its parent exists.
