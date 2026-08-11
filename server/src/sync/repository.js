@@ -225,15 +225,35 @@ async function replaceTags(client, userId, bookId, tags) {
   );
 }
 
+/**
+ * Tags have two identities and ON CONFLICT can only name one.
+ *
+ * `uuid` is what crosses machines; `(user_id, name)` is what the data model
+ * means — a tag *is* its name, and two tags called "fantasy" for one owner is
+ * not a thing. Targeting uuid alone fails outright when the name already exists
+ * under a different identity, and that is not hypothetical: pushing a book
+ * creates its tags by name, so any client sending both hits it on the first
+ * upload.
+ *
+ * So: update by uuid when that row exists, otherwise insert and let a name
+ * collision resolve to the row already there. A tag arriving with a new uuid
+ * for an existing name is the same tag — books link to tags by name, so keeping
+ * the stored identity loses nothing.
+ */
 async function pushTags(client, userId, rows) {
   for (const row of rows) {
+    const { rowCount } = await client.query(
+      `UPDATE tags SET name = $1, color = $2, client_updated_at = $3, deleted_at = $4
+        WHERE uuid = $5 AND user_id = $6 AND $3 > client_updated_at`,
+      [row.name, row.color ?? null, row.updatedAt, row.deletedAt ?? null, row.uuid, userId],
+    );
+
+    if (rowCount > 0) continue;
+
     await client.query(
       `INSERT INTO tags (user_id, uuid, name, color, client_updated_at, deleted_at)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (uuid) DO UPDATE
-          SET name = EXCLUDED.name, color = EXCLUDED.color,
-              client_updated_at = EXCLUDED.client_updated_at, deleted_at = EXCLUDED.deleted_at
-        ${lwwGuard('tags')}`,
+       ON CONFLICT (user_id, name) DO NOTHING`,
       [userId, row.uuid, row.name, row.color ?? null, row.updatedAt, row.deletedAt ?? null],
     );
   }
@@ -336,10 +356,13 @@ async function pushSessions(client, userId, rows) {
 }
 
 const PUSH_HANDLERS = {
-  // Books first: quotes, highlights and sessions all resolve a book UUID, so
-  // within one batch the parent must land before its children.
-  books: pushBooks,
+  // Tags before books: pushing a book creates its tags by name, so with books
+  // first every tag would already exist under a server-minted uuid and the
+  // client's own identity for it could never be stored.
   tags: pushTags,
+  // Then books, because quotes, highlights and sessions resolve a book uuid and
+  // the parent has to land before its children within one batch.
+  books: pushBooks,
   challenges: pushChallenges,
   favoriteQuotes: pushQuotes,
   highlights: pushHighlights,
