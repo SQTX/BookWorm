@@ -3,6 +3,8 @@
 #include "keychain.h"
 #include "../database/databasemanager.h"
 
+#include <QFileInfo>
+#include <memory>
 #include <QDir>
 #include <QThread>
 #include <thread>
@@ -224,6 +226,15 @@ void SyncManager::performUpload()
 {
     setStatus(tr("Uploading your library…"), true);
 
+    // Covers first, and collectAll() only afterwards, so the hashes the upload
+    // learns are already on the rows it sends. Gathering the batch first would
+    // send every book with a null cover_hash and leave the images stranded
+    // until some later edit happened to touch each row.
+    uploadCovers([this]() { sendWholeLibrary(); });
+}
+
+void SyncManager::sendWholeLibrary()
+{
     const QJsonObject batch = m_repo->collectAll();
     const int books = batch.value("books").toArray().size();
 
@@ -253,6 +264,10 @@ void SyncManager::performDownload()
     setStatus(tr("Connected"));
     emit remoteChangesApplied();
     emit syncFinished(true, tr("Received %n row(s) from the server.", nullptr, written));
+
+    // The rows arrived naming their covers; fetch the images those names refer
+    // to. Not awaited — a library is usable before its pictures are.
+    downloadCovers();
 }
 
 void SyncManager::withSession(std::function<void(bool)> then)
@@ -357,7 +372,11 @@ void SyncManager::syncNow()
 void SyncManager::performIncremental()
 {
     setStatus(tr("Synchronising…"), true);
+    uploadCovers([this]() { pushAndPull(); });
+}
 
+void SyncManager::pushAndPull()
+{
     QJsonObject batch = m_repo->collectChangedSince(cursor());
     const QJsonArray tombstones = m_repo->pendingTombstones();
 
@@ -410,6 +429,9 @@ void SyncManager::performIncremental()
         if (written > 0)
             emit remoteChangesApplied();
         emit syncFinished(true, tr("Synchronised."));
+
+        // After the rows, because it is the rows that say which covers exist.
+        downloadCovers();
     });
 }
 
@@ -428,4 +450,149 @@ void SyncManager::disconnectFromServer()
 
     setStatus(QString());
     emit syncFinished(true, tr("Disconnected. Your library on this computer is unchanged."));
+}
+
+// ── Covers ───────────────────────────────────────────────────────────────────
+
+void SyncManager::uploadCovers(std::function<void()> then)
+{
+    auto jobs = std::make_shared<QVector<SyncRepository::CoverJob>>(m_repo->coversToUpload());
+    if (jobs->isEmpty()) {
+        then();
+        return;
+    }
+
+    logSync(QStringLiteral("covers: %1 to upload").arg(jobs->size()));
+
+    auto index = std::make_shared<int>(0);
+    auto sent = std::make_shared<int>(0);
+
+    // std::function holding itself, via a shared_ptr, so each reply can start
+    // the next request. A plain loop cannot: these complete asynchronously.
+    auto step = std::make_shared<std::function<void()>>();
+    *step = [this, jobs, index, sent, then, step]() {
+        if (*index >= jobs->size()) {
+            if (*sent > 0)
+                logSync(QStringLiteral("covers: uploaded %1").arg(*sent));
+            then();
+            return;
+        }
+
+        const SyncRepository::CoverJob job = jobs->at((*index)++);
+
+        QFile file(job.path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            (*step)();
+            return;
+        }
+        const QByteArray content = file.readAll();
+
+        m_api.postFile(QStringLiteral("/v1/covers"), QFileInfo(job.path).fileName(), content,
+                       [this, job, sent, then, step](const ApiClient::Response &res) {
+            if (res.ok) {
+                // Trust the server's hash over the one computed here. They
+                // agree today; if they ever stop, the one that can find the
+                // image again is the server's.
+                m_repo->setCoverHash(job.bookId, res.body.value("hash").toString());
+                ++(*sent);
+                (*step)();
+                return;
+            }
+
+            if (res.isNetworkError || res.httpStatus == 429) {
+                // Offline, or asked to slow down. Both mean stop trying now and
+                // leave the rest for the next sync, which will find them again.
+                logSync(QStringLiteral("covers: stopping after %1 (%2)")
+                            .arg(*sent).arg(res.httpStatus == 429 ? QStringLiteral("rate limited")
+                                                                  : res.error));
+                then();
+                return;
+            }
+
+            // A rejection specific to this image — too large, or not an image
+            // the server will take. Skipping it is right; retrying it forever
+            // would not make it acceptable.
+            logSync(QStringLiteral("covers: %1 rejected: %2")
+                        .arg(QFileInfo(job.path).fileName(), res.error));
+            (*step)();
+        });
+    };
+
+    (*step)();
+}
+
+void SyncManager::downloadCovers()
+{
+    auto jobs = std::make_shared<QVector<SyncRepository::CoverJob>>(m_repo->coversToDownload());
+    if (jobs->isEmpty())
+        return;
+
+    if (!QDir().mkpath(SyncRepository::coverDir())) {
+        logSync(QStringLiteral("covers: cannot create %1").arg(SyncRepository::coverDir()));
+        return;
+    }
+
+    logSync(QStringLiteral("covers: %1 to download").arg(jobs->size()));
+
+    auto index = std::make_shared<int>(0);
+    auto got = std::make_shared<int>(0);
+
+    auto step = std::make_shared<std::function<void()>>();
+    *step = [this, jobs, index, got, step]() {
+        if (*index >= jobs->size()) {
+            if (*got > 0) {
+                logSync(QStringLiteral("covers: downloaded %1").arg(*got));
+                emit remoteChangesApplied();   // the grid is showing placeholders
+            }
+            return;
+        }
+
+        const SyncRepository::CoverJob job = jobs->at((*index)++);
+
+        // Already here, under another book. Covers are stored by content hash
+        // and the server deduplicates, so two books sharing an edition share
+        // one file — the second one needs the pointer, not the download.
+        if (QFile::exists(job.path)) {
+            m_repo->retireMirror(job.supersedes, job.bookId);
+            m_repo->setCoverFile(job.bookId, job.hash, job.path);
+            ++(*got);
+            (*step)();
+            return;
+        }
+
+        m_api.getBytes(QStringLiteral("/v1/covers/%1").arg(job.hash),
+                       [this, job, got, step](const QByteArray &bytes) {
+            if (bytes.isEmpty()) {
+                // Gone from the server, or unreachable. Either way the book
+                // keeps its hash and the next sync asks again.
+                (*step)();
+                return;
+            }
+
+            // Written whole and then renamed: a half-written file would be a
+            // readable path pointing at a broken image, and coversToDownload()
+            // decides purely on whether the path exists.
+            const QString partial = job.path + QStringLiteral(".part");
+            QFile out(partial);
+            if (!out.open(QIODevice::WriteOnly)) { (*step)(); return; }
+            const bool written = out.write(bytes) == bytes.size();
+            out.close();
+
+            // rename() will not replace an existing file, and by the time this
+            // reply landed another book's download may have put one there.
+            QFile::remove(job.path);
+            if (!written || !QFile::rename(partial, job.path)) {
+                QFile::remove(partial);
+                (*step)();
+                return;
+            }
+
+            m_repo->retireMirror(job.supersedes, job.bookId);
+            m_repo->setCoverFile(job.bookId, job.hash, job.path);
+            ++(*got);
+            (*step)();
+        });
+    };
+
+    (*step)();
 }

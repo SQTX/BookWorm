@@ -73,6 +73,26 @@ public:
     void get(const QString &path, Callback done);
     void post(const QString &path, const QJsonObject &body, Callback done);
 
+    /**
+     * Upload one file as multipart/form-data.
+     *
+     * Separate from post() because that one speaks JSON, and a cover is bytes.
+     * Deliberately takes the content rather than a path: the caller has already
+     * read the file to hash it, and reading it twice invites the two reads to
+     * disagree.
+     */
+    void postFile(const QString &path, const QString &fileName,
+                  const QByteArray &content, Callback done);
+
+    /**
+     * Fetch a response whose body is not JSON.
+     *
+     * @p done receives the raw bytes, empty when the request failed. The status
+     * is deliberately not exposed: every caller here treats "no image" the
+     * same way regardless of why.
+     */
+    void getBytes(const QString &path, std::function<void(const QByteArray &)> done);
+
 signals:
     /** The refresh token was rejected. The user has to log in again — which
      *  also happens when the server detects a replayed token and revokes every

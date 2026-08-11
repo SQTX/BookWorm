@@ -119,6 +119,11 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS audio_mode VARCHAR(32) DEFAULT 'none'");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS read_count INTEGER NOT NULL DEFAULT 0");
+    // The synced identity of a cover: SHA-256 of the bytes that were uploaded.
+    // cover_image_path stays alongside it and stays local — it points at
+    // wherever the user picked the file on this machine, which means nothing on
+    // another. The hash is what travels.
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS cover_hash CHAR(64)");
     // One-time backfill: books already 'read' before this column existed count as
     // read once. Guarded on read_count = 0 so it never overwrites a real reread tally.
     q.exec("UPDATE books SET read_count = 1 WHERE status = 'read' AND read_count = 0");

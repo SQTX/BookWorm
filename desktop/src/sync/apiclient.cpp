@@ -2,6 +2,7 @@
 #include "keychain.h"
 
 #include <QJsonDocument>
+#include <QHttpMultiPart>
 #include <QNetworkReply>
 #include <QTimer>
 
@@ -13,6 +14,9 @@ constexpr const char *REFRESH_KEY = "refreshToken";
 /** Requests carry a timeout because the default is effectively none, and a
  *  sync that hangs forever looks identical to one that is merely slow. */
 constexpr int REQUEST_TIMEOUT_MS = 20000;
+
+/** Uploads get longer: the server re-encodes the image before it replies. */
+constexpr int UPLOAD_TIMEOUT_MS = 60000;
 
 } // namespace
 
@@ -98,6 +102,80 @@ void ApiClient::get(const QString &path, Callback done)
 void ApiClient::post(const QString &path, const QJsonObject &body, Callback done)
 {
     send("POST", path, body, done, /*allowRetry=*/true);
+}
+
+void ApiClient::postFile(const QString &path, const QString &fileName,
+                         const QByteArray &content, Callback done)
+{
+    if (m_baseUrl.isEmpty() || m_accessToken.isEmpty()) {
+        if (done) done(Response{false, 0, {}, QStringLiteral("Not connected"), false});
+        return;
+    }
+
+    auto *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+    QHttpPart filePart;
+    filePart.setHeader(QNetworkRequest::ContentTypeHeader,
+                       QVariant(QStringLiteral("application/octet-stream")));
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                       QVariant(QStringLiteral("form-data; name=\"file\"; filename=\"%1\"")
+                                    .arg(fileName)));
+    filePart.setBody(content);
+    multiPart->append(filePart);
+
+    QNetworkRequest request{QUrl(m_baseUrl + path)};
+    request.setRawHeader("Authorization", "Bearer " + m_accessToken.toUtf8());
+    // Longer than a JSON call: the server re-encodes the image before replying,
+    // and it does so on two vCPU.
+    request.setTransferTimeout(UPLOAD_TIMEOUT_MS);
+
+    QNetworkReply *reply = m_network.post(request, multiPart);
+    multiPart->setParent(reply);   // freed with the reply, not before it is sent
+
+    QObject::connect(reply, &QNetworkReply::finished, this, [reply, done]() {
+        reply->deleteLater();
+
+        Response res;
+        res.httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
+        const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        if (doc.isObject())
+            res.body = doc.object();
+
+        if (reply->error() != QNetworkReply::NoError && res.httpStatus == 0) {
+            res.isNetworkError = true;
+            res.error = reply->errorString();
+        } else {
+            res.ok = res.httpStatus >= 200 && res.httpStatus < 300;
+            if (!res.ok)
+                res.error = res.body.value("error").toString();
+        }
+
+        // No 401 retry. An upload body cannot be replayed once the multipart
+        // has been consumed, and the caller runs these in a batch that the next
+        // sync repeats anyway.
+        if (done) done(res);
+    });
+}
+
+void ApiClient::getBytes(const QString &path, std::function<void(const QByteArray &)> done)
+{
+    if (m_baseUrl.isEmpty() || m_accessToken.isEmpty()) {
+        if (done) done({});
+        return;
+    }
+
+    QNetworkRequest request{QUrl(m_baseUrl + path)};
+    request.setRawHeader("Authorization", "Bearer " + m_accessToken.toUtf8());
+    request.setTransferTimeout(REQUEST_TIMEOUT_MS);
+
+    QNetworkReply *reply = m_network.get(request);
+    QObject::connect(reply, &QNetworkReply::finished, this, [reply, done]() {
+        reply->deleteLater();
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const QByteArray body = reply->readAll();
+        if (done) done(status == 200 ? body : QByteArray());
+    });
 }
 
 void ApiClient::send(const QByteArray &verb, const QString &path,
