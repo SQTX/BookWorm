@@ -107,11 +107,29 @@ the server" rule in D1 was protecting.
 
 ## 4. Application
 
+`adduser --system --home /opt/bookworm` already created that directory owned by
+`bookworm`, and this clone runs as root — so the files land root-owned inside a
+bookworm-owned tree. Git then refuses every later command with
+`fatal: detected dubious ownership`, which silently turns a `git pull` into a
+no-op: the next `npm ci` reinstalls the *old* lockfile and the failure appears
+somewhere else entirely.
+
+Tell git this repository is trusted, then hand the tree back to the service user
+once the install is done:
+
 ```bash
+git config --global --add safe.directory /opt/bookworm
+
 git clone https://github.com/SQTX/BookWorm.git /opt/bookworm
 cd /opt/bookworm/server
 npm ci --omit=dev
+
+chown -R bookworm:bookworm /opt/bookworm
 ```
+
+The `chown` comes after `npm ci`, not before: node_modules is created by the
+install and would otherwise be root-owned in a tree the service reads as
+`bookworm`.
 
 `npm ci`, never `npm install`: it installs exactly the committed lockfile and
 fails if that lockfile and `package.json` disagree.
@@ -303,10 +321,15 @@ Never restore over the live database to "test" it.
 systemctl start bookworm-backup.service     # backup BEFORE the migration
 cd /opt/bookworm && git pull
 cd server && npm ci --omit=dev
+chown -R bookworm:bookworm /opt/bookworm    # npm ci writes as root
 set -a; . /etc/bookworm/api.env; set +a
 npm run migrate:up
 systemctl restart bookworm-api
 ```
+
+Check `git pull` actually reported new commits. A refusal on ownership grounds
+prints a message and exits, and the `npm ci` that follows will happily reinstall
+the version you already had.
 
 The backup goes before the migration, not after — afterwards it captures the
 state you might need to undo.
