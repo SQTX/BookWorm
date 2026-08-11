@@ -26,7 +26,37 @@ The alternative is to add them only when sync is switched on, which produces two
 
 One schema, one code path, and enabling sync becomes a settings change rather than a migration.
 
-> **Soft delete is the exception that is not inert.** With tombstones, `deleteBook()` stops removing the row. That changes desktop-only behaviour too — and improves it: `undoDelete()` currently restores from an in-memory snapshot that dies with the process, and becomes durable here.
+### Deletions: a queue, not a column *(revised during implementation)*
+
+The first draft copied the server and put a `deleted_at` column on every table,
+filtering it out of reads. Implementing it showed the cost: **fifty-six read
+queries** in `DatabaseManager` would each need `AND deleted_at IS NULL`, and
+missing one means a deleted book reappearing in a single view — a bug that would
+be found by a user, not by a compiler.
+
+The server needs that column because it must serve tombstones to any client that
+pulls, for an indefinite window. **The client's requirement is much smaller:**
+remember its own deletions until they are pushed. That is a queue.
+
+```
+sync_tombstones (entity, uuid, deleted_at)
+```
+
+`deleteBook()` records the row's UUID, then deletes the row exactly as before.
+Reads are untouched — the row is gone, so nothing can accidentally show it. Sync
+pushes the queue and clears it.
+
+Two consequences worth being explicit about:
+
+- **Desktop-only behaviour is now genuinely identical**, not merely
+  "indistinguishable in practice". Deletion is still a `DELETE`.
+- **`undoDelete()` does not become durable**, which the first draft claimed it
+  would. Undo needs the whole row back, and the row is gone; the in-memory
+  snapshot stays. That is a real thing given up for not touching fifty-six
+  queries, and it can be revisited on its own terms rather than as a side effect.
+
+A full reset clears the queue rather than filling it: "reset this computer" is
+not a request to wipe the server.
 
 ## Settings
 
