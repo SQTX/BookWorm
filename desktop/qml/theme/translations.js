@@ -1,6 +1,30 @@
 .pragma library
 
 var _pl = {
+    "Server": "Serwer",
+    "Server address": "Adres serwera",
+    "Login": "Login",
+    "Password": "Hasło",
+    "Connect": "Połącz",
+    "Connecting…": "Łączenie…",
+    "Sync now": "Synchronizuj",
+    "Disconnect": "Rozłącz",
+    "Waiting to be sent: %1": "Oczekuje na wysłanie: %1",
+    "BookWorm works entirely on this computer. Connect a server only if you want the same library on another device.": "BookWorm działa w całości na tym komputerze. Podłącz serwer tylko wtedy, gdy chcesz mieć tę samą bibliotekę na innym urządzeniu.",
+    "Signing in…": "Logowanie…",
+    "Checking the server…": "Sprawdzanie serwera…",
+    "Uploading your library…": "Wysyłanie biblioteki…",
+    "Downloading…": "Pobieranie…",
+    "Synchronising…": "Synchronizacja…",
+    "Connected": "Połączono",
+    "Sign in required": "Wymagane logowanie",
+    "Signed out — sign in again": "Wylogowano — zaloguj się ponownie",
+    "Cannot reach the server": "Nie można połączyć się z serwerem",
+    "Offline — will retry": "Offline — ponowię próbę",
+    "Not connected": "Brak połączenia",
+    "Waiting for a decision": "Oczekiwanie na decyzję",
+    "Connected — not synchronised": "Połączono — bez synchronizacji",
+
     // ── Settings dialog (rebuilt UI) ──
     "General": "Ogólne",
     "Appearance": "Wygląd",
