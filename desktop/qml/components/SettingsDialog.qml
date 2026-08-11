@@ -1207,6 +1207,15 @@ Dialog {
                             }
                         }
 
+                        Connections {
+                            target: SyncManager
+                            function onFirstSyncDecisionRequired(localBooks, serverBooks) {
+                                firstSyncDialog.localBooks = localBooks
+                                firstSyncDialog.serverBooks = serverBooks
+                                firstSyncDialog.open()
+                            }
+                        }
+
                         Text {
                             Layout.fillWidth: true
                             text: Theme.tr("BookWorm works entirely on this computer. Connect a server only if you want the same library on another device.")
@@ -1243,6 +1252,65 @@ Dialog {
                 text: Theme.tr("Close")
                 onClicked: root.close()
             }
+        }
+    }
+
+    // ── First-sync decision ──
+    //
+    // The one case the program must not decide alone. Books created on
+    // different machines carry different identities, so "upload everything"
+    // against a populated server produces a duplicate library rather than a
+    // merge — and nothing here can tell the two situations apart.
+    Dialog {
+        id: firstSyncDialog
+
+        property int localBooks: 0
+        property int serverBooks: 0
+
+        anchors.centerIn: Overlay.overlay
+        width: 520
+        modal: true
+        closePolicy: Dialog.NoAutoClose
+        title: Theme.tr("Which library should win?")
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingLarge
+
+            Text {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                wrapMode: Text.WordWrap
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeMedium
+                text: Theme.tr("The server already has %1 book(s) and this computer has %2. They cannot be matched automatically — books added on different machines get different identities, so uploading would create duplicates rather than merge.")
+                          .arg(firstSyncDialog.serverBooks)
+                          .arg(firstSyncDialog.localBooks)
+            }
+        }
+
+        footer: RowLayout {
+            spacing: Theme.spacingMedium
+
+            Item { Layout.fillWidth: true }
+
+            // Cancel first and focused: a wrong answer here silently doubles a
+            // library, and the user knows which side is authoritative.
+            AppButton {
+                variant: "outline"
+                text: Theme.tr("Cancel")
+                onClicked: { SyncManager.resolveFirstSync("cancel"); firstSyncDialog.close() }
+            }
+            AppButton {
+                variant: "outline"
+                text: Theme.tr("Download from server")
+                onClicked: { SyncManager.resolveFirstSync("download"); firstSyncDialog.close() }
+            }
+            AppButton {
+                text: Theme.tr("Upload from here")
+                onClicked: { SyncManager.resolveFirstSync("upload"); firstSyncDialog.close() }
+            }
+
+            Item { width: Theme.spacingLarge }
         }
     }
 

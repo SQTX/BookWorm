@@ -1,6 +1,12 @@
 .pragma library
 
 var _pl = {
+    "Which library should win?": "Która biblioteka ma wygrać?",
+    "The server already has %1 book(s) and this computer has %2. They cannot be matched automatically — books added on different machines get different identities, so uploading would create duplicates rather than merge.": "Serwer ma już %1 książek, a ten komputer %2. Nie da się ich dopasować automatycznie — książki dodane na różnych urządzeniach mają różne tożsamości, więc wysłanie utworzyłoby duplikaty zamiast scalić.",
+    "Download from server": "Pobierz z serwera",
+    "Upload from here": "Wyślij stąd",
+    "Cancel": "Anuluj",
+
     "Disconnected. Your library on this computer is unchanged.": "Rozłączono. Biblioteka na tym komputerze bez zmian.",
     "Cancelled. Nothing was changed.": "Anulowano. Nic nie zostało zmienione.",
     "Connected. Nothing to synchronise yet.": "Połączono. Nie ma jeszcze czego synchronizować.",
