@@ -40,6 +40,8 @@ qt_add_executable(BookWorm
     src/sync/keychain.cpp
     src/sync/syncrepository.h
     src/sync/syncrepository.cpp
+    src/sync/syncmanager.h
+    src/sync/syncmanager.cpp
     src/sync/apiclient.h
     src/sync/apiclient.cpp
     src/backup/backupmanager.h

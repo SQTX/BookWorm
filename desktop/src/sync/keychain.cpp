@@ -73,7 +73,27 @@ bool store(const QString &account, const QString &key, const QString &secret)
         nullptr, keys, values, 5,
         &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-    const OSStatus status = SecItemAdd(attributes, nullptr);
+    OSStatus status = SecItemAdd(attributes, nullptr);
+
+    if (status == errSecDuplicateItem) {
+        // The delete above did not remove it, but the item is there. That
+        // happens when the existing entry was written by a different binary:
+        // the Keychain's access control hides it from the delete while the
+        // uniqueness check still sees it. Update in place instead of reporting
+        // a failure the caller cannot act on.
+        CFDictionaryRef query = makeQuery(acct);
+
+        const void *updateKeys[] = { kSecValueData };
+        const void *updateValues[] = { payload };
+        CFDictionaryRef update = CFDictionaryCreate(
+            nullptr, updateKeys, updateValues, 1,
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+        status = SecItemUpdate(query, update);
+
+        CFRelease(update);
+        CFRelease(query);
+    }
 
     CFRelease(attributes);
     CFRelease(payload);

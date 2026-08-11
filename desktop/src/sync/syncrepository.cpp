@@ -125,7 +125,7 @@ QJsonArray SyncRepository::collectBooks(const QDateTime &since) const
         b["title"] = q.value("title").toString();
         b["author"] = q.value("author").toString();
         b["genre"] = textOrNull(q.value("genre"));
-        b["pageCount"] = q.value("page_count").toInt();
+        b["pageCount"] = intOrNull(q.value("page_count"));
         b["startDate"] = dateOrNull(q.value("start_date"));
         b["endDate"] = dateOrNull(q.value("end_date"));
         b["rating"] = intOrNull(q.value("rating"));
@@ -140,11 +140,16 @@ QJsonArray SyncRepository::collectBooks(const QDateTime &since) const
         b["isNonFiction"] = q.value("is_non_fiction").toBool();
         b["isPriority"] = q.value("is_priority").toBool();
         b["audioMode"] = textOrNull(q.value("audio_mode"));
-        b["currentPage"] = q.value("current_page").toInt();
+        b["currentPage"] = intOrNull(q.value("current_page"));
         b["series"] = textOrNull(q.value("series"));
         b["summary"] = textOrNull(q.value("summary"));
         b["review"] = textOrNull(q.value("review"));
         b["readCount"] = q.value("read_count").toInt();
+
+        // page_count and current_page are nullable and 38 of this library's
+        // books have NULL in the latter. The application reads NULL and 0
+        // identically, so sending 0 would look harmless — and would still be a
+        // silent rewrite of the user's data on the way back down.
 
         // cover_image_path is deliberately absent. It points at a file on this
         // machine and means nothing on another; the image travels as a
@@ -391,7 +396,7 @@ int SyncRepository::applyBooks(const QJsonArray &rows)
         q.bindValue(":title", b.value("title").toString());
         q.bindValue(":author", b.value("author").toString());
         q.bindValue(":genre", b.value("genre").toVariant());
-        q.bindValue(":page_count", b.value("pageCount").toInt());
+        q.bindValue(":page_count", b.value("pageCount").toVariant());
         q.bindValue(":start_date", b.value("startDate").toVariant());
         q.bindValue(":end_date", b.value("endDate").toVariant());
         q.bindValue(":rating", b.value("rating").toVariant());
@@ -406,7 +411,7 @@ int SyncRepository::applyBooks(const QJsonArray &rows)
         q.bindValue(":is_non_fiction", b.value("isNonFiction").toBool());
         q.bindValue(":is_priority", b.value("isPriority").toBool());
         q.bindValue(":audio_mode", b.value("audioMode").toVariant());
-        q.bindValue(":current_page", b.value("currentPage").toInt());
+        q.bindValue(":current_page", b.value("currentPage").toVariant());
         q.bindValue(":series", b.value("series").toVariant());
         q.bindValue(":summary", b.value("summary").toVariant());
         q.bindValue(":review", b.value("review").toVariant());

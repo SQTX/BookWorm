@@ -49,7 +49,8 @@ Dialog {
         { key: "General",    icon: "qrc:/qt/qml/BookWorm/src/img/icons/settings.svg" },
         { key: "Appearance", icon: "qrc:/qt/qml/BookWorm/src/img/icons/library-view.svg" },
         { key: "Backup",     icon: "qrc:/qt/qml/BookWorm/src/img/icons/export.svg" },
-        { key: "Data",       icon: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg" }
+        { key: "Data",       icon: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg" },
+        { key: "Sync",       icon: "qrc:/qt/qml/BookWorm/src/img/icons/import.svg" }
     ]
 
     modal: true
@@ -981,6 +982,151 @@ Dialog {
                                     onClicked: {
                                         root.close();
                                         root.resetRequested();
+                                    }
+                                }
+                            }
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+
+                    // ═══════════════════════════════
+                    // 4 — Sync
+                    // ═══════════════════════════════
+                    //
+                    // Everything server-related lives here and nowhere else.
+                    // Someone who never opens this page must not be able to
+                    // tell the feature exists (D8), which is why there is no
+                    // banner, no badge and no prompt anywhere outside it.
+                    ColumnLayout {
+                        spacing: Theme.spacingLarge
+
+                        SectionLabel { text: Theme.tr("Server") }
+
+                        Panel {
+                            Layout.fillWidth: true
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: Theme.cardPadding
+                                spacing: Theme.spacingMedium
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    color: Theme.textSecondary
+                                    font.pixelSize: 12
+                                    text: Theme.tr("BookWorm works entirely on this computer. Connect a server only if you want the same library on another device.")
+                                }
+
+                                // ── Connected ──
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingSmall
+                                    visible: SyncManager.enabled
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.spacingSmall
+
+                                        Rectangle {
+                                            width: 8; height: 8; radius: 4
+                                            color: SyncManager.busy ? Theme.statusReading : Theme.statusRead
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideMiddle
+                                            color: Theme.textPrimary
+                                            text: SyncManager.email + " · " + SyncManager.serverUrl
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        color: Theme.textSecondary
+                                        font.pixelSize: 12
+                                        text: SyncManager.status
+                                        visible: SyncManager.status !== ""
+                                    }
+
+                                    Text {
+                                        color: Theme.textSecondary
+                                        font.pixelSize: 12
+                                        visible: SyncManager.pendingDeletions > 0
+                                        text: Theme.tr("%1 deletion(s) waiting to be sent").arg(SyncManager.pendingDeletions)
+                                    }
+
+                                    RowLayout {
+                                        spacing: Theme.spacingSmall
+
+                                        AppButton {
+                                            text: Theme.tr("Sync now")
+                                            enabled: !SyncManager.busy
+                                            onClicked: SyncManager.syncNow()
+                                        }
+                                        AppButton {
+                                            variant: "outline"
+                                            text: Theme.tr("Disconnect")
+                                            enabled: !SyncManager.busy
+                                            onClicked: SyncManager.disconnectFromServer()
+                                        }
+                                    }
+                                }
+
+                                // ── Not connected ──
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingSmall
+                                    visible: !SyncManager.enabled
+
+                                    TextField {
+                                        id: syncUrlField
+                                        Layout.fillWidth: true
+                                        placeholderText: "https://example.com"
+                                        text: SyncManager.serverUrl
+                                        selectByMouse: true
+                                    }
+                                    TextField {
+                                        id: syncEmailField
+                                        Layout.fillWidth: true
+                                        placeholderText: Theme.tr("Login")
+                                        text: SyncManager.email
+                                        selectByMouse: true
+                                    }
+                                    TextField {
+                                        id: syncPasswordField
+                                        Layout.fillWidth: true
+                                        placeholderText: Theme.tr("Password")
+                                        echoMode: TextInput.Password
+                                        selectByMouse: true
+                                        // Never bound to a property and never
+                                        // saved: it is exchanged for a token
+                                        // and forgotten.
+                                        onAccepted: syncConnectButton.clicked()
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        color: Theme.textSecondary
+                                        font.pixelSize: 12
+                                        text: SyncManager.status
+                                        visible: SyncManager.status !== ""
+                                    }
+
+                                    AppButton {
+                                        id: syncConnectButton
+                                        text: Theme.tr("Connect")
+                                        enabled: !SyncManager.busy
+                                                 && syncUrlField.text !== ""
+                                                 && syncEmailField.text !== ""
+                                                 && syncPasswordField.text !== ""
+                                        onClicked: {
+                                            SyncManager.connectToServer(syncUrlField.text.trim(),
+                                                                        syncEmailField.text.trim(),
+                                                                        syncPasswordField.text)
+                                            syncPasswordField.text = ""
+                                        }
                                     }
                                 }
                             }
