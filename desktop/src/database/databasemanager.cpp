@@ -25,18 +25,18 @@ bool DatabaseManager::connect()
         return true;
 
     m_db = QSqlDatabase::addDatabase(BookWorm::Config::DB_DRIVER);
-    m_db.setHostName(BookWorm::Config::DB_HOST);
-    m_db.setPort(BookWorm::Config::DB_PORT);
-    m_db.setDatabaseName(BookWorm::Config::DB_NAME);
-    m_db.setUserName(BookWorm::Config::DB_USER);
-    m_db.setPassword(BookWorm::Config::DB_PASSWORD);
+    m_db.setHostName(BookWorm::Config::dbHost());
+    m_db.setPort(BookWorm::Config::dbPort());
+    m_db.setDatabaseName(BookWorm::Config::dbName());
+    m_db.setUserName(BookWorm::Config::dbUser());
+    m_db.setPassword(BookWorm::Config::dbPassword());
 
     if (!m_db.open()) {
         qCritical() << "Database connection failed:" << m_db.lastError().text();
         return false;
     }
 
-    qInfo() << "Connected to PostgreSQL database:" << BookWorm::Config::DB_NAME;
+    qInfo() << "Connected to PostgreSQL database:" << BookWorm::Config::dbName();
     return true;
 }
 
@@ -185,6 +185,68 @@ bool DatabaseManager::initializeSchema()
 
     // Tags: add color column
     q.exec("ALTER TABLE tags ADD COLUMN IF NOT EXISTS color VARCHAR(9) DEFAULT '#808080'");
+
+    // ─── Sync columns ────────────────────────────────────────────────────────
+    //
+    // Added for every user, whether or not they ever enable sync (D8). Keeping
+    // two schema variants would put a conditional in every query that touches a
+    // row, to save sixteen bytes each; unused, these are inert.
+    //
+    // They must match the server's schema exactly — see the numbered migrations
+    // under server/migrations/. Two sources of truth for one shape is a real
+    // risk, so the shapes are compared directly rather than by reading both:
+    //   pg_dump --schema-only, both sides, diff.
+    //
+    //   uuid               identity that survives crossing machines. A SERIAL
+    //                      cannot: two devices offline both mint id 96 for
+    //                      different books.
+    //   updated_at         server-assigned in the cloud, locally the mirror of
+    //                      it. Drives the sync cursor.
+    //   client_updated_at  when the user made the edit. Decides last-write-wins,
+    //                      and must never be overwritten by a trigger — that
+    //                      conflation silently discarded every edit after the
+    //                      first when the server first had it.
+    //   deleted_at         a tombstone. A hard DELETE cannot propagate: a device
+    //                      that never saw the row cannot tell "deleted" from
+    //                      "never existed", so its next pull resurrects it.
+    static const char *syncTables[] = {
+        "books", "tags", "challenges", "favorite_quotes", "highlights", "reading_sessions"
+    };
+
+    for (const char *table : syncTables) {
+        const QString t = QString::fromLatin1(table);
+
+        // gen_random_uuid() is built into PostgreSQL 13+. On a populated table
+        // the default is evaluated per row, so every existing book gets its own
+        // identity rather than all sharing one.
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN IF NOT EXISTS uuid UUID NOT NULL DEFAULT gen_random_uuid()").arg(t));
+        q.exec(QStringLiteral("ALTER TABLE %1 DROP CONSTRAINT IF EXISTS %1_uuid_key").arg(t));
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD CONSTRAINT %1_uuid_key UNIQUE (uuid)").arg(t));
+
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()").arg(t));
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN IF NOT EXISTS client_updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()").arg(t));
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE").arg(t));
+
+        q.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_%1_sync ON %1(updated_at)").arg(t));
+    }
+
+    // books.updated_at predates this and was nullable with a default. Sync
+    // filters on it, and a NULL row is invisible to every pull — so it would
+    // simply never leave this machine, silently.
+    q.exec("UPDATE books SET updated_at = COALESCE(updated_at, created_at, NOW()) WHERE updated_at IS NULL");
+    q.exec("ALTER TABLE books ALTER COLUMN updated_at SET NOT NULL");
+
+    // updated_at is maintained by a trigger rather than by each UPDATE: a query
+    // that forgets the assignment does not fail, the row just stops syncing.
+    q.exec("CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS TRIGGER AS $$ "
+           "BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql");
+
+    for (const char *table : syncTables) {
+        const QString t = QString::fromLatin1(table);
+        q.exec(QStringLiteral("DROP TRIGGER IF EXISTS %1_touch_updated_at ON %1").arg(t));
+        q.exec(QStringLiteral("CREATE TRIGGER %1_touch_updated_at BEFORE UPDATE ON %1 "
+                              "FOR EACH ROW EXECUTE FUNCTION touch_updated_at()").arg(t));
+    }
 
     qInfo() << "Database schema initialized";
     return true;

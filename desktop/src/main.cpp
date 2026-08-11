@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     // Database connection
     auto &db = DatabaseManager::instance();
     if (!db.connect()) {
-        qCritical("Failed to connect to PostgreSQL database '%s'", BookWorm::Config::DB_NAME);
+        qCritical() << "Failed to connect to PostgreSQL database" << BookWorm::Config::dbName();
         return 1;
     }
     db.initializeSchema();

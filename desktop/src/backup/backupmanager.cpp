@@ -147,9 +147,9 @@ QString BackupManager::locateDropdb() const
 QStringList BackupManager::connectionArgs() const
 {
     return {
-        QStringLiteral("--host=%1").arg(QString::fromLatin1(BookWorm::Config::DB_HOST)),
-        QStringLiteral("--port=%1").arg(BookWorm::Config::DB_PORT),
-        QStringLiteral("--username=%1").arg(QString::fromLatin1(BookWorm::Config::DB_USER))
+        QStringLiteral("--host=%1").arg(BookWorm::Config::dbHost()),
+        QStringLiteral("--port=%1").arg(BookWorm::Config::dbPort()),
+        QStringLiteral("--username=%1").arg(BookWorm::Config::dbUser())
     };
 }
 
@@ -368,13 +368,13 @@ bool BackupManager::backupTo(const QString &filePath)
     // Hardcoding them here would let the backup keep dumping the old database after
     // a connection change, and nothing would say so.
     const QStringList dumpArgs = {
-        QStringLiteral("--host=%1").arg(QString::fromLatin1(BookWorm::Config::DB_HOST)),
-        QStringLiteral("--port=%1").arg(BookWorm::Config::DB_PORT),
-        QStringLiteral("--username=%1").arg(QString::fromLatin1(BookWorm::Config::DB_USER)),
+        QStringLiteral("--host=%1").arg(BookWorm::Config::dbHost()),
+        QStringLiteral("--port=%1").arg(BookWorm::Config::dbPort()),
+        QStringLiteral("--username=%1").arg(BookWorm::Config::dbUser()),
         QStringLiteral("--no-owner"),
         QStringLiteral("--no-privileges"),
         QStringLiteral("--file=") + stagingDir + QStringLiteral("/database.sql"),
-        QString::fromLatin1(BookWorm::Config::DB_NAME)
+        BookWorm::Config::dbName()
     };
     if (!runProcess(m_pgDumpPath, dumpArgs, &error)) {
         emit backupFinished(false, error);
@@ -475,11 +475,11 @@ int BackupManager::scratchBookCount(const QString &name)
     {
         QSqlDatabase db = QSqlDatabase::addDatabase(
             QString::fromLatin1(BookWorm::Config::DB_DRIVER), connectionName);
-        db.setHostName(QString::fromLatin1(BookWorm::Config::DB_HOST));
-        db.setPort(BookWorm::Config::DB_PORT);
+        db.setHostName(BookWorm::Config::dbHost());
+        db.setPort(BookWorm::Config::dbPort());
         db.setDatabaseName(name);
-        db.setUserName(QString::fromLatin1(BookWorm::Config::DB_USER));
-        db.setPassword(QString::fromLatin1(BookWorm::Config::DB_PASSWORD));
+        db.setUserName(BookWorm::Config::dbUser());
+        db.setPassword(BookWorm::Config::dbPassword());
 
         if (db.open()) {
             QSqlQuery q(db);
@@ -699,7 +699,7 @@ bool BackupManager::restoreFrom(const QString &filePath)
                     connectionArgs()
                         << QStringLiteral("--quiet")
                         << QStringLiteral("--set=ON_ERROR_STOP=1")
-                        << QStringLiteral("--dbname=") + QString::fromLatin1(BookWorm::Config::DB_NAME)
+                        << QStringLiteral("--dbname=") + BookWorm::Config::dbName()
                         << QStringLiteral("--command=DROP SCHEMA public CASCADE; CREATE SCHEMA public;"),
                     &error)) {
         emit restoreFinished(false, QStringLiteral(
@@ -722,7 +722,7 @@ bool BackupManager::restoreFrom(const QString &filePath)
                         << QStringLiteral("--quiet")
                         << QStringLiteral("--single-transaction")
                         << QStringLiteral("--set=ON_ERROR_STOP=1")
-                        << QStringLiteral("--dbname=") + QString::fromLatin1(BookWorm::Config::DB_NAME)
+                        << QStringLiteral("--dbname=") + BookWorm::Config::dbName()
                         << QStringLiteral("--file=") + dumpFile,
                     &error)) {
         emit restoreFinished(false, QStringLiteral(
