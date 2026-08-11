@@ -38,6 +38,36 @@ CFDictionaryRef makeQuery(const QByteArray &account)
     return query;
 }
 
+/**
+ * Suppresses the Keychain's permission panel for as long as it is in scope.
+ *
+ * A stored item may normally be read without ceremony only by the binary that
+ * wrote it; anyone else gets a system panel asking the user to allow it. That
+ * default assumes a stable code signature, and this application has none — it
+ * is built locally and unsigned, so every rebuild is a new identity and the
+ * item written by the previous build is read by a stranger. The panel then
+ * appears unbidden during launch or shutdown, and — worse — the read does not
+ * return until somebody answers it. A stack trace caught exactly that: the
+ * whole application parked inside SecItemCopyMatching.
+ *
+ * With interaction refused the read fails immediately instead, and the caller
+ * treats it as "no stored session". The user signs in once more, the item is
+ * rewritten by the current binary, and later launches are silent again. That is
+ * a far better failure than an application that will not start.
+ *
+ * The setting is process-wide, hence the scope guard: it must not leak into the
+ * next read.
+ */
+class NoInteraction
+{
+public:
+    NoInteraction() { SecKeychainSetUserInteractionAllowed(false); }
+    ~NoInteraction() { SecKeychainSetUserInteractionAllowed(true); }
+
+    NoInteraction(const NoInteraction &) = delete;
+    NoInteraction &operator=(const NoInteraction &) = delete;
+};
+
 } // namespace
 
 namespace BookWorm::Keychain {
@@ -110,6 +140,8 @@ bool store(const QString &account, const QString &key, const QString &secret)
 
 QString retrieve(const QString &account, const QString &key)
 {
+    const NoInteraction guard;
+
     const QByteArray acct = accountKey(account, key);
 
     CFStringRef service = CFStringCreateWithCString(nullptr, SERVICE, kCFStringEncodingUTF8);
