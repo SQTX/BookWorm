@@ -1,8 +1,11 @@
 #include <QApplication>
+#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QIcon>
+#include <QFile>
+#include <QTextStream>
 #include <QDir>
 #include <QLibraryInfo>
 
@@ -11,6 +14,71 @@
 #include "controllers/bookcontroller.h"
 #include "statistics/statisticsprovider.h"
 #include "backup/backupmanager.h"
+#include "sync/syncmanager.h"
+
+#include <QSocketNotifier>
+#include <csignal>
+#include <unistd.h>
+
+namespace {
+
+/**
+ * SIGTERM and SIGINT, turned into an ordinary Qt quit.
+ *
+ * Without this the process dies where it stands and the closing exchange never
+ * happens. Closing the window is already handled; this covers being told to
+ * stop by something else, which is how an application usually ends when a
+ * machine shuts down.
+ *
+ * A signal handler may safely call almost nothing, and nothing in Qt. The
+ * standard answer applies: write a byte to a pipe and let the event loop act.
+ */
+int g_signalPipe[2] = { -1, -1 };
+SyncManager *g_shutdownSync = nullptr;
+QCoreApplication *g_app = nullptr;
+
+void onTerminationSignal(int)
+{
+    const char byte = 1;
+    ssize_t ignored = ::write(g_signalPipe[1], &byte, 1);
+    (void)ignored;
+}
+
+/**
+ * Exchange, then quit — in that order.
+ *
+ * Not from aboutToQuit: that signal fires while the event loop is already
+ * unwinding, and the exchange needs a live loop to receive its reply.
+ */
+void syncThenQuit()
+{
+    if (g_shutdownSync)
+        g_shutdownSync->syncOnQuit();
+    if (g_app)
+        g_app->quit();
+}
+
+void installTerminationHandler(QCoreApplication *app)
+{
+    if (::pipe(g_signalPipe) != 0) {
+        qWarning() << "No termination handler; a shutdown may skip the final sync";
+        return;
+    }
+
+    auto *notifier = new QSocketNotifier(g_signalPipe[0], QSocketNotifier::Read, app);
+    QObject::connect(notifier, &QSocketNotifier::activated, app, [notifier]() {
+        notifier->setEnabled(false);
+        char byte;
+        ssize_t ignored = ::read(g_signalPipe[0], &byte, 1);
+        (void)ignored;
+        syncThenQuit();
+    });
+
+    ::signal(SIGTERM, onTerminationSignal);
+    ::signal(SIGINT, onTerminationSignal);
+}
+
+} // namespace
 
 int main(int argc, char *argv[])
 {
@@ -32,7 +100,7 @@ int main(int argc, char *argv[])
     // Database connection
     auto &db = DatabaseManager::instance();
     if (!db.connect()) {
-        qCritical("Failed to connect to PostgreSQL database '%s'", BookWorm::Config::DB_NAME);
+        qCritical() << "Failed to connect to PostgreSQL database" << BookWorm::Config::dbName();
         return 1;
     }
     db.initializeSchema();
@@ -41,6 +109,7 @@ int main(int argc, char *argv[])
     BookController bookController;
     StatisticsProvider statsProvider;
     BackupManager backupManager;
+    SyncManager syncManager;
 
     bookController.loadBooks();
     statsProvider.refresh();
@@ -56,6 +125,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("bookController", &bookController);
     engine.rootContext()->setContextProperty("statsProvider", &statsProvider);
     engine.rootContext()->setContextProperty("backupManager", &backupManager);
+    engine.rootContext()->setContextProperty("syncManager", &syncManager);
 
     using namespace Qt::StringLiterals;
     const QUrl url(u"qrc:/qt/qml/BookWorm/qml/Main.qml"_s);
@@ -63,6 +133,27 @@ int main(int argc, char *argv[])
                      &app, []() { QCoreApplication::exit(-1); },
                      Qt::QueuedConnection);
     engine.load(url);
+
+    // ── Automatic synchronisation ──
+    //
+    // Reaches the network only once a server has been connected; with sync off
+    // both calls return immediately and nothing is attempted (D8).
+    //
+    // Neither direction can replace newer data with older. Every row carries
+    // the time its user edited it and both sides apply the same rule, so a
+    // machine that has been offline for a week cannot roll the server back to
+    // what it remembers.
+    g_app = &app;
+    g_shutdownSync = &syncManager;
+
+    syncManager.syncOnStart();
+
+    // Closing the last window would otherwise quit immediately, leaving no live
+    // event loop for the final exchange.
+    app.setQuitOnLastWindowClosed(false);
+    QObject::connect(&app, &QGuiApplication::lastWindowClosed, &app, []() { syncThenQuit(); });
+
+    installTerminationHandler(&app);
 
     return app.exec();
 }

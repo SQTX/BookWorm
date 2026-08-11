@@ -174,8 +174,35 @@ function normaliseBook(row) {
  */
 const lwwGuard = (table) => `WHERE EXCLUDED.client_updated_at > ${table}.client_updated_at`;
 
+/**
+ * A tombstone carries a uuid and a deletion time and nothing else — the row it
+ * describes is gone on the client, so there are no fields to send.
+ *
+ * Upserting one would try to INSERT a book with no title and violate NOT NULL,
+ * failing the whole batch. Marking the existing row deleted is the only thing
+ * that makes sense; a tombstone for a row this server never had is a no-op,
+ * which is correct rather than an error.
+ *
+ * @returns true when the row was a tombstone and has been handled.
+ */
+async function applyTombstone(client, userId, table, row, scopedByUser = true) {
+  if (!row.deletedAt) return false;
+
+  const scope = scopedByUser
+    ? `uuid = $2 AND user_id = $3`
+    : `uuid = $2 AND book_id IN (SELECT id FROM books WHERE user_id = $3)`;
+
+  await client.query(
+    `UPDATE ${table} SET deleted_at = $1, client_updated_at = $1 WHERE ${scope}`,
+    [row.deletedAt, row.uuid, userId],
+  );
+  return true;
+}
+
 async function pushBooks(client, userId, rows) {
   for (const raw of rows) {
+    if (await applyTombstone(client, userId, 'books', raw)) continue;
+
     const row = normaliseBook(raw);
     const columns = ['user_id', 'uuid', 'client_updated_at', 'deleted_at'];
     const values = [userId, row.uuid, row.updatedAt, row.deletedAt ?? null];
@@ -225,15 +252,37 @@ async function replaceTags(client, userId, bookId, tags) {
   );
 }
 
+/**
+ * Tags have two identities and ON CONFLICT can only name one.
+ *
+ * `uuid` is what crosses machines; `(user_id, name)` is what the data model
+ * means — a tag *is* its name, and two tags called "fantasy" for one owner is
+ * not a thing. Targeting uuid alone fails outright when the name already exists
+ * under a different identity, and that is not hypothetical: pushing a book
+ * creates its tags by name, so any client sending both hits it on the first
+ * upload.
+ *
+ * So: update by uuid when that row exists, otherwise insert and let a name
+ * collision resolve to the row already there. A tag arriving with a new uuid
+ * for an existing name is the same tag — books link to tags by name, so keeping
+ * the stored identity loses nothing.
+ */
 async function pushTags(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'tags', row)) continue;
+
+    const { rowCount } = await client.query(
+      `UPDATE tags SET name = $1, color = $2, client_updated_at = $3, deleted_at = $4
+        WHERE uuid = $5 AND user_id = $6 AND $3 > client_updated_at`,
+      [row.name, row.color ?? null, row.updatedAt, row.deletedAt ?? null, row.uuid, userId],
+    );
+
+    if (rowCount > 0) continue;
+
     await client.query(
       `INSERT INTO tags (user_id, uuid, name, color, client_updated_at, deleted_at)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (uuid) DO UPDATE
-          SET name = EXCLUDED.name, color = EXCLUDED.color,
-              client_updated_at = EXCLUDED.client_updated_at, deleted_at = EXCLUDED.deleted_at
-        ${lwwGuard('tags')}`,
+       ON CONFLICT (user_id, name) DO NOTHING`,
       [userId, row.uuid, row.name, row.color ?? null, row.updatedAt, row.deletedAt ?? null],
     );
   }
@@ -241,6 +290,8 @@ async function pushTags(client, userId, rows) {
 
 async function pushChallenges(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'challenges', row)) continue;
+
     await client.query(
       `INSERT INTO challenges (user_id, uuid, name, target_books, deadline, metric,
                                target_value, period_unit, period_count, client_updated_at, deleted_at)
@@ -263,6 +314,8 @@ async function pushChallenges(client, userId, rows) {
 
 async function pushQuotes(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'favorite_quotes', row, false)) continue;
+
     const bookId = await bookIdOf(client, userId, row.bookUuid);
     // A quote whose book has not arrived yet is skipped, not an error: the next
     // sync carries it once the book exists. Failing the batch would deadlock
@@ -283,6 +336,8 @@ async function pushQuotes(client, userId, rows) {
 
 async function pushHighlights(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'highlights', row, false)) continue;
+
     const bookId = await bookIdOf(client, userId, row.bookUuid);
     if (bookId === null) continue;
 
@@ -313,16 +368,10 @@ async function pushHighlights(client, userId, rows) {
  */
 async function pushSessions(client, userId, rows) {
   for (const row of rows) {
+    if (await applyTombstone(client, userId, 'reading_sessions', row)) continue;
+
     const bookId = await bookIdOf(client, userId, row.bookUuid);
     if (bookId === null) continue;
-
-    if (row.deletedAt) {
-      await client.query(
-        'UPDATE reading_sessions SET deleted_at = $1 WHERE uuid = $2 AND user_id = $3',
-        [row.deletedAt, row.uuid, userId],
-      );
-      continue;
-    }
 
     await client.query(
       `INSERT INTO reading_sessions (user_id, uuid, book_id, session_date, page_start, page_end, source, client_updated_at)
@@ -336,10 +385,13 @@ async function pushSessions(client, userId, rows) {
 }
 
 const PUSH_HANDLERS = {
-  // Books first: quotes, highlights and sessions all resolve a book UUID, so
-  // within one batch the parent must land before its children.
-  books: pushBooks,
+  // Tags before books: pushing a book creates its tags by name, so with books
+  // first every tag would already exist under a server-minted uuid and the
+  // client's own identity for it could never be stored.
   tags: pushTags,
+  // Then books, because quotes, highlights and sessions resolve a book uuid and
+  // the parent has to land before its children within one batch.
+  books: pushBooks,
   challenges: pushChallenges,
   favoriteQuotes: pushQuotes,
   highlights: pushHighlights,

@@ -32,6 +32,9 @@ public:
     bool updateBook(const Book &book);
     bool deleteBook(int id);
 
+    /** Record a pending deletion for sync. Must run before the row is removed. */
+    void recordTombstone(const QString &entity, int id);
+
     // Tags
     QStringList fetchTagsForBook(int bookId);
     QStringList fetchAllTags();

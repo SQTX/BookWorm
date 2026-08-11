@@ -263,6 +263,73 @@ describe('sync', { skip: DATABASE_URL ? false : 'TEST_DATABASE_URL not set' }, (
     });
   });
 
+  test('books and their tags in one batch do not collide', async () => {
+    // The desktop client's first upload sends both. Pushing a book creates its
+    // tags by name, so with books handled first the tags array then tried to
+    // insert the same names under the client's own UUIDs and violated
+    // UNIQUE (user_id, name) — failing the whole batch, not just the tag.
+    const tagUuid = randomUUID();
+    const book = bookRow({ title: 'Tagged in batch', tags: ['batch-collision-tag'] });
+
+    const res = await push({
+      books: [book],
+      tags: [{ uuid: tagUuid, name: 'batch-collision-tag', updatedAt: new Date().toISOString() }],
+    });
+
+    assert.equal(res.statusCode, 200);
+
+    const { rows } = await pool.query(
+      "SELECT count(*) FROM tags WHERE name = 'batch-collision-tag' AND user_id = (SELECT id FROM users WHERE email = $1)",
+      [EMAIL],
+    );
+    assert.equal(rows[0].count, '1', 'one tag, whichever identity won');
+
+    const returned = res.json().changes.books.find((b) => b.uuid === book.uuid);
+    assert.deepEqual(returned.tags, ['batch-collision-tag'], 'the book keeps its tag');
+  });
+
+  test('the same tag name from a second device does not fail the push', async () => {
+    // Two machines minting different UUIDs for "fantasy" is ordinary; it must
+    // resolve to one tag rather than an error.
+    const name = 'two-device-tag';
+    const first = await push({ tags: [{ uuid: randomUUID(), name, updatedAt: new Date().toISOString() }] });
+    const second = await push({ tags: [{ uuid: randomUUID(), name, updatedAt: new Date().toISOString() }] });
+
+    assert.equal(first.statusCode, 200);
+    assert.equal(second.statusCode, 200);
+
+    const { rows } = await pool.query(
+      'SELECT count(*) FROM tags WHERE name = $1 AND user_id = (SELECT id FROM users WHERE email = $2)',
+      [name, EMAIL],
+    );
+    assert.equal(rows[0].count, '1');
+  });
+
+  test('a tombstone carrying only a uuid deletes rather than failing', async () => {
+    // What a real client sends: the row is already gone locally, so there are
+    // no fields left to include. Upserting it tried to INSERT a book with no
+    // title and violated NOT NULL, failing the entire batch — including the
+    // unrelated rows travelling with it.
+    const book = bookRow({ title: 'To be tombstoned' });
+    await push({ books: [book] });
+
+    const res = await push({
+      books: [{ uuid: book.uuid, updatedAt: new Date().toISOString(), deletedAt: new Date().toISOString() }],
+    });
+
+    assert.equal(res.statusCode, 200);
+
+    const { rows } = await pool.query('SELECT deleted_at FROM books WHERE uuid = $1', [book.uuid]);
+    assert.ok(rows[0].deleted_at, 'the row is marked deleted');
+  });
+
+  test('a tombstone for a row the server never had is a no-op', async () => {
+    const res = await push({
+      books: [{ uuid: randomUUID(), updatedAt: new Date().toISOString(), deletedAt: new Date().toISOString() }],
+    });
+    assert.equal(res.statusCode, 200, 'nothing to delete is not an error');
+  });
+
   test('a child whose book has not arrived yet is skipped, not fatal', async () => {
     // Out-of-order arrival must not fail the batch: the next sync carries the
     // child once its parent exists.

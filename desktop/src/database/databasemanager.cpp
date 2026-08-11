@@ -25,18 +25,18 @@ bool DatabaseManager::connect()
         return true;
 
     m_db = QSqlDatabase::addDatabase(BookWorm::Config::DB_DRIVER);
-    m_db.setHostName(BookWorm::Config::DB_HOST);
-    m_db.setPort(BookWorm::Config::DB_PORT);
-    m_db.setDatabaseName(BookWorm::Config::DB_NAME);
-    m_db.setUserName(BookWorm::Config::DB_USER);
-    m_db.setPassword(BookWorm::Config::DB_PASSWORD);
+    m_db.setHostName(BookWorm::Config::dbHost());
+    m_db.setPort(BookWorm::Config::dbPort());
+    m_db.setDatabaseName(BookWorm::Config::dbName());
+    m_db.setUserName(BookWorm::Config::dbUser());
+    m_db.setPassword(BookWorm::Config::dbPassword());
 
     if (!m_db.open()) {
         qCritical() << "Database connection failed:" << m_db.lastError().text();
         return false;
     }
 
-    qInfo() << "Connected to PostgreSQL database:" << BookWorm::Config::DB_NAME;
+    qInfo() << "Connected to PostgreSQL database:" << BookWorm::Config::dbName();
     return true;
 }
 
@@ -119,6 +119,11 @@ bool DatabaseManager::initializeSchema()
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS audio_mode VARCHAR(32) DEFAULT 'none'");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT FALSE");
     q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS read_count INTEGER NOT NULL DEFAULT 0");
+    // The synced identity of a cover: SHA-256 of the bytes that were uploaded.
+    // cover_image_path stays alongside it and stays local — it points at
+    // wherever the user picked the file on this machine, which means nothing on
+    // another. The hash is what travels.
+    q.exec("ALTER TABLE books ADD COLUMN IF NOT EXISTS cover_hash CHAR(64)");
     // One-time backfill: books already 'read' before this column existed count as
     // read once. Guarded on read_count = 0 so it never overwrites a real reread tally.
     q.exec("UPDATE books SET read_count = 1 WHERE status = 'read' AND read_count = 0");
@@ -185,6 +190,93 @@ bool DatabaseManager::initializeSchema()
 
     // Tags: add color column
     q.exec("ALTER TABLE tags ADD COLUMN IF NOT EXISTS color VARCHAR(9) DEFAULT '#808080'");
+
+    // ─── Sync columns ────────────────────────────────────────────────────────
+    //
+    // Added for every user, whether or not they ever enable sync (D8). Keeping
+    // two schema variants would put a conditional in every query that touches a
+    // row, to save sixteen bytes each; unused, these are inert.
+    //
+    // They must match the server's schema exactly — see the numbered migrations
+    // under server/migrations/. Two sources of truth for one shape is a real
+    // risk, so the shapes are compared directly rather than by reading both:
+    //   pg_dump --schema-only, both sides, diff.
+    //
+    //   uuid               identity that survives crossing machines. A SERIAL
+    //                      cannot: two devices offline both mint id 96 for
+    //                      different books.
+    //   updated_at         server-assigned in the cloud, locally the mirror of
+    //                      it. Drives the sync cursor.
+    //   client_updated_at  when the user made the edit. Decides last-write-wins,
+    //                      and must never be overwritten by a trigger — that
+    //                      conflation silently discarded every edit after the
+    //                      first when the server first had it.
+    //
+    // Deletions are NOT a deleted_at column here, unlike on the server. The
+    // server must serve tombstones to any client that pulls, for an indefinite
+    // window, so it keeps the row. This client only has to remember its own
+    // pending deletions until they are pushed — a much smaller requirement,
+    // met by sync_tombstones below.
+    //
+    // The difference is worth the divergence: a deleted_at column would mean
+    // adding "AND deleted_at IS NULL" to all fifty-six reads in this file, and
+    // the cost of missing one is a deleted book reappearing in a single view.
+    static const char *syncTables[] = {
+        "books", "tags", "challenges", "favorite_quotes", "highlights", "reading_sessions"
+    };
+
+    for (const char *table : syncTables) {
+        const QString t = QString::fromLatin1(table);
+
+        // gen_random_uuid() is built into PostgreSQL 13+. On a populated table
+        // the default is evaluated per row, so every existing book gets its own
+        // identity rather than all sharing one.
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN IF NOT EXISTS uuid UUID NOT NULL DEFAULT gen_random_uuid()").arg(t));
+        q.exec(QStringLiteral("ALTER TABLE %1 DROP CONSTRAINT IF EXISTS %1_uuid_key").arg(t));
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD CONSTRAINT %1_uuid_key UNIQUE (uuid)").arg(t));
+
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()").arg(t));
+        q.exec(QStringLiteral("ALTER TABLE %1 ADD COLUMN IF NOT EXISTS client_updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()").arg(t));
+        q.exec(QStringLiteral("CREATE INDEX IF NOT EXISTS idx_%1_sync ON %1(updated_at)").arg(t));
+    }
+
+    // books.updated_at predates this and was nullable with a default. Sync
+    // filters on it, and a NULL row is invisible to every pull — so it would
+    // simply never leave this machine, silently.
+    q.exec("UPDATE books SET updated_at = COALESCE(updated_at, created_at, NOW()) WHERE updated_at IS NULL");
+    q.exec("ALTER TABLE books ALTER COLUMN updated_at SET NOT NULL");
+
+    // Outbound deletions, remembered only until sync pushes them.
+    //
+    // Recorded unconditionally rather than only when sync is enabled: it keeps
+    // this class free of any dependency on the sync configuration, and a
+    // tombstone for a row the server never had is a no-op when pushed. One row
+    // per deletion is not a volume worth optimising against.
+    q.exec("CREATE TABLE IF NOT EXISTS sync_tombstones ("
+           "  id SERIAL PRIMARY KEY,"
+           "  entity VARCHAR(32) NOT NULL,"
+           "  uuid UUID NOT NULL,"
+           "  deleted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),"
+           "  UNIQUE (entity, uuid)"
+           ")");
+
+    // updated_at is maintained by a trigger rather than by each UPDATE: a query
+    // that forgets the assignment does not fail, the row just stops syncing.
+    q.exec("CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS TRIGGER AS $$ "
+           "BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql");
+
+    for (const char *table : syncTables) {
+        const QString t = QString::fromLatin1(table);
+        q.exec(QStringLiteral("DROP TRIGGER IF EXISTS %1_touch_updated_at ON %1").arg(t));
+        q.exec(QStringLiteral("CREATE TRIGGER %1_touch_updated_at BEFORE UPDATE ON %1 "
+                              "FOR EACH ROW EXECUTE FUNCTION touch_updated_at()").arg(t));
+    }
+
+    // The previous release added these; the tombstone table replaced them
+    // before anything read them. Dropping keeps one mechanism rather than two,
+    // which is what stops a later reader filtering on the wrong one.
+    for (const char *table : syncTables)
+        q.exec(QStringLiteral("ALTER TABLE %1 DROP COLUMN IF EXISTS deleted_at").arg(QString::fromLatin1(table)));
 
     qInfo() << "Database schema initialized";
     return true;
@@ -328,9 +420,37 @@ bool DatabaseManager::updateBook(const Book &book)
     return true;
 }
 
+/**
+ * Remember a deletion so sync can tell the server about it.
+ *
+ * Called before the row goes, because the UUID has to be read while it still
+ * exists. A hard DELETE alone cannot propagate: a device that never saw the row
+ * cannot distinguish "deleted" from "never existed", so its next pull would
+ * re-create it here.
+ *
+ * Failure is logged but not fatal. Losing a tombstone means the deletion does
+ * not reach the other device until something else touches that book — annoying,
+ * and much better than refusing to delete a book locally because a bookkeeping
+ * insert failed.
+ */
+void DatabaseManager::recordTombstone(const QString &entity, int id)
+{
+    QSqlQuery q(m_db);
+    q.prepare(QStringLiteral("INSERT INTO sync_tombstones (entity, uuid) "
+                             "SELECT :entity, uuid FROM %1 WHERE id = :id "
+                             "ON CONFLICT (entity, uuid) DO NOTHING").arg(entity));
+    q.bindValue(":entity", entity);
+    q.bindValue(":id", id);
+
+    if (!q.exec())
+        qWarning() << "recordTombstone failed for" << entity << id << ":" << q.lastError().text();
+}
+
 bool DatabaseManager::deleteBook(int id)
 {
     QSqlQuery q(m_db);
+    recordTombstone(QStringLiteral("books"), id);
+
     q.prepare("DELETE FROM books WHERE id = :id");
     q.bindValue(":id", id);
 
@@ -416,6 +536,8 @@ bool DatabaseManager::updateTag(int id, const QString &name, const QString &colo
 bool DatabaseManager::deleteTag(int id)
 {
     QSqlQuery q(m_db);
+    recordTombstone(QStringLiteral("tags"), id);
+
     q.prepare("DELETE FROM tags WHERE id = :id");
     q.bindValue(":id", id);
 
@@ -517,6 +639,8 @@ bool DatabaseManager::addQuote(int bookId, const QString &quote, int page)
 bool DatabaseManager::removeQuote(int quoteId)
 {
     QSqlQuery q(m_db);
+    recordTombstone(QStringLiteral("favorite_quotes"), quoteId);
+
     q.prepare("DELETE FROM favorite_quotes WHERE id = :id");
     q.bindValue(":id", quoteId);
 
@@ -568,6 +692,8 @@ bool DatabaseManager::addHighlight(int bookId, const QString &title, int page, c
 bool DatabaseManager::removeHighlight(int highlightId)
 {
     QSqlQuery q(m_db);
+    recordTombstone(QStringLiteral("highlights"), highlightId);
+
     q.prepare("DELETE FROM highlights WHERE id = :id");
     q.bindValue(":id", highlightId);
 
@@ -683,6 +809,8 @@ int DatabaseManager::insertChallenge(const QString &name, const QString &metric,
 bool DatabaseManager::deleteChallenge(int id)
 {
     QSqlQuery q(m_db);
+    recordTombstone(QStringLiteral("challenges"), id);
+
     q.prepare("DELETE FROM challenges WHERE id = :id");
     q.bindValue(":id", id);
 
@@ -760,6 +888,8 @@ bool DatabaseManager::recordSession(int bookId, int pageStart, int pageEnd, cons
 bool DatabaseManager::deleteSession(int sessionId)
 {
     QSqlQuery q(m_db);
+    recordTombstone(QStringLiteral("reading_sessions"), sessionId);
+
     q.prepare("DELETE FROM reading_sessions WHERE id = :id");
     q.bindValue(":id", sessionId);
 
@@ -1115,6 +1245,9 @@ bool DatabaseManager::resetAllData()
     ok = q.exec("DELETE FROM challenges") && ok;
     ok = q.exec("DELETE FROM books") && ok;
     ok = q.exec("DELETE FROM tags") && ok;
+    // Reset is local-only: queuing a tombstone per row would push a wipe to the
+    // server, which is not what "reset this computer" asks for.
+    ok = q.exec("DELETE FROM sync_tombstones") && ok;
 
     if (!ok)
         qWarning() << "resetAllData error:" << q.lastError().text();

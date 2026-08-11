@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS
+    Network
     Core
     Sql
     Qml
@@ -35,6 +36,14 @@ qt_add_executable(BookWorm
     src/controllers/bookcontroller.cpp
     src/statistics/statisticsprovider.h
     src/statistics/statisticsprovider.cpp
+    src/sync/keychain.h
+    src/sync/keychain.cpp
+    src/sync/syncrepository.h
+    src/sync/syncrepository.cpp
+    src/sync/syncmanager.h
+    src/sync/syncmanager.cpp
+    src/sync/apiclient.h
+    src/sync/apiclient.cpp
     src/backup/backupmanager.h
     src/backup/backupmanager.cpp
 )
@@ -97,10 +106,19 @@ target_include_directories(BookWorm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/statistics
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backup
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/sync
 )
+
+if(APPLE)
+    # Keychain: tokens must not sit in QSettings, which on macOS is a plist in
+    # the user's Library.
+    find_library(SECURITY_FRAMEWORK Security REQUIRED)
+    find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+endif()
 
 target_link_libraries(BookWorm PRIVATE
     Qt6::Core
+    Qt6::Network
     Qt6::Sql
     Qt6::Qml
     Qt6::Quick
@@ -108,6 +126,8 @@ target_link_libraries(BookWorm PRIVATE
     Qt6::Widgets
     Qt6::Charts
     Qt6::ChartsQml
+    $<$<BOOL:${APPLE}>:${SECURITY_FRAMEWORK}>
+    $<$<BOOL:${APPLE}>:${COREFOUNDATION_FRAMEWORK}>
 )
 
 if(APPLE)

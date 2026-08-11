@@ -49,7 +49,8 @@ Dialog {
         { key: "General",    icon: "qrc:/qt/qml/BookWorm/src/img/icons/settings.svg" },
         { key: "Appearance", icon: "qrc:/qt/qml/BookWorm/src/img/icons/library-view.svg" },
         { key: "Backup",     icon: "qrc:/qt/qml/BookWorm/src/img/icons/export.svg" },
-        { key: "Data",       icon: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg" }
+        { key: "Data",       icon: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg" },
+        { key: "Sync",       icon: "qrc:/qt/qml/BookWorm/src/img/icons/inport.svg" }
     ]
 
     modal: true
@@ -988,6 +989,243 @@ Dialog {
 
                         Item { Layout.fillHeight: true }
                     }
+
+                    // ═══════════════════════════════
+                    // 4 — Sync
+                    // ═══════════════════════════════
+                    //
+                    // Everything server-related lives here and nowhere else.
+                    // Someone who never opens this page must not be able to
+                    // tell the feature exists (D8) — no banner, no badge, no
+                    // prompt anywhere outside it.
+                    ColumnLayout {
+                        spacing: Theme.spacingLarge
+
+                        SectionLabel { text: Theme.tr("Server") }
+
+                        // ── Connected ──
+                        Panel {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: connectedCol.implicitHeight + Theme.spacingLarge * 2
+                            visible: syncManager.enabled
+
+                            ColumnLayout {
+                                id: connectedCol
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingLarge
+                                spacing: Theme.spacingMedium
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingMedium
+
+                                    Rectangle {
+                                        Layout.alignment: Qt.AlignVCenter
+                                        width: 10; height: 10; radius: 5
+                                        color: syncManager.busy ? Theme.statusReading : Theme.statusRead
+
+                                        SequentialAnimation on opacity {
+                                            running: syncManager.busy
+                                            loops: Animation.Infinite
+                                            NumberAnimation { to: 0.3; duration: Theme.durationSlow }
+                                            NumberAnimation { to: 1.0; duration: Theme.durationSlow }
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideMiddle
+                                            text: syncManager.email
+                                            color: Theme.textOnSurface
+                                            font.pixelSize: Theme.fontSizeMedium
+                                            font.bold: true
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideMiddle
+                                            text: syncManager.serverUrl
+                                            color: Theme.textSecondary
+                                            font.pixelSize: Theme.fontSizeSmall
+                                        }
+                                    }
+
+                                    Chip {
+                                        interactive: false
+                                        visible: syncManager.status !== ""
+                                        text: Theme.tr(syncManager.status)
+                                        accent: syncManager.busy ? Theme.statusReading : Theme.statusRead
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: Theme.divider
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: syncManager.pendingDeletions > 0
+                                    text: Theme.tr("Waiting to be sent: %1").arg(syncManager.pendingDeletions)
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingMedium
+
+                                    AppButton {
+                                        text: Theme.tr("Sync now")
+                                        enabled: !syncManager.busy
+                                        onClicked: syncManager.syncNow()
+                                    }
+                                    AppButton {
+                                        variant: "outline"
+                                        text: Theme.tr("Disconnect")
+                                        enabled: !syncManager.busy
+                                        onClicked: syncManager.disconnectFromServer()
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                            }
+                        }
+
+                        // ── Not connected ──
+                        Panel {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: connectCol.implicitHeight + Theme.spacingLarge * 2
+                            visible: !syncManager.enabled
+
+                            ColumnLayout {
+                                id: connectCol
+                                anchors.fill: parent
+                                anchors.margins: Theme.spacingLarge
+                                spacing: Theme.spacingMedium
+
+                                // Labels above fields, not placeholders inside
+                                // them: a placeholder disappears the moment you
+                                // type, so the one time you need to check what
+                                // a field was for is the one time it is gone.
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Text {
+                                        text: Theme.tr("Server address")
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                    }
+                                    TextField {
+                                        id: syncUrlField
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        text: syncManager.serverUrl
+                                        selectByMouse: true
+                                        font.pixelSize: Theme.fontSizeMedium
+                                        Material.accent: Theme.primary
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Text {
+                                        text: Theme.tr("Login")
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                    }
+                                    TextField {
+                                        id: syncEmailField
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        text: syncManager.email
+                                        selectByMouse: true
+                                        font.pixelSize: Theme.fontSizeMedium
+                                        Material.accent: Theme.primary
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Text {
+                                        text: Theme.tr("Password")
+                                        color: Theme.textSecondary
+                                        font.pixelSize: Theme.fontSizeSmall
+                                    }
+                                    TextField {
+                                        id: syncPasswordField
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        echoMode: TextInput.Password
+                                        selectByMouse: true
+                                        font.pixelSize: Theme.fontSizeMedium
+                                        Material.accent: Theme.primary
+                                        // Bound to no property and cleared on
+                                        // submit: it is exchanged for a token
+                                        // and never stored.
+                                        onAccepted: if (syncConnectButton.enabled) syncConnectButton.clicked()
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: syncManager.status !== ""
+                                    text: Theme.tr(syncManager.status)
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    wrapMode: Text.WordWrap
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Theme.spacingMedium
+
+                                    AppButton {
+                                        id: syncConnectButton
+                                        text: syncManager.busy ? Theme.tr("Connecting…") : Theme.tr("Connect")
+                                        enabled: !syncManager.busy
+                                                 && syncUrlField.text.trim() !== ""
+                                                 && syncEmailField.text.trim() !== ""
+                                                 && syncPasswordField.text !== ""
+                                        onClicked: {
+                                            syncManager.connectToServer(syncUrlField.text.trim(),
+                                                                        syncEmailField.text.trim(),
+                                                                        syncPasswordField.text)
+                                            syncPasswordField.text = ""
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                            }
+                        }
+
+                        Connections {
+                            target: syncManager
+                            function onFirstSyncDecisionRequired(localBooks, serverBooks) {
+                                firstSyncDialog.localBooks = localBooks
+                                firstSyncDialog.serverBooks = serverBooks
+                                firstSyncDialog.open()
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: Theme.tr("BookWorm works entirely on this computer. Connect a server only if you want the same library on another device.")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
                 }
             }
         }
@@ -1014,6 +1252,65 @@ Dialog {
                 text: Theme.tr("Close")
                 onClicked: root.close()
             }
+        }
+    }
+
+    // ── First-sync decision ──
+    //
+    // The one case the program must not decide alone. Books created on
+    // different machines carry different identities, so "upload everything"
+    // against a populated server produces a duplicate library rather than a
+    // merge — and nothing here can tell the two situations apart.
+    Dialog {
+        id: firstSyncDialog
+
+        property int localBooks: 0
+        property int serverBooks: 0
+
+        anchors.centerIn: Overlay.overlay
+        width: 520
+        modal: true
+        closePolicy: Dialog.NoAutoClose
+        title: Theme.tr("Which library should win?")
+
+        contentItem: ColumnLayout {
+            spacing: Theme.spacingLarge
+
+            Text {
+                Layout.fillWidth: true
+                Layout.margins: Theme.spacingLarge
+                wrapMode: Text.WordWrap
+                color: Theme.textOnSurface
+                font.pixelSize: Theme.fontSizeMedium
+                text: Theme.tr("The server already has %1 book(s) and this computer has %2. They cannot be matched automatically — books added on different machines get different identities, so uploading would create duplicates rather than merge.")
+                          .arg(firstSyncDialog.serverBooks)
+                          .arg(firstSyncDialog.localBooks)
+            }
+        }
+
+        footer: RowLayout {
+            spacing: Theme.spacingMedium
+
+            Item { Layout.fillWidth: true }
+
+            // Cancel first and focused: a wrong answer here silently doubles a
+            // library, and the user knows which side is authoritative.
+            AppButton {
+                variant: "outline"
+                text: Theme.tr("Cancel")
+                onClicked: { syncManager.resolveFirstSync("cancel"); firstSyncDialog.close() }
+            }
+            AppButton {
+                variant: "outline"
+                text: Theme.tr("Download from server")
+                onClicked: { syncManager.resolveFirstSync("download"); firstSyncDialog.close() }
+            }
+            AppButton {
+                text: Theme.tr("Upload from here")
+                onClicked: { syncManager.resolveFirstSync("upload"); firstSyncDialog.close() }
+            }
+
+            Item { width: Theme.spacingLarge }
         }
     }
 

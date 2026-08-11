@@ -1,6 +1,41 @@
 .pragma library
 
 var _pl = {
+    "Which library should win?": "Która biblioteka ma wygrać?",
+    "The server already has %1 book(s) and this computer has %2. They cannot be matched automatically — books added on different machines get different identities, so uploading would create duplicates rather than merge.": "Serwer ma już %1 książek, a ten komputer %2. Nie da się ich dopasować automatycznie — książki dodane na różnych urządzeniach mają różne tożsamości, więc wysłanie utworzyłoby duplikaty zamiast scalić.",
+    "Download from server": "Pobierz z serwera",
+    "Upload from here": "Wyślij stąd",
+    "Cancel": "Anuluj",
+
+    "Disconnected. Your library on this computer is unchanged.": "Rozłączono. Biblioteka na tym komputerze bez zmian.",
+    "Cancelled. Nothing was changed.": "Anulowano. Nic nie zostało zmienione.",
+    "Connected. Nothing to synchronise yet.": "Połączono. Nie ma jeszcze czego synchronizować.",
+    "Synchronised.": "Zsynchronizowano.",
+
+    "Server": "Serwer",
+    "Server address": "Adres serwera",
+    "Login": "Login",
+    "Password": "Hasło",
+    "Connect": "Połącz",
+    "Connecting…": "Łączenie…",
+    "Sync now": "Synchronizuj",
+    "Disconnect": "Rozłącz",
+    "Waiting to be sent: %1": "Oczekuje na wysłanie: %1",
+    "BookWorm works entirely on this computer. Connect a server only if you want the same library on another device.": "BookWorm działa w całości na tym komputerze. Podłącz serwer tylko wtedy, gdy chcesz mieć tę samą bibliotekę na innym urządzeniu.",
+    "Signing in…": "Logowanie…",
+    "Checking the server…": "Sprawdzanie serwera…",
+    "Uploading your library…": "Wysyłanie biblioteki…",
+    "Downloading…": "Pobieranie…",
+    "Synchronising…": "Synchronizacja…",
+    "Connected": "Połączono",
+    "Sign in required": "Wymagane logowanie",
+    "Signed out — sign in again": "Wylogowano — zaloguj się ponownie",
+    "Cannot reach the server": "Nie można połączyć się z serwerem",
+    "Offline — will retry": "Offline — ponowię próbę",
+    "Not connected": "Brak połączenia",
+    "Waiting for a decision": "Oczekiwanie na decyzję",
+    "Connected — not synchronised": "Połączono — bez synchronizacji",
+
     // ── Settings dialog (rebuilt UI) ──
     "General": "Ogólne",
     "Appearance": "Wygląd",

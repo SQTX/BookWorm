@@ -14,9 +14,16 @@ export default async function coverRoutes(app) {
     '/covers',
     {
       config: {
-        // Encoding is CPU-bound and this box has 2 vCPU. Unbounded concurrent
-        // uploads would starve every other request; the limit is the cap.
-        rateLimit: { max: 30, timeWindow: '1 minute' },
+        // Encoding is CPU-bound and this box has 2 vCPU, so the ceiling exists
+        // to stop uploads starving every other request.
+        //
+        // It is not 30. A first sync of a real library is around a hundred
+        // covers, and the desktop client sends them one at a time — it cannot
+        // oversubscribe anything, and a limit below the size of one library
+        // just means the same user comes back four times to finish. 120 clears
+        // a normal library in a single pass while still capping a client that
+        // has gone wrong.
+        rateLimit: { max: 120, timeWindow: '1 minute' },
       },
     },
     async (request, reply) => {
