@@ -56,8 +56,7 @@ still works.
 `title` and `author` are required; everything else is optional and nullable.
 
 ```
-id            integer, server-assigned
-uuid          string, client-assigned — this is the sync identity, not id
+id            integer, server-assigned — this is what REST endpoints take
 title         string, 1–512
 author        string, 1–512
 genre         string | null
@@ -86,7 +85,13 @@ coverHash     string | null — 64 hex characters, see Covers
 coverImagePath  string | null — local to whichever machine wrote it; never
                 sync this field, it means nothing anywhere else
 tags          string[]
+updatedAt     ISO timestamp
 ```
+
+**`uuid` is not in this list, deliberately.** Rows carry one in the database and
+it is what the sync protocol matches on, but the REST book endpoints neither
+accept nor return it: they identify a book by `id`. A client using only REST
+never sees a uuid and never needs one.
 
 **`null` and `0` are different.** A book with no recorded page count is not a
 book of zero pages, and writing `0` where the user has `null` is a silent edit of
