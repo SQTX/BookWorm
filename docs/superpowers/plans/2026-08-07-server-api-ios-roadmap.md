@@ -4,18 +4,18 @@
 
 **Baseline:** `v1.0.0` (commit `2dbe3c3`) — the last desktop-only version. Everything in this roadmap is measured against it.
 
-**Status (2026-08-08):** the server is **complete** for what the desktop client needs.
+**Status (2026-08-11):** the desktop client syncs — manually, automatically, and including covers. Everything except iOS is done.
 
 | Phase | State |
 | --- | --- |
 | 0 — Groundwork | Done, except moving DB credentials out of `constants.h` and putting a password on the local role — both are desktop-side and belong with Phase 4 |
 | 1 — Ownership | Done: `users`, `user_id` on four tables, Argon2id, login with token rotation |
-| 2 — API | Done: books with atomic progress, tags, quotes, highlights, challenges, and the sync protocol. **Covers are not built** — their own phase |
+| 2 — API | Done: books with atomic progress, tags, quotes, highlights, challenges, the sync protocol, and covers |
 | 3 — VPS | **Done.** Live at `https://57.128.199.27.nip.io`, installed by `server/deploy/install.sh` and verified end to end |
-| 4 — Desktop | Not started. Next — and **sync is opt-in**, see [D8](#d8--sync-is-opt-in-decided-2026-08-11) |
-| 5 — iOS | Not started |
+| 4 — Desktop | **Done.** Opt-in ([D8](#d8--sync-is-opt-in-decided-2026-08-11)): connect in Settings, initial upload, two-way sync, automatic on launch and shutdown, covers by content hash |
+| 5 — iOS | Not started. Deliberately separate from everything above |
 
-**The live `wormbook` database has never been modified.** The desktop app runs exactly as it did at `v1.1.0`: no `user_id` column, no `pgmigrations` table, 95 books. Every migration was verified against a restored copy, and `npm run migrate:*` refuses to run against it.
+**The live `wormbook` database now carries the sync columns** — `uuid`, `updated_at`, `client_updated_at` on six tables, a `sync_tombstones` table, and `books.cover_hash` — all added by `initializeSchema()` on the desktop side. The server's own migrations still refuse to run against it: the two schemas are related, not shared. Its 95 books and their covers are on the server, verified field by field including the NULLs.
 
 **Server stack:** Node.js, plain JavaScript, npm. Fastify, `pg` with hand-written SQL, `node-pg-migrate`. One repository, three directories. See [Decisions](#decisions).
 
