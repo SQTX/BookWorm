@@ -1273,12 +1273,17 @@ Dialog {
         closePolicy: Dialog.NoAutoClose
         title: Theme.tr("Which library should win?")
 
+        // Inset the body through the dialog's own padding rather than a margin
+        // on the text. Padding covers the footer's top edge too, so the buttons
+        // sit a consistent distance from the paragraph above them.
+        padding: Theme.spacingLarge
+        bottomPadding: 0   // the footer supplies its own, see below
+
         contentItem: ColumnLayout {
             spacing: Theme.spacingLarge
 
             Text {
                 Layout.fillWidth: true
-                Layout.margins: Theme.spacingLarge
                 wrapMode: Text.WordWrap
                 color: Theme.textOnSurface
                 font.pixelSize: Theme.fontSizeMedium
@@ -1288,29 +1293,38 @@ Dialog {
             }
         }
 
-        footer: RowLayout {
-            spacing: Theme.spacingMedium
+        // An Item wrapping the row, not a bare RowLayout. A layout used directly
+        // as a footer is stretched to the dialog's edges and has nowhere to put
+        // margins — which is how the buttons ended up against the frame. The
+        // wrapper is what the dialog stretches; the row insets itself inside it.
+        footer: Item {
+            implicitHeight: firstSyncButtons.implicitHeight + Theme.spacingLarge * 2
 
-            Item { Layout.fillWidth: true }
+            RowLayout {
+                id: firstSyncButtons
+                anchors.fill: parent
+                anchors.margins: Theme.spacingLarge
+                spacing: Theme.spacingMedium
 
-            // Cancel first and focused: a wrong answer here silently doubles a
-            // library, and the user knows which side is authoritative.
-            AppButton {
-                variant: "outline"
-                text: Theme.tr("Cancel")
-                onClicked: { syncManager.resolveFirstSync("cancel"); firstSyncDialog.close() }
-            }
-            AppButton {
-                variant: "outline"
-                text: Theme.tr("Download from server")
-                onClicked: { syncManager.resolveFirstSync("download"); firstSyncDialog.close() }
-            }
-            AppButton {
-                text: Theme.tr("Upload from here")
-                onClicked: { syncManager.resolveFirstSync("upload"); firstSyncDialog.close() }
-            }
+                Item { Layout.fillWidth: true }
 
-            Item { width: Theme.spacingLarge }
+                // Cancel first and focused: a wrong answer here silently doubles
+                // a library, and the user knows which side is authoritative.
+                AppButton {
+                    variant: "outline"
+                    text: Theme.tr("Cancel")
+                    onClicked: { syncManager.resolveFirstSync("cancel"); firstSyncDialog.close() }
+                }
+                AppButton {
+                    variant: "outline"
+                    text: Theme.tr("Download from server")
+                    onClicked: { syncManager.resolveFirstSync("download"); firstSyncDialog.close() }
+                }
+                AppButton {
+                    text: Theme.tr("Upload from here")
+                    onClicked: { syncManager.resolveFirstSync("upload"); firstSyncDialog.close() }
+                }
+            }
         }
     }
 
