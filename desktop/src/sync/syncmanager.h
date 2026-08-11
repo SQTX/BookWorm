@@ -2,7 +2,6 @@
 
 #include <QDateTime>
 #include <QObject>
-#include <QQmlEngine>
 #include <QString>
 
 #include "apiclient.h"
@@ -19,8 +18,6 @@ class SyncRepository;
 class SyncManager : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
-    QML_SINGLETON
 
     Q_PROPERTY(bool enabled READ enabled NOTIFY configChanged)
     Q_PROPERTY(QString serverUrl READ serverUrl NOTIFY configChanged)
@@ -41,8 +38,6 @@ public:
 
     explicit SyncManager(QObject *parent = nullptr);
     ~SyncManager() override;
-
-    static SyncManager *create(QQmlEngine *, QJSEngine *);
 
     bool enabled() const { return m_enabled; }
     QString serverUrl() const { return m_serverUrl; }
@@ -69,6 +64,28 @@ public:
 
     /** Push what changed here, then take what changed there. */
     Q_INVOKABLE void syncNow();
+
+    /**
+     * Exchange on launch, once the session has been restored.
+     *
+     * Pushes before pulling rather than only pulling. A pull alone would strand
+     * anything edited while the last run was offline — or after it crashed
+     * without a final sync — and that work would sit locally until something
+     * else happened to touch the same row. Pushing first cannot damage the
+     * server: a row older than the server's copy is rejected by the merge rule,
+     * not applied.
+     */
+    void syncOnStart();
+
+    /**
+     * Exchange during shutdown, bounded by a deadline.
+     *
+     * Quitting must never hang on the network. If the exchange does not finish
+     * in time the application exits anyway and nothing is lost: the cursor only
+     * advances on success and the deletion queue is only cleared on success, so
+     * the next launch simply sends it again.
+     */
+    void syncOnQuit();
 
 signals:
     void configChanged();

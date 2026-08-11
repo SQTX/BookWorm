@@ -2,8 +2,14 @@
 #include "syncrepository.h"
 #include "../database/databasemanager.h"
 
+#include <QDir>
+#include <QEventLoop>
+#include <QFile>
+#include <QStandardPaths>
+#include <QTextStream>
 #include <QJsonArray>
 #include <QSettings>
+#include <QTimer>
 
 namespace {
 
@@ -12,9 +18,39 @@ constexpr const char *KEY_URL = "sync/serverUrl";
 constexpr const char *KEY_EMAIL = "sync/email";
 constexpr const char *KEY_CURSOR = "sync/cursor";
 
+/**
+ * How long shutdown waits for a sync.
+ *
+ * Long enough for a normal exchange over a slow connection, short enough that
+ * nobody wonders why the window will not close. Exceeding it costs nothing: the
+ * work is re-sent next time.
+ */
+constexpr int SHUTDOWN_SYNC_TIMEOUT_MS = 6000;
+
 /** Held between the decision prompt and the user's answer. */
 QJsonObject g_pendingServerChanges;
 QString g_pendingServerTime;
+
+/**
+ * Append one line to a sync log on disk.
+ *
+ * qInfo() is not enough here. Launched as a bundle the application's stderr
+ * goes somewhere the user will not look, so a sync that silently does nothing
+ * is indistinguishable from one that worked — which is exactly the question
+ * being asked when something has gone wrong.
+ */
+void logSync(const QString &line)
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(dir);
+
+    QFile f(dir + QStringLiteral("/sync.log"));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+        return;
+
+    QTextStream(&f) << QDateTime::currentDateTime().toString(Qt::ISODate)
+                    << "  " << line << '\n';
+}
 
 } // namespace
 
@@ -45,11 +81,6 @@ SyncManager::SyncManager(QObject *parent)
 SyncManager::~SyncManager()
 {
     delete m_repo;
-}
-
-SyncManager *SyncManager::create(QQmlEngine *, QJSEngine *)
-{
-    return new SyncManager;
 }
 
 void SyncManager::loadSettings()
@@ -222,6 +253,56 @@ void SyncManager::performDownload()
     emit syncFinished(true, tr("Received %n row(s) from the server.", nullptr, written));
 }
 
+void SyncManager::syncOnStart()
+{
+    // Each reason is reported separately: "switched off" and "signed out" look
+    // the same from outside and need different answers from the user.
+    if (!m_enabled) {
+        logSync(QStringLiteral("start: sync is off"));
+        return;
+    }
+    if (!m_api.hasSession()) {
+        logSync(QStringLiteral("start: enabled but no session could be restored"));
+        return;
+    }
+
+    logSync(QStringLiteral("start: syncing with %1").arg(m_serverUrl));
+
+    // Push-then-pull, which is what performIncremental already does in a single
+    // request. Ordering matters on launch specifically: a previous run may have
+    // been closed or killed before its own exchange finished.
+    performIncremental();
+}
+
+void SyncManager::syncOnQuit()
+{
+    if (!m_enabled || !m_api.hasSession()) {
+        logSync(QStringLiteral("quit: nothing to do (enabled=%1 session=%2)")
+                    .arg(m_enabled).arg(m_api.hasSession()));
+        return;
+    }
+
+    logSync(QStringLiteral("quit: syncing before exit"));
+
+    // The request is asynchronous and the application is on its way out, so the
+    // event loop has to be kept alive for it — but only briefly. A sync that
+    // cannot finish is not a reason to hold a window open.
+    QEventLoop loop;
+    QTimer deadline;
+    deadline.setSingleShot(true);
+
+    QObject::connect(this, &SyncManager::syncFinished, &loop, &QEventLoop::quit);
+    QObject::connect(&deadline, &QTimer::timeout, &loop, [&loop]() {
+        logSync(QStringLiteral("quit: timed out; will resume next launch"));
+        loop.quit();
+    });
+
+    performIncremental();
+
+    deadline.start(SHUTDOWN_SYNC_TIMEOUT_MS);
+    loop.exec();
+}
+
 void SyncManager::syncNow()
 {
     if (!m_enabled || !m_api.hasSession()) {
@@ -270,12 +351,14 @@ void SyncManager::performIncremental()
             // The queue is deliberately not cleared: a failed push must not
             // lose the deletions it was carrying. Offline is a normal state
             // here, not an error worth shouting about.
+            logSync(QStringLiteral("push failed: %1").arg(res.error));
             setStatus(res.isNetworkError ? tr("Offline — will retry")
                                          : tr("Sync failed: %1").arg(res.error));
             emit syncFinished(false, m_status);
             return;
         }
 
+        logSync(QStringLiteral("push ok"));
         m_repo->clearTombstones(tombstones);
 
         const int written = m_repo->applyChanges(res.body.value("changes").toObject());
