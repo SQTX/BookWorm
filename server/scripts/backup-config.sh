@@ -206,12 +206,29 @@ cmd_at_now() {
 
     if has_systemd && [ "$(id -u)" -eq 0 ]; then
         echo "running $SERVICE…"
+
+        # Mark the end of the journal *before* starting, so what is printed
+        # afterwards is this run and nothing else. A fixed `-n 12` showed the
+        # previous run alongside the current one, which reads as the backup
+        # having happened twice — a misleading answer is worse than none when
+        # the question is "did it work?".
+        local cursor
+        cursor=$(journalctl -u "$SERVICE" -n 0 --show-cursor 2>/dev/null \
+                 | sed -n 's/^-- cursor: //p')
+
         # Do not let a failure exit before the diagnosis below is printed: an
         # unexplained non-zero status is the least useful thing this could do.
         systemctl start "$SERVICE" || true
         local result
         result=$(systemctl show "$SERVICE" -p Result --value)
-        journalctl -u "$SERVICE" -n 12 --no-pager -o cat 2>/dev/null || true
+
+        if [ -n "$cursor" ]; then
+            journalctl -u "$SERVICE" --after-cursor "$cursor" --no-pager -o cat 2>/dev/null || true
+        else
+            # No cursor — a journal that has never held this unit, most likely
+            # the very first run. Everything there is belongs to it.
+            journalctl -u "$SERVICE" -n 12 --no-pager -o cat 2>/dev/null || true
+        fi
         if [ "$result" != "success" ]; then
             die "backup failed ($result) — full output: journalctl -u $SERVICE -n 50"
         fi
