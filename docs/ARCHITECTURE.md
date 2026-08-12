@@ -106,6 +106,16 @@ created by `npm run seed:user`.
 Deployment is a systemd unit behind Caddy, which terminates TLS. PostgreSQL
 listens on loopback only. See [`../server/deploy/RUNBOOK.md`](../server/deploy/RUNBOOK.md).
 
+**Backups** are a second systemd unit on a timer, and everything about them is
+one command — `scripts/backup-config.sh status | set-interval | set-keep |
+at_now | prune | list`. Retention counts backups rather than days, because age
+and interval interact badly: "keep 30 days" of hourly backups is 720 archives.
+A dump and its cover archive are one unit and are deleted together, since a
+database restored into a library with no images fails silently — the book rows
+still carry their hashes. Rotation runs only after a *successful* backup, so a
+broken job cannot delete the last good one, and the schedule is a systemd
+drop-in so an upgrade cannot reset it.
+
 ---
 
 ## 4. The iOS app

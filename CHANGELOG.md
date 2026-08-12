@@ -9,6 +9,53 @@ Kept from v1.5.0 onward; earlier releases are described in their
 
 ---
 
+## v1.6.0 — 2026-08-12
+
+Backups you can configure with a command, and the iOS refresh that was written
+but never reached `main`.
+
+### Added
+
+- **Server backups are configurable without editing systemd.**
+  `server/scripts/backup-config.sh` reports the schedule, the retention and what
+  is on disk, and changes any of it in one command: `set-interval`, `set-keep`,
+  `set-keep-days`, `at_now`, `prune`, `list`. Also available as `npm run
+  backup:status`, `backup:now` and friends.
+- **`at_now`** takes a backup immediately and **waits for the verdict** —
+  printing the service's result, the tail of its output, the archive it wrote
+  and how many are now kept. A command that returns instantly and leaves you to
+  read a journal is not an answer to "back up now"; the question being asked is
+  whether it worked.
+- **Retention by count.** `KEEP_COUNT` (default 14) is now the primary rule:
+  when a new backup is written, the oldest beyond that number is deleted
+  together with its cover archive. The old age-based rule survives as an
+  optional second one, off by default — "30 days" of hourly backups is 720
+  archives, which is not what anyone picturing a month of backups means.
+- Eleven tests covering retention, run against the real script and a real
+  directory. It is the one part of the system whose job is to delete files.
+
+### Changed
+
+- Backup settings live in `/etc/bookworm/backup.env`, separate from the secrets
+  in `api.env`. The installer writes it only when absent, so re-running the
+  installer never resets an operator's choices, and `set-interval` writes a
+  systemd drop-in rather than editing the unit, for the same reason.
+- `RUNBOOK.md` section 9 rewritten around the new commands.
+- `at_now` prints only the output of the run it just started. It had been
+  showing the last twelve journal lines of the unit, so an earlier backup came
+  along for the ride and a single command appeared to have run twice — a
+  misleading answer to "did it work?" is worse than none.
+
+### Recovered
+
+- **iOS: the list re-reads the server every minute** while the app is on screen.
+  The commit existed and was tested, and reached its branch after that branch
+  had already been squashed into `dev` — so it shipped in no release. The phone
+  had no periodic refresh at all in v1.5.0: it asked at launch, on foreground
+  and on a pull, and otherwise showed what it had.
+
+---
+
 ## v1.5.0 — 2026-08-12
 
 The release where the library stopped living on one machine. An iPhone app, and

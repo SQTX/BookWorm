@@ -1,6 +1,6 @@
 {
   "name": "bookworm-server",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "BookWorm API \u2014 multi-tenant storage and sync for the desktop and iOS clients",
   "type": "module",
@@ -19,7 +19,12 @@
     "migrate": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate",
     "migrate:up": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate up",
     "migrate:down": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate down",
-    "backup": "./scripts/backup-db.sh"
+    "backup": "./scripts/backup-db.sh",
+    "backup:status": "./scripts/backup-config.sh status",
+    "backup:list": "./scripts/backup-config.sh list",
+    "backup:prune": "./scripts/backup-config.sh prune",
+    "backup:config": "./scripts/backup-config.sh",
+    "backup:now": "./scripts/backup-config.sh at_now"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
