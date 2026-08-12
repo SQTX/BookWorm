@@ -51,6 +51,8 @@ ios/**/*.xcworkspace/xcuserdata/
 ios/**/DerivedData/
 ios/**/.swiftpm/
 ios/**/build/
+# SwiftPM's own build directory, which `build/` above does not match.
+ios/**/.build/
 *.xcuserstate
 
 # SwiftPM writes here; `build/` above does not match a dotted directory.

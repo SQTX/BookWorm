@@ -1,0 +1,66 @@
+name: ios
+
+# Path-filtered like the server workflow, so a desktop or server change never
+# spends a macOS runner (they bill at ten times the Linux rate).
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  # The logic lives in a package precisely so it can be tested like this:
+  # no simulator, no signing, a couple of seconds. Everything that decides
+  # whether the app corrupts the library — null handling, the write queue,
+  # refresh-token rotation — is in here.
+  kit:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios/BookWormKit
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show the toolchain
+        run: swift --version
+
+      - name: Test
+        run: swift test
+
+  # Proves the app itself still compiles and that the hand-written project file
+  # is intact. Unsigned: CI has no provisioning profile and needs none.
+  app:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build for the simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project BookWormProgress.xcodeproj \
+            -scheme BookWormProgress \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log
+
+      # A warning nobody sees is a warning nobody fixes. Deliberately not
+      # -Werror: a new SDK deprecating something should not block a merge on a
+      # one-phone app.
+      - name: Report warnings
+        if: always()
+        run: grep -E 'warning:' build.log | sort -u || true

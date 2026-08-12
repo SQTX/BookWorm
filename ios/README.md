@@ -1,70 +1,156 @@
-# BookWorm for iOS
+# BookWorm Progress (iOS)
 
-Nothing is built yet. This directory exists so that the decisions which have to
-be made *before* code are written down somewhere other than a chat log.
+A one-purpose iPhone app: **move the page count on the books you are currently
+reading.** Open it, drag a slider, put the phone down. Everything else — adding
+books, metadata, tags, statistics — stays on the desktop, which is where a
+library is curated.
 
-**The first thing to build is scoped in [`BRIEF.md`](BRIEF.md)** — a
-single-purpose progress tracker, not the library. This file is the longer view
-around it.
+The scope is set by [`BRIEF.md`](BRIEF.md); the server contract by
+[`../docs/API.md`](../docs/API.md). This file is how to build it.
 
-The server is finished and running, so this phase is a client against a contract
-that already exists rather than two moving targets at once. Read
-[`docs/API.md`](../docs/API.md) first — it is the contract, written so nothing
-here needs the server's source.
+---
 
-## What it has to do
+## What it does
 
-The desktop application is where a library is curated: adding books, editing
-metadata, writing reviews. A phone is where reading is *recorded* — a few taps
-while putting a book down. Those are different jobs, and the phone should do its
-one well rather than the desktop's badly.
+One screen. A card per book whose status is `reading`, each with a cover, the
+page against the total, and a slider. Releasing the slider writes the page —
+one request per gesture, sent to `POST /v1/books/:id/progress`, which records a
+reading session as well as the number. The desktop's streaks, pages-per-day
+chart and heatmap are built from those sessions, which is why this app never
+PATCHes `currentPage`.
 
-The first cut is narrower still than that, and deliberately: the books currently
-being read, and a slider to move the page count. One screen. See
-[`BRIEF.md`](BRIEF.md).
+Behaviour worth knowing before reading the code:
 
-Everything else — adding books, editing metadata, tags, quotes, statistics,
-challenges — is the desktop's, until using this proves otherwise. Each of them is
-also a reason the app stops being a five-second interaction, which is the only
-thing it is for.
+- **The slider spans `0…pageCount`**, not `currentPage…pageCount`. People
+  misremember and correct downwards.
+- **Fine adjustment**: drag away from the track and the rate drops to a quarter,
+  then a tenth. `−` and `+` move a single page. On a 400-page book a stock
+  `Slider` gives about three pages per point of travel, which makes landing on
+  an exact page a fight.
+- **`null` is not `0`.** A book with no recorded page shows as *not started* and
+  stays `null` until the user sets a page. A book with no `pageCount` gets a
+  number field instead of a slider — there is no range to invent.
+- **Optimistic writes.** The card shows the new page immediately and reconciles
+  when the server answers. A refused write puts the old value back rather than
+  leaving a number the server does not have.
+- **Offline**: writes are persisted to a queue *before* they are attempted,
+  coalesced per book (a page is a state, not an increment), and flushed on
+  launch and on foreground. The last successful reading list is cached, so the
+  app opens to books rather than to a spinner.
+- **Sign-in is asked for, never hardcoded** — server address, email, password.
+  The address goes to `UserDefaults`, the tokens to the Keychain.
 
-## What has to be decided first
+## Layout
 
-**Distribution — settled 2026-08-12: free personal signing.** A free Apple ID and
-Xcode's Personal Team, no paid Developer Program. The provisioning profile expires
-after seven days, so the app is re-deployed from Xcode when it does; TestFlight is
-not available on a free account, so this runs on one phone and nowhere else.
+```
+ios/
+├── BookWormProgress.xcodeproj/     # hand-written; opens in Xcode with no setup step
+├── BookWormProgress/               # the app: SwiftUI, Keychain, covers
+│   ├── BookWormProgressApp.swift   # entry point, foreground flush
+│   ├── AppModel.swift              # screen state, optimistic writes, reconciliation
+│   ├── Platform/                   # Keychain, file locations, cover cache
+│   └── Views/                      # list, card, slider, sign-in, settings
+└── BookWormKit/                    # a local Swift package: the logic, and its tests
+    └── Sources/BookWormKit/
+        ├── APIClient.swift         # HTTP, 401-refresh-retry, token rotation
+        ├── ProgressService.swift   # queue + cache + API, the write path
+        ├── PendingWrites.swift     # the offline queue
+        ├── PageScrubber.swift      # the slider arithmetic
+        └── …
+```
 
-That is the right trade at this size — the paid account buys convenience rather
-than capability — and it bounds the phase: anything needing push notifications,
-App Groups or CloudKit is out of reach, and nothing planned here needs them.
+`BookWormProgress/` is a *synchronized folder* in the Xcode project: files added
+to it are picked up without editing the project file, and without a merge
+conflict in `project.pbxproj` every time.
 
-**Language and UI framework** — Swift and SwiftUI is the obvious answer and
-should be taken unless something argues against it.
+The split is not ceremony. The package builds for macOS too, so `swift test`
+runs the whole of the logic in about a second with **no simulator runtime and no
+code signing** — which is also all CI needs.
 
-**Offline behaviour.** The phone will be offline. Two honest options: a read-only
-cache that refuses writes when unreachable, or a local store with queued writes
-that syncs like the desktop does. The second is the same protocol already
-implemented once, so it is understood rather than novel — but it is also most of
-the work in this phase, and it should be a choice rather than a drift.
+## Building from a clean checkout
 
-## What is already true, and must stay true
+Requires Xcode 26 or later and the iOS platform support. A fresh Xcode install
+often has only the macOS toolchain; the symptom is
+`iOS 26.5 is not installed` for every destination, including your connected
+phone. Fix it once — it is a large download:
 
-Every one of these was broken once during the desktop work. `docs/API.md` gives
-the detail; this is the short list.
+```bash
+xcodebuild -downloadPlatform iOS
+```
 
-- `updatedAt` is the user's edit time and decides conflicts. `serverTime` is the
-  pull cursor. They are not interchangeable.
-- Rows are matched by `uuid`, assigned by the client that created the row.
-- Two libraries that both hold data cannot be merged automatically. Ask.
-- A cover's hash is of the bytes that were *uploaded*; a downloaded file never
-  hashes to its own name. Never decide "changed?" by hashing something you
-  downloaded.
-- `null` is not `0`. Writing a zero where the user has nothing is a silent edit.
-- Deletions must stay queued until the push succeeds.
+It wants roughly 15 GB free — the download, then the expanded platform — so
+check `df -h /System/Volumes/Data` first. A near-full disk fails this part way
+through rather than up front.
 
-## Ground rules
+Run the logic tests (no simulator needed):
 
-Same as the rest of the repository: one branch per change, a PR into `dev`,
-`main` only at release time. CI has path filters, so this directory will need its
-own workflow before it has anything to test.
+```bash
+cd ios/BookWormKit && swift test
+```
+
+Build the app for the simulator, unsigned:
+
+```bash
+cd ios && xcodebuild build -project BookWormProgress.xcodeproj -scheme BookWormProgress \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO
+```
+
+## Putting it on the phone (free personal signing)
+
+Decided in the brief, D9: a free Apple ID and Xcode's **Personal Team**. No paid
+Developer Program, so no TestFlight — the app runs on the one phone it is built
+for.
+
+1. `open ios/BookWormProgress.xcodeproj`.
+2. **Settings → Accounts** → add your Apple ID if it is not there.
+3. Select the **BookWormProgress** target → **Signing & Capabilities**:
+   - *Automatically manage signing* is already on.
+   - Set **Team** to your personal team. This is the one manual step, and it is
+     per-machine: `DEVELOPMENT_TEAM` is deliberately empty in the project so the
+     file is not tied to one Apple ID.
+   - If the bundle identifier `com.sqtx.bookworm.progress` is taken (someone
+     else already registered it), change it to anything unique. Nothing in the
+     code depends on it except the Keychain service name, which follows the
+     bundle only by convention — changing it just means signing in again.
+4. Connect the iPhone, pick it as the run destination, press Run.
+5. On the phone, first launch only: **Settings → General → VPN & Device
+   Management** → trust your developer certificate.
+6. In the app: enter the server address, email and password.
+
+### The seven-day expiry
+
+A free provisioning profile lasts seven days. After that the app refuses to
+launch until it is rebuilt from Xcode with the phone connected — step 4 again,
+which takes under a minute. That is the whole cost of not paying, and it was a
+deliberate trade: the paid account buys convenience, not capability.
+
+**A rebuild can reinstall rather than re-sign, and a reinstall takes the
+Keychain item with it.** The app treats that as an ordinary path: it says *"No
+stored session. That is normal after the app is re-deployed from Xcode — sign in
+again."* rather than showing an error. Queued writes survive it; they live in
+Application Support, not the Keychain.
+
+Also, because only a Personal Team can sign this: no push notifications, no App
+Groups, no CloudKit. Nothing here needs them, and a feature that starts wanting
+one has outgrown the brief.
+
+## When something looks wrong
+
+**Settings → Activity** is a log of what the app actually did — fetches, writes,
+queued writes, refreshes, sign-outs, newest first. It exists because "nothing
+happened" and "nothing was attempted" are indistinguishable from outside, and
+telling them apart was most of the work every time the desktop's sync
+misbehaved.
+
+A book showing an orange *Queued* line is a write that has not reached the
+server. It is on disk and goes out on the next launch or foreground.
+
+## What is deliberately not here
+
+Adding books, editing metadata, tags, quotes, highlights, summaries, reviews,
+statistics, challenges, series, search, sorting, filtering beyond
+`status=reading`, and `POST /v1/sync`. Each of them is a reason the app stops
+being a five-second interaction. The sync protocol in particular is most of the
+work of a full client and buys nothing here: this app writes one field through
+an endpoint built for exactly that.
