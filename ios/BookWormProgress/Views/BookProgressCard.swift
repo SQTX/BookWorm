@@ -6,6 +6,7 @@ struct BookProgressCard: View {
     let commit: (Int) -> Void
     let togglePriority: () -> Void
 
+    @Environment(AppModel.self) private var model
     @State private var draggingTo: Int?
     @State private var savedTick = 0
 
@@ -32,6 +33,12 @@ struct BookProgressCard: View {
         .onChange(of: row.state) { _, state in
             if case .saved = state { savedTick += 1 }
         }
+        .onChange(of: draggingTo) { _, proposal in
+            // Tells the model to hold the periodic refresh: a list reloading
+            // under a half-made change would discard it.
+            model.setEditing(row.id, proposal != nil)
+        }
+        .onDisappear { model.setEditing(row.id, false) }
         .onChange(of: book.currentPage) { _, _ in
             // The server (or another device) moved the page while a proposal
             // was on screen. Drop it rather than let the user confirm a delta

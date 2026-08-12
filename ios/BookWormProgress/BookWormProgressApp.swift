@@ -15,7 +15,12 @@ struct BookWormProgressApp: App {
                     // Flushing on foreground is half of the offline story: the
                     // other half is that a queued write survives the app being
                     // killed in between.
-                    if phase == .active { Task { await model.onForeground() } }
+                    if phase == .active {
+                        Task { await model.onForeground() }
+                        model.startLiveRefresh()
+                    } else {
+                        model.stopLiveRefresh()
+                    }
                 }
         }
     }
