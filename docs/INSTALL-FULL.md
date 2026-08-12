@@ -238,7 +238,7 @@ caused without any error.
   sudo $BC status          # schedule, retention, what is on disk, free space
   sudo $BC set-interval 6h # hourly | 6h | daily | weekly | any OnCalendar spec
   sudo $BC set-keep 30     # how many backups exist at once
-  sudo $BC run             # take one now
+  sudo $BC at_now          # take a backup now, and wait for the verdict
   ```
 
   A backup is deleted together with its cover archive, and rotation happens only
