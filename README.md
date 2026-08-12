@@ -15,41 +15,87 @@
 
 ## Description
 
-A desktop application for tracking your personal book library — what you're reading, what you've read, and what you plan to read next. Built with **Qt 6 (C++ / QML)** and backed by **PostgreSQL**, BookWorm offers a dark Material-themed UI with multiple views, reading statistics, and full Polish/English localization.
+BookWorm tracks a personal library: what you are reading, what you have read,
+and what is next. It is a **Qt 6 (C++/QML) macOS application** backed by
+PostgreSQL — and, if you want it, a small server of your own and an iPhone app
+that moves the page count from wherever you happen to be reading.
 
-**Keywords:** *book tracker, reading list, Qt6, QML, PostgreSQL, desktop app, dark theme*.
+The desktop application is the product. The other two parts are optional and
+exist only so a second device can exist; with sync switched off, BookWorm never
+touches the network and never mentions that it could.
+
+**Keywords:** *book tracker, reading list, Qt6, QML, PostgreSQL, desktop app, self-hosted sync, iOS*.
+
+## Install — pick one
+
+| | **Desktop only** | **Full environment** |
+| --- | --- | --- |
+| You get | The complete application on one Mac | The same, plus your own server and the iPhone app, syncing both ways |
+| Needs | Homebrew, Qt, PostgreSQL | The above, plus a VPS (or a local Node) and Xcode |
+| Network | None. Ever. | Your server, over TLS |
+| Time | ~15 min | ~1 h |
+| Guide | **[INSTALL-DESKTOP.md](docs/INSTALL-DESKTOP.md)** | **[INSTALL-FULL.md](docs/INSTALL-FULL.md)** |
+
+Starting with the desktop and adding the rest later costs nothing — the full
+guide begins from exactly that state.
+
+## Documentation
+
+| Document | What is in it |
+| --- | --- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the three parts fit together, and the eight rules that keep them honest |
+| [docs/API.md](docs/API.md) | The HTTP contract, written so a client can be built without reading the server |
+| [docs/INSTALL-DESKTOP.md](docs/INSTALL-DESKTOP.md) | Desktop install, and the Qt PostgreSQL driver step that is easy to miss |
+| [docs/INSTALL-FULL.md](docs/INSTALL-FULL.md) | Server, sync and the iPhone app |
+| [server/deploy/RUNBOOK.md](server/deploy/RUNBOOK.md) | Provisioning, upgrading and operating the VPS |
+| [ios/README.md](ios/README.md) | Building and signing the iPhone app from a clean checkout |
 
 ### Features
 
-- **Three views**: Library (card grid), Table (spreadsheet), and Statistics (charts & analytics).
-- **Book CRUD**: Add, edit, and delete books with cover images, ratings, genres, tags, and more.
-- **Item types**: Book, article, newspaper, magazine, comic, manga, thesis, workbook, and other.
-- **Reading progress**: Track current page with a visual progress bar for books in "reading" status.
-- **Audiobook mode**: Mark books as audiobook or audiobook-supported, with visual indicators on cards.
-- **Rating system**: 0–6 star rating (only available for finished books).
-- **Tags & genres**: Color-coded tags with a dedicated management popup, genre categorization.
-- **Favorite quotes**: Save quotes from books with page numbers.
-- **Highlights & summaries**: Store important passages and book summaries.
-- **Reading challenges**: Set time-bound reading goals and track completion.
-- **Statistics dashboard**: Total books, pages read, average rating, genre distribution, monthly/yearly charts.
-- **Optional server sync**: Off by default and silent about it — BookWorm is a complete desktop application on its own. Point it at your own server in Settings and your library, covers included, syncs both ways: automatically on launch and shutdown, or on demand. Neither side can overwrite newer data with older, and cover images travel by content hash so the same edition is stored once.
-- **Backup & restore**: A single ZIP with a full database dump and every cover image, verified before it is written. Restoring trial-loads the archive into a scratch database first and takes a safety backup of what it is about to replace.
-- **CSV import/export**: Migrate your data in and out.
-- **Bilingual UI**: Full English and Polish translations with automatic system language detection.
-- **Three themes**: Classic (warm dark), Minimalist Dark, and Minimalist Light.
-- **Native macOS menu bar**: About dialog, CSV operations, language/theme switching via system menus.
-- **Persistent settings**: Language, theme, and layout preferences saved between sessions.
+**Library**
+
+- **Five views**: Library (card grid), Table (spreadsheet), Statistics, Challenges, Series.
+- **Book CRUD** with cover images, ratings, genres, tags, series, ISBN, publisher.
+- **Item types**: book, article, newspaper, magazine, comic, manga, thesis, workbook, other.
+- **Reading progress** with a per-book progress bar, and a priority flag that pins a book to the top.
+- **Audiobook mode**: audiobook or audiobook-supported, marked on the card.
+- **Rating** 1–6 stars, available once a book is finished.
+- **Quotes, highlights, summaries and reviews** per book; Markdown export of all of it.
+- **Reading challenges** by books, pages, or pages per day, over a period or to a date.
+- **Statistics**: totals, averages, genre distribution, year-on-year charts, streaks, a pages-per-day chart, weekday distribution, completion projections and an activity heatmap.
+- **Reading sessions**, recorded automatically whenever progress moves — this is what the streaks and the heatmap are built from.
+- **Undo delete**, **CSV import/export**, **three themes**, **English/Polish** with system detection.
+
+**Backup**
+
+- One ZIP holding a full database dump, every cover image and a manifest, verified before it is written and produced through a temporary file so a failed run cannot destroy the last good one. Manual, or on an interval.
+- Restore trial-loads the archive into a scratch database first, shows the book count on both sides, takes a safety backup of what it is about to replace, and asks you to type `RESTORE`.
+
+**Sync** *(optional)*
+
+- Off by default and silent about it. Point it at your own server in Settings.
+- The whole library travels, covers included; images move by content hash, so the same edition is stored once.
+- Automatic: at launch, every two minutes, three seconds after an edit, when the window comes forward, and at shutdown. A button in the header does it on demand.
+- Neither side can overwrite newer data with older — both apply the same rule to the same timestamp.
+
+**iPhone** *(optional)*
+
+- One screen: the books you are reading, each with a slider.
+- A page change is a proposal until you confirm it, so brushing the control while scrolling cannot rewrite your history.
+- Works offline — writes are queued on disk before they are attempted and flushed when there is signal.
 
 ## Technicalities
 
 | Component | Details |
 |---|---|
 | **Language** | C++17 + QML |
-| **Framework** | Qt 6.10.2 (Homebrew) |
+| **Framework** | Qt 6.10+ (Homebrew) |
 | **Qt Modules** | Core, Sql, Qml, Quick, QuickControls2, Charts, ChartsQml, Widgets |
 | **Database** | PostgreSQL 16+ |
 | **Build system** | CMake 3.21+ |
 | **Platform** | macOS (Apple Silicon / Intel) |
+| **Server** *(optional)* | Node 24 + Fastify, PostgreSQL 16, Caddy |
+| **iPhone** *(optional)* | Swift 6 + SwiftUI, iOS 17+, no third-party packages |
 | **Theme** | Material Dark / Light |
 
 ### Architecture
@@ -61,104 +107,45 @@ User --> QML Signal --> BookController (Q_INVOKABLE) --> DatabaseManager --> Pos
 ```
 
 - **DatabaseManager** — Singleton. PostgreSQL connection, schema init with idempotent migrations, all CRUD operations.
-- **Book** — Plain struct (23 fields), serialization via `toVariantMap()` / `fromVariantMap()`.
-- **BookModel** — `QAbstractListModel` with 22 roles, registered as `QML_ELEMENT`.
+- **Book** — Plain struct (25 fields), serialization via `toVariantMap()` / `fromVariantMap()`.
+- **BookModel** — `QAbstractListModel` with 23 roles, registered as `QML_ELEMENT`.
 - **BookController** — QML bridge: filtering, search, CSV import/export, tag/quote/challenge management.
 - **StatisticsProvider** — Computes reading stats exposed as QML properties.
-- **Theme.qml** — Singleton managing colors, fonts, spacing, and translations via `tr()` function.
+- **SyncManager** — Everything network, and nothing at all until sync is configured.
+- **BackupManager** — ZIP backup and verified restore.
+- **Theme.qml** — Singleton managing colors, fonts, spacing, and translations via `tr()`.
+
+A fuller account of the whole system — including how the desktop and the phone
+deliberately talk to the server in different ways — is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Project Structure
 
-The repository is a monorepo. Each top-level directory is one codebase with its own
-toolchain and its own release cadence; `desktop/` is the only one that exists today.
+The repository is a monorepo. Each top-level directory is one codebase with its
+own toolchain, its own tests and its own CI workflow.
 
 ```
 BookWorm/
 ├── README.md
-├── desktop/                          # Qt6 C++/QML desktop app — C++17, CMake
-│   ├── CMakeLists.txt
-│   ├── qml/
-│   │   ├── Main.qml                  # Root window, sidebar, navigation, menus, settings
-│   │   ├── theme/
-│   │   │   ├── Theme.qml             # Singleton — colors, fonts, spacing, i18n helpers
-│   │   │   └── translations.js       # Polish translation dictionary (~200 entries)
-│   │   └── components/
-│   │       ├── common/               # Shared building blocks (Panel, AppButton, Chip, …)
-│   │       ├── BookCard.qml          # Card for grid view
-│   │       ├── BookForm.qml          # Add/edit dialog
-│   │       ├── BookDetails.qml       # Full detail view with quotes & highlights
-│   │       ├── BookListView.qml      # Grid (Library) view
-│   │       ├── BookTableView.qml     # Spreadsheet table view
-│   │       ├── StatisticsView.qml    # Charts and statistics
-│   │       ├── ChallengesView.qml    # Reading challenges
-│   │       └── SeriesView.qml        # Series list with progress
+├── docs/                             ARCHITECTURE, API, both install guides
+├── desktop/                          Qt6 C++/QML application — CMake
+│   ├── qml/                          Main window, theme, components
 │   ├── src/
-│   │   ├── main.cpp                  # Entry point, plugin paths, context properties
-│   │   ├── constants.h               # DB config, app info
-│   │   ├── database/
-│   │   │   └── databasemanager.h/.cpp  # Singleton PostgreSQL manager
-│   │   ├── models/
-│   │   │   ├── book.h/.cpp           # Book struct
-│   │   │   └── bookmodel.h/.cpp      # QAbstractListModel
-│   │   ├── controllers/
-│   │   │   └── bookcontroller.h/.cpp # QML bridge
-│   │   ├── statistics/
-│   │   │   └── statisticsprovider.h/.cpp
-│   │   ├── backup/
-│   │   │   └── backupmanager.h/.cpp  # ZIP backup and restore
-│   │   └── img/                      # SVG icons and PNG assets
-│   └── sql/
-│       └── init.sql                  # Reference database schema
-└── docs/
-    ├── img/                          # README images
-    └── superpowers/                  # Specs and implementation plans
-```
-
-## Getting Started
-
-### Prerequisites
-
-- **macOS** with Homebrew
-- **Qt 6.10+** (`brew install qt qtcharts qtdeclarative qtshadertools`)
-- **PostgreSQL 16+** (`brew install postgresql@16`)
-- **CMake 3.21+**
-
-### Database Setup
-
-```bash
-# Start PostgreSQL
-brew services start postgresql@16
-
-# Create the database
-createdb wormbook
-
-# (Optional) Initialize schema from reference file
-psql wormbook < desktop/sql/init.sql
-```
-
-> The app runs idempotent migrations on every launch, so manual schema init is optional.
-
-### Build
-
-Run from the repository root — the desktop app builds out of `desktop/`.
-
-```bash
-mkdir -p desktop/build && cd desktop/build
-cmake .. \
-  -DCMAKE_PREFIX_PATH="/opt/homebrew/Cellar/qtbase/6.10.2;/opt/homebrew/Cellar/qtdeclarative/6.10.2;/opt/homebrew/Cellar/qtcharts/6.10.2;/opt/homebrew/Cellar/qtshadertools/6.10.2" \
-  -DQt6Qml_DIR="/opt/homebrew/Cellar/qtdeclarative/6.10.2/lib/cmake/Qt6Qml" \
-  -DQt6Quick_DIR="/opt/homebrew/Cellar/qtdeclarative/6.10.2/lib/cmake/Qt6Quick" \
-  -DQt6QuickControls2_DIR="/opt/homebrew/Cellar/qtdeclarative/6.10.2/lib/cmake/Qt6QuickControls2" \
-  -DQt6Charts_DIR="/opt/homebrew/Cellar/qtcharts/6.10.2/lib/cmake/Qt6Charts" \
-  -DQt6ChartsQml_DIR="/opt/homebrew/Cellar/qtcharts/6.10.2/lib/cmake/Qt6ChartsQml" \
-  -DCMAKE_BUILD_TYPE=Release -Wno-dev \
-  && cmake --build . -j$(sysctl -n hw.ncpu)
-```
-
-### Run
-
-```bash
-./desktop/build/BookWorm.app/Contents/MacOS/BookWorm
+│   │   ├── database/                 Singleton PostgreSQL manager
+│   │   ├── models/                   Book struct, QAbstractListModel
+│   │   ├── controllers/              QML bridge
+│   │   ├── statistics/               Stats queries
+│   │   ├── sync/                     API client, sync manager, Keychain
+│   │   └── backup/                   ZIP backup and restore
+│   └── sql/init.sql                  Reference schema
+├── server/                           Node + Fastify API — npm
+│   ├── src/                          auth, books, collections, covers, sync
+│   ├── migrations/                   node-pg-migrate
+│   ├── test/                         95 tests against a real PostgreSQL
+│   └── deploy/                       install.sh, systemd unit, RUNBOOK
+└── ios/                              SwiftUI iPhone app — Xcode
+    ├── BookWormProgress/             The app: views, Keychain, covers
+    └── BookWormKit/                  Logic + tests, runnable without a simulator
 ```
 
 ## Screenshots
