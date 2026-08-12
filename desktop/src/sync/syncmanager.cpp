@@ -52,6 +52,17 @@ constexpr int AUTO_SYNC_INTERVAL_MS = 2 * 60 * 1000;
 constexpr int ACTIVATION_QUIET_PERIOD_S = 20;
 
 /**
+ * How long an edit waits before it is sent.
+ *
+ * Long enough to swallow the several writes one edit really is — the row, its
+ * tags, a reading session — and short enough that the change is on the other
+ * device before anyone goes looking for it. Every further edit restarts it, so
+ * a long editing session costs one exchange at the end rather than one per
+ * field.
+ */
+constexpr int AFTER_EDIT_DELAY_MS = 3000;
+
+/**
  * Append a line to a log on disk.
  *
  * Launched as a bundle, the application's stderr goes somewhere nobody will
@@ -93,6 +104,11 @@ SyncManager::SyncManager(QObject *parent)
     m_autoSyncTimer = new QTimer(this);
     m_autoSyncTimer->setInterval(AUTO_SYNC_INTERVAL_MS);
     QObject::connect(m_autoSyncTimer, &QTimer::timeout, this, &SyncManager::autoSync);
+
+    m_afterEditTimer = new QTimer(this);
+    m_afterEditTimer->setSingleShot(true);
+    m_afterEditTimer->setInterval(AFTER_EDIT_DELAY_MS);
+    QObject::connect(m_afterEditTimer, &QTimer::timeout, this, &SyncManager::afterLocalEdit);
     QObject::connect(this, &SyncManager::configChanged, this, &SyncManager::updateAutoSyncTimer);
 
     // Only cheap, local state here. Anything that can block — the Keychain
@@ -391,6 +407,28 @@ void SyncManager::syncNow()
         if (!ok) { emit syncFinished(false, tr("Not connected")); return; }
         performIncremental();
     });
+}
+
+void SyncManager::syncSoon()
+{
+    if (!m_enabled)
+        return;
+    m_afterEditTimer->start();   // restarts it, so a burst of edits is one exchange
+}
+
+void SyncManager::afterLocalEdit()
+{
+    if (!m_enabled || !m_api.hasSession())
+        return;
+    if (m_busy) {
+        // An exchange is already running and may have read the database before
+        // this edit landed. Come back rather than skip: the alternative is an
+        // edit that waits two minutes for the timer to notice it.
+        m_afterEditTimer->start();
+        return;
+    }
+    logSync(QStringLiteral("edit: exchanging"));
+    performIncremental();
 }
 
 void SyncManager::syncIfStale()

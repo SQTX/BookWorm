@@ -70,6 +70,16 @@ public:
     Q_INVOKABLE void syncNow();
 
     /**
+     * Exchange shortly after a local edit, coalescing a burst of them.
+     *
+     * Editing a book is several writes in a row — the row, its tags, a session
+     * — and typing in a field can be one per keystroke. A short delay turns all
+     * of that into one exchange, while still feeling immediate: the page moved
+     * on the desktop is on the phone before the reader has put the book down.
+     */
+    Q_INVOKABLE void syncSoon();
+
+    /**
      * Exchange unless one just happened. Called when the window is brought to
      * the front — coming back to the application is the moment a person expects
      * to see what another device did, and it costs one request.
@@ -179,10 +189,12 @@ private:
      */
     void updateAutoSyncTimer();
     void autoSync();
+    void afterLocalEdit();
 
     ApiClient m_api;
     SyncRepository *m_repo = nullptr;
     QTimer *m_autoSyncTimer = nullptr;
+    QTimer *m_afterEditTimer = nullptr;
     QDateTime m_lastExchange;
 
     bool m_enabled = false;
