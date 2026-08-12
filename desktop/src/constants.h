@@ -7,7 +7,7 @@ namespace BookWorm::Config {
     inline constexpr auto DB_DRIVER   = "QPSQL";
 
     inline constexpr auto APP_NAME    = "BookWorm";
-    inline constexpr auto APP_VERSION = "1.2.1";
+    inline constexpr auto APP_VERSION = "1.5.0";
     inline constexpr auto APP_ORG     = "sqtx";
 
     /**

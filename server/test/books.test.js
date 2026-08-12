@@ -193,6 +193,43 @@ describe('books', { skip: DATABASE_URL ? false : 'TEST_DATABASE_URL not set' }, 
       assert.equal(rows[0].page_end, 40);
     });
 
+    test('progress moves the client clock, not only the server one', async () => {
+      // The bug this guards: a REST write that moves `updated_at` alone is sent
+      // to the other clients and then thrown away by their last-write-wins
+      // rule, because it arrives claiming to be as old as the row they already
+      // hold. Nothing errors; the desktop simply never shows what the phone
+      // did. The two timestamps are not interchangeable.
+      const { rows: before } = await pool.query(
+        'SELECT client_updated_at FROM books WHERE id = $1',
+        [bookId],
+      );
+
+      await new Promise((resolve) => { setTimeout(resolve, 10); });
+      await app.inject({
+        method: 'POST',
+        url: `/v1/books/${bookId}/progress`,
+        headers: ownerAuth,
+        payload: { currentPage: 41 },
+      });
+
+      const { rows: after } = await pool.query(
+        'SELECT client_updated_at FROM books WHERE id = $1',
+        [bookId],
+      );
+      assert.ok(
+        after[0].client_updated_at > before[0].client_updated_at,
+        'client_updated_at must advance, or the change never reaches another client',
+      );
+
+      const { rows: sessions } = await pool.query(
+        "SELECT client_updated_at FROM reading_sessions WHERE book_id = $1 AND source = 'manual'",
+        [bookId],
+      );
+      // A NULL here never compares greater than anything, so the session would
+      // be invisible to sync and the desktop's statistics would stay wrong.
+      assert.ok(sessions[0].client_updated_at, 'the session carries a client clock too');
+    });
+
     test('a second push the same day merges instead of duplicating', async () => {
       await app.inject({
         method: 'POST',
@@ -263,6 +300,31 @@ describe('books', { skip: DATABASE_URL ? false : 'TEST_DATABASE_URL not set' }, 
       );
       assert.equal(res.statusCode, 200);
       assert.equal(sessions.rows[0].page_end, 90, 'a PATCH must not fabricate reading');
+    });
+
+    test('a PATCH moves the client clock so the edit can reach other clients', async () => {
+      // Reported from the phone: a book starred in the iOS app never appeared
+      // on the desktop. The star was written here and then silently discarded
+      // there, because the row travelled with its old edit time.
+      const { rows: before } = await pool.query(
+        'SELECT client_updated_at FROM books WHERE id = $1',
+        [bookId],
+      );
+
+      await new Promise((resolve) => { setTimeout(resolve, 10); });
+      await app.inject({
+        method: 'PATCH',
+        url: `/v1/books/${bookId}`,
+        headers: ownerAuth,
+        payload: { isPriority: true },
+      });
+
+      const { rows: after } = await pool.query(
+        'SELECT client_updated_at, is_priority FROM books WHERE id = $1',
+        [bookId],
+      );
+      assert.equal(after[0].is_priority, true);
+      assert.ok(after[0].client_updated_at > before[0].client_updated_at);
     });
   });
 

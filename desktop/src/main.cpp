@@ -118,6 +118,31 @@ int main(int argc, char *argv[])
     QObject::connect(&bookController, &BookController::booksChanged,
                      &statsProvider, &StatisticsProvider::refresh);
 
+    // Rows that arrived from the server are in the database but not in the
+    // model: the model was filled before the exchange finished, and nothing
+    // told it otherwise. Without this the only way to see another device's
+    // edit is to restart the application, which is exactly how it behaved.
+    //
+    // The flag separates "the user changed something" from "the model was
+    // rebuilt because the server did". Both emit booksChanged, and only the
+    // first is worth an exchange — syncing on the second would answer every
+    // pull with a push and never stop.
+    static bool applyingRemoteChanges = false;
+    QObject::connect(&syncManager, &SyncManager::remoteChangesApplied,
+                     &bookController, [&bookController]() {
+                         applyingRemoteChanges = true;
+                         bookController.loadBooks();
+                         applyingRemoteChanges = false;
+                     });
+
+    // An edit reaches the server on its own, a few seconds later. Before this,
+    // the only way out was the button in Settings or waiting for the timer.
+    QObject::connect(&bookController, &BookController::booksChanged,
+                     &syncManager, [&syncManager]() {
+                         if (!applyingRemoteChanges)
+                             syncManager.syncSoon();
+                     });
+
     // QML engine
     QQmlApplicationEngine engine;
     engine.addImportPath(QStringLiteral("/opt/homebrew/share/qt/qml"));

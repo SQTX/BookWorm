@@ -205,6 +205,18 @@ Item {
                 return parts.length > 0 ? parts.join("  \u00B7  ") : Theme.tr("0 books");
             }
 
+            // Synchronise now. Hidden entirely when sync is off — a button that
+            // cannot do anything is worse than no button (D8).
+            IconButton {
+                visible: syncManager.enabled
+                iconSource: "qrc:/qt/qml/BookWorm/src/img/icons/synchronize.svg"
+                tooltip: syncManager.busy ? Theme.tr("Synchronising…")
+                                          : Theme.tr("Synchronise now")
+                spinning: syncManager.busy
+                enabledState: !syncManager.busy
+                onClicked: syncManager.syncNow()
+            }
+
             // Layout button
             IconButton {
                 iconSource: "qrc:/qt/qml/BookWorm/src/img/icons/sheet-view.svg"

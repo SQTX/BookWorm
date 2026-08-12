@@ -104,12 +104,25 @@ async function setTags(client, userId, bookId, tags) {
   );
 }
 
+/**
+ * Every REST write is a user edit, and a user edit has to move
+ * `client_updated_at` — not just `updated_at`.
+ *
+ * The two are not interchangeable. `updated_at` is server time and drives the
+ * pull cursor; `client_updated_at` is the edit time and decides last-write-wins
+ * on both sides. A write that moves only the first is *sent* to the other
+ * clients and then discarded by their merge rule, because it arrives claiming
+ * to be as old as the row they already have. Nothing errors. The desktop simply
+ * never shows what the phone did.
+ */
+const CLIENT_CLOCK = 'client_updated_at = NOW()';
+
 export async function createBook(pool, userId, input) {
   const data = normalise(input);
   const { tags = [], ...fields } = data;
 
-  const columns = ['user_id'];
-  const values = [userId];
+  const columns = ['user_id', 'client_updated_at'];
+  const values = [userId, new Date()];
 
   for (const [key, column] of Object.entries(COLUMN_OF)) {
     if (fields[key] !== undefined) {
@@ -171,7 +184,7 @@ export async function updateBook(pool, userId, id, input) {
     if (assignments.length > 0) {
       values.push(id, userId);
       await client.query(
-        `UPDATE books SET ${assignments.join(', ')}, updated_at = NOW()
+        `UPDATE books SET ${assignments.join(', ')}, updated_at = NOW(), ${CLIENT_CLOCK}
           WHERE id = $${values.length - 1} AND user_id = $${values.length}`,
         values,
       );
@@ -179,7 +192,7 @@ export async function updateBook(pool, userId, id, input) {
 
     if (tags !== undefined) {
       await setTags(client, userId, id, tags);
-      await client.query('UPDATE books SET updated_at = NOW() WHERE id = $1', [id]);
+      await client.query(`UPDATE books SET updated_at = NOW(), ${CLIENT_CLOCK} WHERE id = $1`, [id]);
     }
 
     await client.query('COMMIT');
@@ -198,7 +211,8 @@ export async function updateBook(pool, userId, id, input) {
  */
 export async function deleteBook(pool, userId, id) {
   const { rowCount } = await pool.query(
-    'UPDATE books SET deleted_at = NOW() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL',
+    `UPDATE books SET deleted_at = NOW(), updated_at = NOW(), ${CLIENT_CLOCK}
+      WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
     [id, userId],
   );
   return rowCount > 0;
@@ -243,18 +257,24 @@ export async function recordProgress(pool, userId, id, newCurrentPage) {
       `UPDATE books
           SET current_page = $1,
               status = CASE WHEN status = 'planned' THEN 'reading' ELSE status END,
-              updated_at = NOW()
+              updated_at = NOW(),
+              ${CLIENT_CLOCK}
         WHERE id = $2 AND user_id = $3`,
       [newCurrentPage, id, userId],
     );
 
     if (pagesRead > 0) {
       await client.query(
-        `INSERT INTO reading_sessions (user_id, book_id, session_date, page_start, page_end, source)
-         VALUES ($1, $2, CURRENT_DATE, $3, $4, 'manual')
+        // The session carries the client clock too, or it is invisible to sync:
+        // a NULL there never compares greater than anything, so the row would
+        // sit on the server and never reach the desktop's statistics.
+        `INSERT INTO reading_sessions (user_id, book_id, session_date, page_start, page_end, source,
+                                       client_updated_at)
+         VALUES ($1, $2, CURRENT_DATE, $3, $4, 'manual', NOW())
          ON CONFLICT (book_id, session_date, source)
          DO UPDATE SET page_start = LEAST(reading_sessions.page_start, EXCLUDED.page_start),
-                       page_end   = GREATEST(reading_sessions.page_end, EXCLUDED.page_end)`,
+                       page_end   = GREATEST(reading_sessions.page_end, EXCLUDED.page_end),
+                       client_updated_at = NOW()`,
         [userId, id, previousPage, newCurrentPage],
       );
     }
@@ -300,18 +320,21 @@ export async function completeBook(pool, userId, id, { rating, review } = {}) {
               read_count = read_count + 1,
               rating = COALESCE($1, rating),
               review = COALESCE($2, review),
-              updated_at = NOW()
+              updated_at = NOW(),
+              ${CLIENT_CLOCK}
         WHERE id = $3 AND user_id = $4`,
       [rating === 0 ? null : (rating ?? null), review ?? null, id, userId],
     );
 
     if (pageCount > previousPage) {
       await client.query(
-        `INSERT INTO reading_sessions (user_id, book_id, session_date, page_start, page_end, source)
-         VALUES ($1, $2, CURRENT_DATE, $3, $4, 'completion')
+        `INSERT INTO reading_sessions (user_id, book_id, session_date, page_start, page_end, source,
+                                       client_updated_at)
+         VALUES ($1, $2, CURRENT_DATE, $3, $4, 'completion', NOW())
          ON CONFLICT (book_id, session_date, source)
          DO UPDATE SET page_start = LEAST(reading_sessions.page_start, EXCLUDED.page_start),
-                       page_end   = GREATEST(reading_sessions.page_end, EXCLUDED.page_end)`,
+                       page_end   = GREATEST(reading_sessions.page_end, EXCLUDED.page_end),
+                       client_updated_at = NOW()`,
         [userId, id, previousPage, pageCount],
       );
     }

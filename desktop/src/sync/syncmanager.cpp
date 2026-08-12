@@ -34,6 +34,35 @@ QString g_pendingServerTime;
 constexpr int SHUTDOWN_SYNC_TIMEOUT_MS = 6000;
 
 /**
+ * How often the application exchanges with the server on its own.
+ *
+ * Two minutes is the compromise: fast enough that a page moved on the phone
+ * appears here while the book is still in the reader's hand, slow enough that
+ * an always-open window costs the server thirty requests an hour rather than
+ * one every few seconds. Nothing is transferred when nothing changed — the
+ * cursor sees to that.
+ */
+constexpr int AUTO_SYNC_INTERVAL_MS = 2 * 60 * 1000;
+
+/**
+ * How recent an exchange has to be for window activation to skip its own.
+ * Activation fires on every alt-tab, and one request per accidental focus is
+ * not a design.
+ */
+constexpr int ACTIVATION_QUIET_PERIOD_S = 20;
+
+/**
+ * How long an edit waits before it is sent.
+ *
+ * Long enough to swallow the several writes one edit really is — the row, its
+ * tags, a reading session — and short enough that the change is on the other
+ * device before anyone goes looking for it. Every further edit restarts it, so
+ * a long editing session costs one exchange at the end rather than one per
+ * field.
+ */
+constexpr int AFTER_EDIT_DELAY_MS = 3000;
+
+/**
  * Append a line to a log on disk.
  *
  * Launched as a bundle, the application's stderr goes somewhere nobody will
@@ -72,6 +101,16 @@ SyncManager::SyncManager(QObject *parent)
         setStatus(tr("Signed out — sign in again"));
     });
 
+    m_autoSyncTimer = new QTimer(this);
+    m_autoSyncTimer->setInterval(AUTO_SYNC_INTERVAL_MS);
+    QObject::connect(m_autoSyncTimer, &QTimer::timeout, this, &SyncManager::autoSync);
+
+    m_afterEditTimer = new QTimer(this);
+    m_afterEditTimer->setSingleShot(true);
+    m_afterEditTimer->setInterval(AFTER_EDIT_DELAY_MS);
+    QObject::connect(m_afterEditTimer, &QTimer::timeout, this, &SyncManager::afterLocalEdit);
+    QObject::connect(this, &SyncManager::configChanged, this, &SyncManager::updateAutoSyncTimer);
+
     // Only cheap, local state here. Anything that can block — the Keychain
     // especially — waits until the interface exists.
     if (m_enabled && !m_email.isEmpty()) {
@@ -80,6 +119,7 @@ SyncManager::SyncManager(QObject *parent)
     } else {
         setStatus(QString());
     }
+    updateAutoSyncTimer();
 }
 
 SyncManager::~SyncManager()
@@ -369,8 +409,61 @@ void SyncManager::syncNow()
     });
 }
 
+void SyncManager::syncSoon()
+{
+    if (!m_enabled)
+        return;
+    m_afterEditTimer->start();   // restarts it, so a burst of edits is one exchange
+}
+
+void SyncManager::afterLocalEdit()
+{
+    if (!m_enabled || !m_api.hasSession())
+        return;
+    if (m_busy) {
+        // An exchange is already running and may have read the database before
+        // this edit landed. Come back rather than skip: the alternative is an
+        // edit that waits two minutes for the timer to notice it.
+        m_afterEditTimer->start();
+        return;
+    }
+    logSync(QStringLiteral("edit: exchanging"));
+    performIncremental();
+}
+
+void SyncManager::syncIfStale()
+{
+    if (!m_enabled || m_busy)
+        return;
+    if (m_lastExchange.isValid()
+        && m_lastExchange.secsTo(QDateTime::currentDateTime()) < ACTIVATION_QUIET_PERIOD_S) {
+        return;
+    }
+    logSync(QStringLiteral("activation: exchanging"));
+    syncNow();
+}
+
+void SyncManager::autoSync()
+{
+    // Skipped rather than queued when one is already running: a slow exchange
+    // must not accumulate a backlog of identical ones behind it.
+    if (!m_enabled || m_busy || !m_api.hasSession())
+        return;
+    logSync(QStringLiteral("timer: exchanging"));
+    performIncremental();
+}
+
+void SyncManager::updateAutoSyncTimer()
+{
+    if (m_enabled && !m_autoSyncTimer->isActive())
+        m_autoSyncTimer->start();
+    else if (!m_enabled && m_autoSyncTimer->isActive())
+        m_autoSyncTimer->stop();
+}
+
 void SyncManager::performIncremental()
 {
+    m_lastExchange = QDateTime::currentDateTime();
     setStatus(tr("Synchronising…"), true);
     uploadCovers([this]() { pushAndPull(); });
 }
