@@ -118,6 +118,15 @@ int main(int argc, char *argv[])
     QObject::connect(&bookController, &BookController::booksChanged,
                      &statsProvider, &StatisticsProvider::refresh);
 
+    // Rows that arrived from the server are in the database but not in the
+    // model: the model was filled before the exchange finished, and nothing
+    // told it otherwise. Without this the only way to see another device's
+    // edit is to restart the application, which is exactly how it behaved.
+    QObject::connect(&syncManager, &SyncManager::remoteChangesApplied,
+                     &bookController, [&bookController]() {
+                         bookController.loadBooks();
+                     });
+
     // QML engine
     QQmlApplicationEngine engine;
     engine.addImportPath(QStringLiteral("/opt/homebrew/share/qt/qml"));

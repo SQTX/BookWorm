@@ -10,6 +10,7 @@
 #include "apiclient.h"
 
 class SyncRepository;
+class QTimer;
 
 /**
  * Orchestrates synchronisation, and is the only sync type QML talks to.
@@ -67,6 +68,16 @@ public:
 
     /** Push what changed here, then take what changed there. */
     Q_INVOKABLE void syncNow();
+
+    /**
+     * Exchange unless one just happened. Called when the window is brought to
+     * the front — coming back to the application is the moment a person expects
+     * to see what another device did, and it costs one request.
+     *
+     * The quiet period exists because activation fires on every alt-tab, and a
+     * request per window focus is a request per accidental click.
+     */
+    Q_INVOKABLE void syncIfStale();
 
     /**
      * Exchange on launch.
@@ -158,8 +169,21 @@ private:
     QDateTime cursor() const;
     void setCursor(const QString &serverTime);
 
+    /**
+     * Keep the periodic exchange running exactly while sync is on.
+     *
+     * Launch and shutdown alone are not enough: between them, a change made on
+     * the phone is invisible here and a change made here never leaves the
+     * machine, which made the two libraries look broken rather than merely
+     * unsynchronised.
+     */
+    void updateAutoSyncTimer();
+    void autoSync();
+
     ApiClient m_api;
     SyncRepository *m_repo = nullptr;
+    QTimer *m_autoSyncTimer = nullptr;
+    QDateTime m_lastExchange;
 
     bool m_enabled = false;
     QString m_serverUrl;
