@@ -195,6 +195,14 @@ mistake available here.
 - **`serverTime`** — returned by the server, and the only thing a client should
   store as its pull cursor. Pass it back as `since` next time.
 
+This applies to the server's own REST writes too, and it is easy to miss:
+`POST /books/:id/progress`, `PATCH /books/:id` and the rest set **both**
+timestamps, because a REST write is a user edit like any other. Setting only the
+server one would send the row to every other client and have each of them
+discard it as older than what they already hold — a change that vanishes with a
+`200` and no error anywhere. That is exactly what happened to a book starred
+from the phone.
+
 Do not use `serverTime` as an edit time, and do not use your own clock as a
 cursor. An earlier version of the server compared against its own write time; the
 result was that every client edit after the first was discarded and answered

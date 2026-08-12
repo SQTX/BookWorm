@@ -76,8 +76,8 @@ export async function createQuote(pool, userId, bookId, { quote, page }) {
   // book belongs to the caller, so there is no window between checking and
   // writing.
   const { rows } = await pool.query(
-    `INSERT INTO favorite_quotes (book_id, quote, page)
-     SELECT b.id, $1, $2 FROM books b
+    `INSERT INTO favorite_quotes (book_id, quote, page, client_updated_at)
+     SELECT b.id, $1, $2, NOW() FROM books b
       WHERE b.id = $3 AND b.user_id = $4 AND b.deleted_at IS NULL
      RETURNING id, uuid, quote, page`,
     [quote, page ?? null, bookId, userId],
@@ -109,8 +109,8 @@ export async function listHighlights(pool, userId, bookId) {
 
 export async function createHighlight(pool, userId, bookId, { title, page, note }) {
   const { rows } = await pool.query(
-    `INSERT INTO highlights (book_id, title, page, note)
-     SELECT b.id, $1, $2, $3 FROM books b
+    `INSERT INTO highlights (book_id, title, page, note, client_updated_at)
+     SELECT b.id, $1, $2, $3, NOW() FROM books b
       WHERE b.id = $4 AND b.user_id = $5 AND b.deleted_at IS NULL
      RETURNING id, uuid, title, page, note`,
     [title, page ?? null, note ?? null, bookId, userId],
@@ -149,8 +149,8 @@ export async function createChallenge(pool, userId, input) {
 
   const { rows } = await pool.query(
     `INSERT INTO challenges (user_id, name, deadline, metric, target_value,
-                             period_unit, period_count, target_books)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $5)
+                             period_unit, period_count, target_books, client_updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $5, NOW())
      RETURNING ${CHALLENGE_COLUMNS}`,
     // target_books repeats $5 deliberately: it is the legacy column the desktop
     // still reads, kept in step so the two cannot disagree.

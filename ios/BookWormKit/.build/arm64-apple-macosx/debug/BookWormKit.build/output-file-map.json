@@ -1,0 +1,82 @@
+{
+  "": {
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/primary.swiftdeps"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/APIClient.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIClient.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIClient.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIClient~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIClient.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIClient.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/APIError.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIError.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIError.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIError~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIError.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/APIError.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/AppLog.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/AppLog.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/AppLog.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/AppLog~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/AppLog.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/AppLog.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/Book.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/Book.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/Book.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/Book~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/Book.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/Book.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/BooksCache.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/BooksCache.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/BooksCache.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/BooksCache~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/BooksCache.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/BooksCache.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/HTTP.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/HTTP.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/HTTP.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/HTTP~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/HTTP.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/HTTP.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/PageScrubber.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PageScrubber.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PageScrubber.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PageScrubber~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PageScrubber.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PageScrubber.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/PendingWrites.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PendingWrites.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PendingWrites.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PendingWrites~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PendingWrites.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/PendingWrites.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/ProgressService.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressService.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressService.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressService~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressService.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressService.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/ProgressText.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressText.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressText.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressText~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressText.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/ProgressText.dia"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/Sources/BookWormKit/TokenStorage.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/TokenStorage.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/TokenStorage.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/TokenStorage~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/TokenStorage.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKit.build/TokenStorage.dia"
+  }
+}
