@@ -54,7 +54,9 @@ struct ReadingListView: View {
                     // by a heading — one list, an order, no extra chrome.
                     ForEach(model.priorityRows + model.standardRows) { row in
                         card(row)
+                            .transition(.opacity)
                     }
+                    .animation(.snappy(duration: 0.3), value: model.priorityRows.map(\.id))
 
                     if model.pendingCount > 0 {
                         Text("^[\(model.pendingCount) update](inflect: true) waiting to be sent")
@@ -74,9 +76,11 @@ struct ReadingListView: View {
     }
 
     private func card(_ row: BookRow) -> some View {
-        BookProgressCard(row: row) { page in
-            model.commit(bookId: row.id, page: page)
-        }
+        BookProgressCard(
+            row: row,
+            commit: { page in model.commit(bookId: row.id, page: page) },
+            togglePriority: { model.togglePriority(bookId: row.id) }
+        )
     }
 
 

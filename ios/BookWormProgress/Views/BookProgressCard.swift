@@ -4,6 +4,7 @@ import BookWormKit
 struct BookProgressCard: View {
     let row: BookRow
     let commit: (Int) -> Void
+    let togglePriority: () -> Void
 
     @State private var draggingTo: Int?
     @State private var savedTick = 0
@@ -36,24 +37,34 @@ struct BookProgressCard: View {
         HStack(alignment: .top, spacing: 12) {
             CoverThumbnail(hash: book.coverHash)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    if book.isPriority {
-                        Image(systemName: "star.fill")
-                            .font(.caption)
-                            .foregroundStyle(Color.gold)
-                    }
-                    Text(book.title)
-                        .font(.headline)
-                        .lineLimit(2)      // a long title wraps once, then stops
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text(book.title)
+                    .font(.headline)
+                    .lineLimit(2)          // a long title wraps once, then stops
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(book.author)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 4)
+            priorityButton
         }
+    }
+
+    /// Top right, away from the slider: a mis-tap here should never be a page
+    /// the user did not mean to write.
+    private var priorityButton: some View {
+        Button(action: togglePriority) {
+            Image(systemName: book.isPriority ? "star.fill" : "star")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(book.isPriority ? Color.gold : Color.secondary)
+                .frame(width: 34, height: 34)
+                .background(Color(.tertiarySystemFill), in: Circle())
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.impact(weight: .light), trigger: book.isPriority)
+        .accessibilityLabel(book.isPriority ? "Remove from priority" : "Add to priority")
     }
 
     @ViewBuilder

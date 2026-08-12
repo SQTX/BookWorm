@@ -118,6 +118,21 @@ public actor APIClient {
         return response
     }
 
+    /// The star. A `PATCH` is right here and wrong for `currentPage`: the
+    /// progress endpoint exists because moving the page must also record a
+    /// session, and a flag has nothing to record. The body carries the one
+    /// field — anything the schema does not know is a 400, not a shrug.
+    @discardableResult
+    public func setPriority(bookId: Int, isPriority: Bool) async throws -> Book {
+        let book: Book = try await authorized(
+            method: "PATCH",
+            path: "/v1/books/\(bookId)",
+            body: ["isPriority": isPriority]
+        )
+        await log.write("Book \(bookId) priority \(isPriority ? "set" : "cleared")")
+        return book
+    }
+
     /// Covers are immutable per hash and served with a one-year cache, so the
     /// caching is URLSession's job — this just adds the bearer token.
     public func coverData(hash: String, thumbnail: Bool = true) async throws -> Data {

@@ -160,6 +160,37 @@ final class ProgressServiceTests: XCTestCase {
         XCTAssertEqual(books?.first?.currentPage, 212, "a pending edit must not flick back to the server's page")
     }
 
+    func testTheStarIsAPatchCarryingOnlyThatField() async {
+        let saved = Book.fixture(isPriority: true)
+        let (service, http, queue, cache) = makeService([
+            .json(200, saved.asJSON)
+        ])
+
+        let result = await service.setPriority(bookId: 42, isPriority: true)
+
+        XCTAssertEqual(try? result.get(), saved)
+        XCTAssertEqual(http.request(0).httpMethod, "PATCH")
+        XCTAssertTrue(http.request(0).url!.absoluteString.hasSuffix("/v1/books/42"))
+        XCTAssertEqual(http.body(0) as? [String: Bool], ["isPriority": true])
+
+        let cached = await cache.load()
+        XCTAssertEqual(cached.first?.isPriority, true)
+        let pending = await queue.all()
+        XCTAssertTrue(pending.isEmpty, "a star is not a write worth queueing")
+    }
+
+    func testAFailedStarIsReportedRatherThanQueued() async {
+        let (service, _, queue, _) = makeService([
+            .failure(URLError(.notConnectedToInternet))
+        ])
+
+        let result = await service.setPriority(bookId: 42, isPriority: true)
+
+        XCTAssertNil(try? result.get())
+        let pending = await queue.all()
+        XCTAssertTrue(pending.isEmpty)
+    }
+
     func testThePlannedListIsFetchedWithItsOwnServerSideFilter() async throws {
         let plannedCache = BooksCache(fileURL: nil)
         let http = StubHTTP([

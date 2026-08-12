@@ -75,6 +75,19 @@ public struct Book: Codable, Identifiable, Equatable, Sendable {
         )
     }
 
+    public func withPriority(_ isPriority: Bool) -> Book {
+        Book(
+            id: id,
+            title: title,
+            author: author,
+            pageCount: pageCount,
+            currentPage: currentPage,
+            coverHash: coverHash,
+            audioMode: audioMode,
+            isPriority: isPriority
+        )
+    }
+
     /// Starred books first, everything else in the order the server gave.
     /// `stable` matters: without it two books that are both starred can swap
     /// places between refreshes, which reads as the list twitching.

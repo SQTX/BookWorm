@@ -91,6 +91,22 @@ public actor ProgressService {
         }
     }
 
+    /// Toggles the star. Deliberately *not* queued when it fails: a page is
+    /// worth keeping until the server takes it, a flag the user can flip again
+    /// in one tap is not worth a background write that fires days later.
+    public func setPriority(bookId: Int, isPriority: Bool) async -> Result<Book, APIError> {
+        do {
+            let book = try await api.setPriority(bookId: bookId, isPriority: isPriority)
+            await updateCache(with: book)
+            return .success(book)
+        } catch let error as APIError {
+            await log.write("Priority change for book \(bookId) failed: \(error.userFacingText)")
+            return .failure(error)
+        } catch {
+            return .failure(.unreachable(error.localizedDescription))
+        }
+    }
+
     /// Records a page. The write is persisted *before* it is attempted, so a
     /// crash between the tap and the response cannot lose it.
     public func submit(bookId: Int, currentPage: Int) async -> SubmitOutcome {

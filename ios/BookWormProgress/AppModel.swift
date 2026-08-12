@@ -302,6 +302,28 @@ final class AppModel {
         }
     }
 
+    /// The star, from the card. Flips immediately — the list reorders under the
+    /// thumb — and goes back if the server refuses, because a star that lies is
+    /// worse than a star that bounces.
+    func togglePriority(bookId: Int) {
+        guard let service, let index = rows.firstIndex(where: { $0.id == bookId }) else { return }
+        let previous = rows[index].book
+        let wanted = !previous.isPriority
+
+        rows[index].book = previous.withPriority(wanted)
+
+        Task { [weak self] in
+            let result = await service.setPriority(bookId: bookId, isPriority: wanted)
+            guard let self else { return }
+            switch result {
+            case .success(let book):
+                self.apply(book: book, state: self.rows.first { $0.id == bookId }?.state ?? .idle)
+            case .failure(let error):
+                self.apply(book: previous, state: .failed(error.userFacingText))
+            }
+        }
+    }
+
     private func merge(_ books: [Book]) {
         var updated: [BookRow] = []
         updated.reserveCapacity(books.count)
