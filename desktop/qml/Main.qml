@@ -23,6 +23,11 @@ ApplicationWindow {
 
     property int currentPage: 0  // 0 = library, 1 = table, 2 = statistics, 3 = challenges
 
+    // Coming back to the window is when a person expects to see what another
+    // device did. The manager ignores the call when it has just exchanged, so
+    // alt-tabbing does not turn into a request per focus.
+    onActiveChanged: if (active) syncManager.syncIfStale()
+
     // Persistence for settings
     Settings {
         id: appSettings
