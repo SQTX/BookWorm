@@ -27,6 +27,7 @@ var _pl = {
     "Uploading your library…": "Wysyłanie biblioteki…",
     "Downloading…": "Pobieranie…",
     "Synchronising…": "Synchronizacja…",
+    "Synchronise now": "Synchronizuj teraz",
     "Connected": "Połączono",
     "Sign in required": "Wymagane logowanie",
     "Signed out — sign in again": "Wylogowano — zaloguj się ponownie",
