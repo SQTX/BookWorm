@@ -228,6 +228,13 @@ public actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 20
+        // Covers are immutable per hash and worth caching forever; the library
+        // is the opposite. Without this a pull-to-refresh can be answered from
+        // URLSession's heuristic cache — the request never leaves the phone and
+        // the user is shown yesterday's page count as if it were fresh.
+        if !path.contains("/covers/") {
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+        }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
