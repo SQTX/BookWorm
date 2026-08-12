@@ -52,3 +52,6 @@ ios/**/DerivedData/
 ios/**/.swiftpm/
 ios/**/build/
 *.xcuserstate
+
+# SwiftPM writes here; `build/` above does not match a dotted directory.
+ios/**/.build/
