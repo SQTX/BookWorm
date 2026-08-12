@@ -1,6 +1,6 @@
 {
   "name": "bookworm-server",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "BookWorm API \u2014 multi-tenant storage and sync for the desktop and iOS clients",
   "type": "module",

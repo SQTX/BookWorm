@@ -79,6 +79,10 @@ final class AppModel {
     private var service: ProgressService?
     private var covers: CoverStore?
     private var savedBadgeTasks: [Int: Task<Void, Never>] = [:]
+    private var liveRefresh: Task<Void, Never>?
+    /// Books with an unconfirmed proposal on screen. A refresh landing under a
+    /// half-made change would throw it away, so the tick waits instead.
+    private var editing: Set<Int> = []
 
     init() {
         log = AppLog(fileURL: files.logFile)
@@ -156,6 +160,39 @@ final class AppModel {
         await flushThenRefresh()
     }
 
+    /// How often the list re-reads the server while the app is on screen.
+    ///
+    /// The phone had no periodic refresh at all: it asked at launch, on
+    /// foreground and on a pull, and otherwise showed whatever it had. That is
+    /// why an edit made on the Mac appeared to never arrive. A minute is short
+    /// enough to feel current for someone glancing at the phone, and cheap —
+    /// one request, and only while the app is actually in front of them.
+    private static let liveRefreshInterval: Duration = .seconds(60)
+
+    func startLiveRefresh() {
+        guard liveRefresh == nil else { return }
+        liveRefresh = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.liveRefreshInterval)
+                guard !Task.isCancelled, let self else { return }
+                guard case .list = self.screen, self.editing.isEmpty else { continue }
+                await self.refresh(quietly: true)
+            }
+        }
+    }
+
+    /// Stopped in the background: a timer firing there would spend the battery
+    /// and the token on a screen nobody is looking at.
+    func stopLiveRefresh() {
+        liveRefresh?.cancel()
+        liveRefresh = nil
+    }
+
+    /// Called by a card while it holds an unconfirmed page proposal.
+    func setEditing(_ bookId: Int, _ isEditing: Bool) {
+        if isEditing { editing.insert(bookId) } else { editing.remove(bookId) }
+    }
+
     /// The seven-day free provisioning profile means reinstalling is routine,
     /// and a reinstall takes the Keychain item with it. That is an ordinary
     /// path, so it gets ordinary words rather than an error.
@@ -221,10 +258,10 @@ final class AppModel {
 
     // MARK: - The list
 
-    func refresh() async {
+    func refresh(quietly: Bool = false) async {
         guard let service else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
+        if !quietly { isRefreshing = true }
+        defer { if !quietly { isRefreshing = false } }
         do {
             let books = try await service.refresh()
             merge(books)

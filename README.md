@@ -78,6 +78,12 @@ guide begins from exactly that state.
 - Automatic: at launch, every two minutes, three seconds after an edit, when the window comes forward, and at shutdown. A button in the header does it on demand.
 - Neither side can overwrite newer data with older — both apply the same rule to the same timestamp.
 
+**Server** *(optional)*
+
+- One account, yours. No registration endpoint, and nothing multi-tenant to get wrong.
+- Installed by a single command on an Ubuntu VPS: systemd, Caddy terminating TLS, PostgreSQL on loopback, backups armed.
+- **Backups on a schedule you choose**, with retention by count — `backup-config.sh set-interval 6h`, `set-keep 30`, `at_now`. Each dump is paired with its cover archive and deleted with it, and rotation happens only after a successful run, so a failing job can never remove the last good backup.
+
 **iPhone** *(optional)*
 
 - One screen: the books you are reading, each with a slider.
