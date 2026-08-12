@@ -77,6 +77,7 @@ qt_add_qml_module(BookWorm
         src/img/png/main_icon.png
         src/img/png/main_icon_radius.png
         src/img/icons/library-view.svg
+        src/img/icons/synchronize.svg
         src/img/icons/sheet-view.svg
         src/img/icons/stat-view.svg
         src/img/icons/settings.svg

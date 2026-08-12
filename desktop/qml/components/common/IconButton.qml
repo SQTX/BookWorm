@@ -14,6 +14,9 @@ Rectangle {
     property color iconColor: Theme.textSecondary
     property string tooltip: ""
     property bool enabledState: true
+    /// Turns the icon while something is running. The rotation is on the icon
+    /// only — spinning the whole button would spin its outline with it.
+    property bool spinning: false
 
     signal clicked()
 
@@ -36,6 +39,7 @@ Rectangle {
     // own background and focus so it stays purely decorative — the MouseArea
     // below is declared after it and takes the clicks.
     ToolButton {
+        id: iconItem
         anchors.centerIn: parent
         focusPolicy: Qt.NoFocus
         hoverEnabled: false
@@ -44,6 +48,18 @@ Rectangle {
         icon.width: root.iconSize
         icon.height: root.iconSize
         icon.color: mouseArea.containsMouse ? Theme.textOnSurface : root.iconColor
+
+        RotationAnimator {
+            target: iconItem
+            running: root.spinning
+            from: 0
+            to: 360
+            duration: 900
+            loops: Animation.Infinite
+            // Back to upright when it stops, or the icon keeps whatever angle
+            // the last frame left it at.
+            onRunningChanged: if (!running) iconItem.rotation = 0
+        }
     }
 
     MouseArea {
