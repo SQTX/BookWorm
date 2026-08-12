@@ -9,7 +9,10 @@ Kept from v1.5.0 onward; earlier releases are described in their
 
 ---
 
-## Unreleased
+## v1.6.0 — 2026-08-12
+
+Backups you can configure with a command, and the iOS refresh that was written
+but never reached `main`.
 
 ### Added
 
@@ -38,6 +41,18 @@ Kept from v1.5.0 onward; earlier releases are described in their
   installer never resets an operator's choices, and `set-interval` writes a
   systemd drop-in rather than editing the unit, for the same reason.
 - `RUNBOOK.md` section 9 rewritten around the new commands.
+- `at_now` prints only the output of the run it just started. It had been
+  showing the last twelve journal lines of the unit, so an earlier backup came
+  along for the ride and a single command appeared to have run twice — a
+  misleading answer to "did it work?" is worse than none.
+
+### Recovered
+
+- **iOS: the list re-reads the server every minute** while the app is on screen.
+  The commit existed and was tested, and reached its branch after that branch
+  had already been squashed into `dev` — so it shipped in no release. The phone
+  had no periodic refresh at all in v1.5.0: it asked at launch, on foreground
+  and on a pull, and otherwise showed what it had.
 
 ---
 
