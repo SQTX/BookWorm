@@ -30,11 +30,25 @@ final class AppModel {
         case list
     }
 
+    /// The "to read" list: fetched only when the section is opened, because a
+    /// list that is collapsed by default should not cost a request at launch.
+    enum PlannedState: Equatable {
+        case notLoaded
+        case loading
+        case loaded([Book])
+        case failed(String)
+    }
+
     private(set) var screen: Screen = .launching
     private(set) var rows: [BookRow] = []
     private(set) var pendingCount = 0
     private(set) var isRefreshing = false
     private(set) var listError: String?
+    private(set) var planned: PlannedState = .notLoaded
+
+    /// Starred on the desktop, and pinned to the top here.
+    var priorityRows: [BookRow] { rows.filter(\.book.isPriority) }
+    var standardRows: [BookRow] { rows.filter { !$0.book.isPriority } }
     private(set) var signInError: String?
     private(set) var isSigningIn = false
 
@@ -172,6 +186,34 @@ final class AppModel {
             listError = error.localizedDescription
         }
         pendingCount = await service.pendingCount()
+
+        // Only if it has already been opened: a collapsed section stays unfetched.
+        if case .loaded = planned { await loadPlanned(force: true) }
+    }
+
+    /// Called when the "to read" section is opened, and again by a pull to
+    /// refresh once it has been opened at least once.
+    func loadPlanned(force: Bool = false) async {
+        guard let service else { return }
+        if case .loading = planned { return }
+        if case .loaded = planned, !force { return }
+
+        let cached = await service.cachedPlannedBooks()
+        if !cached.isEmpty {
+            planned = .loaded(cached)
+        } else if !force {
+            planned = .loading
+        }
+
+        do {
+            planned = .loaded(try await service.refreshPlanned())
+        } catch let error as APIError {
+            // A cached list beats an error message: the books have not changed
+            // just because the phone cannot reach the server.
+            if cached.isEmpty { planned = .failed(error.userFacingText) }
+        } catch {
+            if cached.isEmpty { planned = .failed(error.localizedDescription) }
+        }
     }
 
     private func flushThenRefresh() async {
@@ -305,6 +347,7 @@ final class AppModel {
             api: api,
             queue: PendingWriteStore(fileURL: files.queueFile),
             cache: BooksCache(fileURL: files.booksCacheFile),
+            plannedCache: BooksCache(fileURL: files.plannedCacheFile),
             log: log
         )
         self.api = api

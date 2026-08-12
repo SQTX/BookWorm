@@ -39,21 +39,53 @@ struct ReadingListView: View {
                 if let listError = model.listError {
                     banner(listError)
                 }
-                ForEach(model.rows) { row in
-                    BookProgressCard(row: row) { page in
-                        model.commit(bookId: row.id, page: page)
+
+                // Starred on the desktop, pinned here. The header only appears
+                // when there is something under it — an empty labelled section
+                // is just noise on a screen this small.
+                if !model.priorityRows.isEmpty {
+                    sectionLabel("Priority", systemImage: "star.fill", tint: .orange)
+                    ForEach(model.priorityRows) { row in
+                        card(row)
+                    }
+                    if !model.standardRows.isEmpty {
+                        sectionLabel("Reading", systemImage: "book", tint: .secondary)
                     }
                 }
+
+                ForEach(model.standardRows) { row in
+                    card(row)
+                }
+
                 if model.pendingCount > 0 {
                     Text("^[\(model.pendingCount) update](inflect: true) waiting to be sent")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
                 }
+
+                PlannedSection()
+                    .padding(.top, 8)
             }
             .padding(16)
         }
+        // Pull down to refetch from the server.
         .refreshable { await model.refresh() }
+    }
+
+    private func card(_ row: BookRow) -> some View {
+        BookProgressCard(row: row) { page in
+            model.commit(bookId: row.id, page: page)
+        }
+    }
+
+    private func sectionLabel(_ title: String, systemImage: String, tint: Color) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.footnote.weight(.semibold))
+            .textCase(.uppercase)
+            .foregroundStyle(tint)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
     }
 
     private var emptyState: some View {

@@ -24,6 +24,7 @@ public actor ProgressService {
     private let api: APIClient
     private let queue: PendingWriteStore
     private let cache: BooksCache
+    private let plannedCache: BooksCache
     private let log: AppLog
     private let now: @Sendable () -> Date
 
@@ -31,12 +32,14 @@ public actor ProgressService {
         api: APIClient,
         queue: PendingWriteStore,
         cache: BooksCache,
+        plannedCache: BooksCache = BooksCache(fileURL: nil),
         log: AppLog,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.api = api
         self.queue = queue
         self.cache = cache
+        self.plannedCache = plannedCache
         self.log = log
         self.now = now
     }
@@ -65,6 +68,25 @@ public actor ProgressService {
             return await overlayPending(on: books)
         } catch let error as APIError {
             await log.write("Fetch failed: \(error.userFacingText)")
+            throw error
+        }
+    }
+
+    /// The "to read" list, which is collapsed by default and therefore fetched
+    /// only when it is opened. Whatever was cached is returned first so the
+    /// section does not open onto a spinner.
+    public func cachedPlannedBooks() async -> [Book] {
+        await plannedCache.load()
+    }
+
+    public func refreshPlanned() async throws -> [Book] {
+        do {
+            let books = try await api.plannedBooks()
+            await plannedCache.store(books)
+            await log.write("Fetched \(books.count) planned book(s)")
+            return books
+        } catch let error as APIError {
+            await log.write("Planned fetch failed: \(error.userFacingText)")
             throw error
         }
     }

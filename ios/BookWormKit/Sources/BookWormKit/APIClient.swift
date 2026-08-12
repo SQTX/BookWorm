@@ -82,10 +82,20 @@ public actor APIClient {
     }
 
     public func readingBooks() async throws -> [Book] {
+        try await books(status: "reading")
+    }
+
+    public func plannedBooks() async throws -> [Book] {
+        try await books(status: "planned")
+    }
+
+    /// The filter is the server's job — fetching the whole library and sifting
+    /// it on the phone is both slower and a lie about what this app holds.
+    private func books(status: String) async throws -> [Book] {
         let response: BooksResponse = try await authorized(
             method: "GET",
             path: "/v1/books",
-            query: [URLQueryItem(name: "status", value: "reading")]
+            query: [URLQueryItem(name: "status", value: status)]
         )
         return response.books
     }

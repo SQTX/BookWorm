@@ -160,6 +160,67 @@ final class ProgressServiceTests: XCTestCase {
         XCTAssertEqual(books?.first?.currentPage, 212, "a pending edit must not flick back to the server's page")
     }
 
+    func testThePlannedListIsFetchedWithItsOwnServerSideFilter() async throws {
+        let plannedCache = BooksCache(fileURL: nil)
+        let http = StubHTTP([
+            .json(200, ["books": [Book.fixture(id: 7, title: "Dune").asJSON]])
+        ])
+        let log = AppLog(fileURL: nil)
+        let api = APIClient(
+            baseURL: base,
+            session: http,
+            tokens: InMemoryTokenStorage(TokenPair(accessToken: "a1", refreshToken: "r1")),
+            log: log
+        )
+        let service = ProgressService(
+            api: api,
+            queue: PendingWriteStore(fileURL: nil),
+            cache: BooksCache(fileURL: nil),
+            plannedCache: plannedCache,
+            log: log
+        )
+
+        let books = try await service.refreshPlanned()
+
+        XCTAssertEqual(books.map(\.id), [7])
+        XCTAssertTrue(http.request(0).url!.absoluteString.hasSuffix("/v1/books?status=planned"), http.request(0).url!.absoluteString)
+
+        // Cached, so opening the section again does not open onto a spinner.
+        let cached = await service.cachedPlannedBooks()
+        XCTAssertEqual(cached.map(\.id), [7])
+    }
+
+    func testTheReadingAndPlannedCachesDoNotOverwriteEachOther() async throws {
+        let reading = BooksCache(fileURL: nil)
+        let planned = BooksCache(fileURL: nil)
+        let http = StubHTTP([
+            .json(200, ["books": [Book.fixture(id: 1).asJSON]]),
+            .json(200, ["books": [Book.fixture(id: 2).asJSON]])
+        ])
+        let log = AppLog(fileURL: nil)
+        let api = APIClient(
+            baseURL: base,
+            session: http,
+            tokens: InMemoryTokenStorage(TokenPair(accessToken: "a1", refreshToken: "r1")),
+            log: log
+        )
+        let service = ProgressService(
+            api: api,
+            queue: PendingWriteStore(fileURL: nil),
+            cache: reading,
+            plannedCache: planned,
+            log: log
+        )
+
+        _ = try await service.refresh()
+        _ = try await service.refreshPlanned()
+
+        let readingBooks = await reading.load()
+        let plannedBooks = await planned.load()
+        XCTAssertEqual(readingBooks.map(\.id), [1])
+        XCTAssertEqual(plannedBooks.map(\.id), [2])
+    }
+
     func testTheCachedListIsThereBeforeTheNetworkIs() async {
         let cache = BooksCache(fileURL: nil)
         await cache.store([Book.fixture()])

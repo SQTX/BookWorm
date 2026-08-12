@@ -16,6 +16,16 @@ public struct Book: Codable, Identifiable, Equatable, Sendable {
     public let currentPage: Int?
     public let coverHash: String?
     public let audioMode: String?
+    /// The star set on the desktop. Optional in storage rather than plain
+    /// `Bool` so a cache written before this field existed still decodes.
+    private let isPriorityFlag: Bool?
+
+    public var isPriority: Bool { isPriorityFlag ?? false }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, author, pageCount, currentPage, coverHash, audioMode
+        case isPriorityFlag = "isPriority"
+    }
 
     public init(
         id: Int,
@@ -24,7 +34,8 @@ public struct Book: Codable, Identifiable, Equatable, Sendable {
         pageCount: Int? = nil,
         currentPage: Int? = nil,
         coverHash: String? = nil,
-        audioMode: String? = nil
+        audioMode: String? = nil,
+        isPriority: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -33,6 +44,7 @@ public struct Book: Codable, Identifiable, Equatable, Sendable {
         self.currentPage = currentPage
         self.coverHash = coverHash
         self.audioMode = audioMode
+        self.isPriorityFlag = isPriority
     }
 
     /// 0…1, or nil when either end of the fraction is unknown.
@@ -58,8 +70,16 @@ public struct Book: Codable, Identifiable, Equatable, Sendable {
             pageCount: pageCount,
             currentPage: page,
             coverHash: coverHash,
-            audioMode: audioMode
+            audioMode: audioMode,
+            isPriority: isPriority
         )
+    }
+
+    /// Starred books first, everything else in the order the server gave.
+    /// `stable` matters: without it two books that are both starred can swap
+    /// places between refreshes, which reads as the list twitching.
+    public static func priorityFirst(_ books: [Book]) -> (priority: [Book], rest: [Book]) {
+        (books.filter(\.isPriority), books.filter { !$0.isPriority })
     }
 }
 

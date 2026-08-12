@@ -103,6 +103,32 @@ final class BookTests: XCTestCase {
         XCTAssertNil(Book.fixture(pageCount: 0, currentPage: 10).progressFraction)
     }
 
+    func testStarredBooksComeFirstAndTheRestKeepTheServersOrder() {
+        let books = [
+            Book.fixture(id: 1, title: "One"),
+            Book.fixture(id: 2, title: "Two", isPriority: true),
+            Book.fixture(id: 3, title: "Three"),
+            Book.fixture(id: 4, title: "Four", isPriority: true)
+        ]
+
+        let (priority, rest) = Book.priorityFirst(books)
+
+        XCTAssertEqual(priority.map(\.id), [2, 4])
+        XCTAssertEqual(rest.map(\.id), [1, 3])
+    }
+
+    func testAPriorityFlagSurvivesAnOptimisticPageChange() {
+        let book = Book.fixture(isPriority: true).withCurrentPage(200)
+        XCTAssertTrue(book.isPriority)
+        XCTAssertEqual(book.currentPage, 200)
+    }
+
+    func testACacheWrittenBeforeThePriorityFieldExistedStillDecodes() throws {
+        let legacy = Data(#"{"id":1,"title":"T","author":"A"}"#.utf8)
+        let book = try JSONDecoder().decode(Book.self, from: legacy)
+        XCTAssertFalse(book.isPriority)
+    }
+
     func testPageBounds() {
         XCTAssertTrue(PageBounds.isValid(0))
         XCTAssertTrue(PageBounds.isValid(100_000))

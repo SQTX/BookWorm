@@ -13,6 +13,7 @@ struct AppFiles {
 
     var queueFile: URL { directory.appendingPathComponent("pending-writes.json") }
     var booksCacheFile: URL { directory.appendingPathComponent("reading.json") }
+    var plannedCacheFile: URL { directory.appendingPathComponent("planned.json") }
     var logFile: URL { directory.appendingPathComponent("activity.log") }
 
     var coverCacheDirectory: URL {

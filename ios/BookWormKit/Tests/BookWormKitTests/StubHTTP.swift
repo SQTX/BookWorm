@@ -70,7 +70,8 @@ extension Book {
         pageCount: Int? = 224,
         currentPage: Int? = 180,
         coverHash: String? = nil,
-        audioMode: String? = "none"
+        audioMode: String? = "none",
+        isPriority: Bool = false
     ) -> Book {
         Book(
             id: id,
@@ -79,7 +80,8 @@ extension Book {
             pageCount: pageCount,
             currentPage: currentPage,
             coverHash: coverHash,
-            audioMode: audioMode
+            audioMode: audioMode,
+            isPriority: isPriority
         )
     }
 
@@ -92,7 +94,7 @@ extension Book {
             "readCount": 0,
             "itemType": "book",
             "isNonFiction": false,
-            "isPriority": false,
+            "isPriority": isPriority,
             "tags": [],
             "updatedAt": "2026-08-12T00:21:32.000Z",
             "coverImagePath": "/Users/somebody/Pictures/whatever.jpg"

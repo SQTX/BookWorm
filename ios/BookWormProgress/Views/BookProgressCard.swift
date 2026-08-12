@@ -28,10 +28,17 @@ struct BookProgressCard: View {
         HStack(alignment: .top, spacing: 12) {
             CoverThumbnail(hash: book.coverHash)
             VStack(alignment: .leading, spacing: 3) {
-                Text(book.title)
-                    .font(.headline)
-                    .lineLimit(2)          // a long title wraps once, then stops
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    if book.isPriority {
+                        Image(systemName: "star.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    Text(book.title)
+                        .font(.headline)
+                        .lineLimit(2)      // a long title wraps once, then stops
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(book.author)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -127,33 +134,3 @@ private struct PageNumberField: View {
     }
 }
 
-private struct CoverThumbnail: View {
-    let hash: String?
-
-    @Environment(AppModel.self) private var model
-    @State private var image: UIImage?
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                // A book with no cover is normal, and the placeholder keeps the
-                // card exactly the same shape as one with a cover.
-                Image(systemName: "book.closed")
-                    .font(.title3)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(.tertiarySystemFill))
-            }
-        }
-        .frame(width: 46, height: 69)
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .task(id: hash) {
-            guard let hash, let store = model.coverLoader() else { return }
-            image = await store.thumbnail(hash: hash)
-        }
-    }
-}
