@@ -23,22 +23,36 @@ struct AppFiles {
     }
 }
 
-/// The server address, and nothing else. Tokens go in the Keychain.
+/// The server address and the email — the two things that are not secrets.
+/// Tokens and the password go in the Keychain, never here: this is a plist.
 struct SettingsStore {
     private let defaults = UserDefaults.standard
-    private let key = "serverBaseURL"
+    private let urlKey = "serverBaseURL"
+    private let emailKey = "accountEmail"
 
     var baseURL: URL? {
         get {
-            guard let text = defaults.string(forKey: key) else { return nil }
+            guard let text = defaults.string(forKey: urlKey) else { return nil }
             return URL(string: text)
         }
         nonmutating set {
             guard let newValue else {
-                defaults.removeObject(forKey: key)
+                defaults.removeObject(forKey: urlKey)
                 return
             }
-            defaults.set(newValue.absoluteString, forKey: key)
+            defaults.set(newValue.absoluteString, forKey: urlKey)
+        }
+    }
+
+    /// Remembered so that a sign-in after a re-deploy is one field, not three.
+    var email: String? {
+        get { defaults.string(forKey: emailKey) }
+        nonmutating set {
+            guard let newValue, !newValue.isEmpty else {
+                defaults.removeObject(forKey: emailKey)
+                return
+            }
+            defaults.set(newValue, forKey: emailKey)
         }
     }
 }

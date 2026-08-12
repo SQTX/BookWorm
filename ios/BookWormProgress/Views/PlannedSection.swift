@@ -11,24 +11,28 @@ struct PlannedSection: View {
     @Environment(AppModel.self) private var model
     @State private var expanded = false
 
+    private var count: Int? {
+        if case .loaded(let books) = model.planned { return books.count }
+        return nil
+    }
+
     var body: some View {
-        DisclosureGroup(isExpanded: $expanded) {
-            content
-                .padding(.top, 8)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "bookmark")
-                Text("To read")
-                if case .loaded(let books) = model.planned {
-                    Text("\(books.count)")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
+        VStack(spacing: 12) {
+            SectionHeaderButton(
+                title: "To read",
+                systemImage: "bookmark",
+                count: count,
+                isExpanded: $expanded
+            )
+            if expanded {
+                content
+                    .padding(14)
+                    .background(
+                        Color(.secondarySystemGroupedBackground),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
             }
-            .font(.subheadline.weight(.semibold))
         }
-        .padding(14)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onChange(of: expanded) { _, isOpen in
             if isOpen { Task { await model.loadPlanned() } }
         }

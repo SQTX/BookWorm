@@ -11,6 +11,7 @@ struct SignInView: View {
     @State private var address = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var remember = true
     @FocusState private var focus: Field?
 
     private enum Field { case address, email, password }
@@ -58,6 +59,9 @@ struct SignInView: View {
                         .focused($focus, equals: .password)
                         .submitLabel(.go)
                         .onSubmit { submit() }
+                    // Kept in the Keychain, so the app can sign itself back in
+                    // after a re-deploy takes the token with it.
+                    Toggle("Stay signed in on this phone", isOn: $remember)
                 }
 
                 if let error = model.signInError {
@@ -86,6 +90,8 @@ struct SignInView: View {
             .navigationTitle("BookWorm")
             .onAppear {
                 if address.isEmpty { address = model.serverAddressText }
+                if email.isEmpty { email = model.rememberedEmail }
+                if !email.isEmpty { focus = .password }
             }
         }
     }
@@ -94,7 +100,7 @@ struct SignInView: View {
         guard canSubmit else { return }
         focus = nil
         Task {
-            await model.signIn(address: address, email: email, password: password)
+            await model.signIn(address: address, email: email, password: password, remember: remember)
             // Held only until the attempt is over: a wrong password should not
             // have to be retyped, a right one should not linger in view state.
             if model.signInError == nil { password = "" }

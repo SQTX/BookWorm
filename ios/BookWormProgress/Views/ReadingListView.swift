@@ -5,6 +5,8 @@ import BookWormKit
 struct ReadingListView: View {
     @Environment(AppModel.self) private var model
     @State private var showingSettings = false
+    /// Collapsible, but open by default — this section is the app.
+    @State private var readingExpanded = true
 
     var body: some View {
         NavigationStack {
@@ -40,28 +42,26 @@ struct ReadingListView: View {
                     banner(listError)
                 }
 
-                // Starred on the desktop, pinned here. The header only appears
-                // when there is something under it — an empty labelled section
-                // is just noise on a screen this small.
-                if !model.priorityRows.isEmpty {
-                    sectionLabel("Priority", systemImage: "star.fill", tint: .orange)
-                    ForEach(model.priorityRows) { row in
+                SectionHeaderButton(
+                    title: "Currently reading",
+                    systemImage: "book",
+                    count: model.rows.count,
+                    isExpanded: $readingExpanded
+                )
+
+                if readingExpanded {
+                    // Starred books first, marked by the gold edge rather than
+                    // by a heading — one list, an order, no extra chrome.
+                    ForEach(model.priorityRows + model.standardRows) { row in
                         card(row)
                     }
-                    if !model.standardRows.isEmpty {
-                        sectionLabel("Reading", systemImage: "book", tint: .secondary)
+
+                    if model.pendingCount > 0 {
+                        Text("^[\(model.pendingCount) update](inflect: true) waiting to be sent")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 4)
                     }
-                }
-
-                ForEach(model.standardRows) { row in
-                    card(row)
-                }
-
-                if model.pendingCount > 0 {
-                    Text("^[\(model.pendingCount) update](inflect: true) waiting to be sent")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 4)
                 }
 
                 PlannedSection()
@@ -79,14 +79,6 @@ struct ReadingListView: View {
         }
     }
 
-    private func sectionLabel(_ title: String, systemImage: String, tint: Color) -> some View {
-        Label(title, systemImage: systemImage)
-            .font(.footnote.weight(.semibold))
-            .textCase(.uppercase)
-            .foregroundStyle(tint)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
-    }
 
     private var emptyState: some View {
         ScrollView {

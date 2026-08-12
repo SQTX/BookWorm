@@ -56,10 +56,15 @@ final class AppModel {
         settings.baseURL?.absoluteString ?? ""
     }
 
+    /// Prefilled on the sign-in screen; not a secret, so it lives in
+    /// `UserDefaults` next to the address.
+    var rememberedEmail: String { settings.email ?? "" }
+
     private let settings = SettingsStore()
     private let files = AppFiles()
     private let log: AppLog
     private let tokens: TokenStorage
+    private let credentials = CredentialStore()
     private let session: URLSession
 
     private var api: APIClient?
@@ -101,14 +106,41 @@ final class AppModel {
         // Show whatever was cached before anything touches the network.
         rows = (await services.service.cachedBooks()).map { BookRow(book: $0) }
 
-        guard await services.api.hasStoredSession() else {
-            await log.write("No stored session")
-            screen = .signIn(note: Self.reinstallNote)
+        if await services.api.hasStoredSession() {
+            screen = .list
+            await flushThenRefresh()
             return
         }
 
-        screen = .list
-        await flushThenRefresh()
+        // No token, but the user asked to be remembered: sign in again without
+        // stopping to ask. This is what makes a re-deploy invisible — the
+        // Keychain token is the first thing a reinstall takes.
+        if let stored = await credentials.load() {
+            await log.write("No stored session; signing in with remembered credentials")
+            do {
+                try await services.api.logIn(email: stored.email, password: stored.password)
+                screen = .list
+                await flushThenRefresh()
+                return
+            } catch let error as APIError {
+                await log.write("Automatic sign-in failed: \(error.userFacingText)")
+                // Wrong password now means the password changed; anything else
+                // is the network, and the saved credentials stay put.
+                if case .http(let status, _) = error, status == 401 {
+                    await credentials.clear()
+                    screen = .signIn(note: "The saved password no longer works. Sign in again.")
+                    return
+                }
+                screen = .signIn(note: "Could not reach the server to sign in. Try again when you have signal.")
+                return
+            } catch {
+                screen = .signIn(note: nil)
+                return
+            }
+        }
+
+        await log.write("No stored session")
+        screen = .signIn(note: Self.reinstallNote)
     }
 
     func onForeground() async {
@@ -124,7 +156,7 @@ final class AppModel {
 
     // MARK: - Sign in and out
 
-    func signIn(address: String, email: String, password: String) async {
+    func signIn(address: String, email: String, password: String, remember: Bool = true) async {
         signInError = nil
 
         guard let baseURL = ServerAddress.normalize(address) else {
@@ -138,6 +170,12 @@ final class AppModel {
         do {
             try await services.api.logIn(email: email, password: password)
             settings.baseURL = baseURL
+            settings.email = email
+            if remember {
+                await credentials.save(StoredCredentials(email: email, password: password))
+            } else {
+                await credentials.clear()
+            }
             screen = .list
             rows = (await services.service.cachedBooks()).map { BookRow(book: $0) }
             await flushThenRefresh()
@@ -160,6 +198,9 @@ final class AppModel {
         // signing out is not a reason to delete the user's unsent writes.
         if let service { _ = await service.flush() }
         await api?.logOut()
+        // Signing out has to mean it: otherwise the next launch signs straight
+        // back in with the remembered password.
+        await credentials.clear()
         pendingCount = await service?.pendingCount() ?? 0
         rows = []
         listError = nil

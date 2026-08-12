@@ -18,6 +18,14 @@ struct BookProgressCard: View {
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            // Starred books carry a gold edge instead of a heading: the order
+            // says which ones they are, the border says why.
+            if book.isPriority {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.gold, lineWidth: 2)
+            }
+        }
         .sensoryFeedback(.success, trigger: savedTick)
         .onChange(of: row.state) { _, state in
             if case .saved = state { savedTick += 1 }
@@ -32,7 +40,7 @@ struct BookProgressCard: View {
                     if book.isPriority {
                         Image(systemName: "star.fill")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Color.gold)
                     }
                     Text(book.title)
                         .font(.headline)
