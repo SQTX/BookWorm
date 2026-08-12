@@ -15,7 +15,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		BW0000000000000000000002 /* BookWormProgress */ = {isa = PBXFileSystemSynchronizedRootGroup; path = BookWormProgress; sourceTree = "<group>"; };
+		BW0000000000000000000002 /* BookWormProgress */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BookWormProgress;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -276,20 +280,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		BW0000000000000000000013 /* Build configuration list for PBXProject "BookWormProgress" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				BW0000000000000000000014 /* Debug */,
-				BW0000000000000000000015 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		BW0000000000000000000008 /* Build configuration list for PBXNativeTarget "BookWormProgress" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				BW0000000000000000000016 /* Debug */,
 				BW0000000000000000000017 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BW0000000000000000000013 /* Build configuration list for PBXProject "BookWormProgress" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BW0000000000000000000014 /* Debug */,
+				BW0000000000000000000015 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

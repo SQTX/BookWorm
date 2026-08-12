@@ -28,8 +28,15 @@ struct BookProgressCard: View {
             }
         }
         .sensoryFeedback(.success, trigger: savedTick)
+        .animation(.snappy(duration: 0.2), value: draggingTo == nil)
         .onChange(of: row.state) { _, state in
             if case .saved = state { savedTick += 1 }
+        }
+        .onChange(of: book.currentPage) { _, _ in
+            // The server (or another device) moved the page while a proposal
+            // was on screen. Drop it rather than let the user confirm a delta
+            // measured against a number that no longer exists.
+            draggingTo = nil
         }
     }
 
@@ -103,20 +110,65 @@ struct BookProgressCard: View {
     @ViewBuilder
     private var control: some View {
         if let pageCount = book.pageCount, pageCount > 0 {
-            PageSlider(
-                pageCount: pageCount,
-                page: book.currentPage ?? 0,
-                onScrub: { draggingTo = $0 },
-                onCommit: { page in
-                    draggingTo = nil
-                    commit(page)
+            VStack(spacing: 8) {
+                PageSlider(
+                    pageCount: pageCount,
+                    page: book.currentPage ?? 0,
+                    draftPage: $draggingTo
+                )
+                if let proposed = draggingTo, proposed != book.currentPage {
+                    confirmBar(proposed)
                 }
-            )
+            }
         } else {
             // No page count means no range, and inventing one would write a
             // number the user never gave.
             PageNumberField(page: book.currentPage, commit: commit)
         }
+    }
+}
+
+private extension BookProgressCard {
+    /// Nothing reaches the server until this is tapped.
+    ///
+    /// The slider used to write on release, which is fine on a card sitting
+    /// still and wrong in a list being scrolled: brushing a slider on the way
+    /// past would silently rewrite a page. A proposal plus one deliberate tap
+    /// costs a second and cannot corrupt a reading history.
+    @ViewBuilder
+    func confirmBar(_ proposed: Int) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                draggingTo = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .frame(width: 34, height: 34)
+                    .background(Color(.tertiarySystemFill), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("Discard the change")
+
+            Button {
+                let page = proposed
+                draggingTo = nil
+                commit(page)
+            } label: {
+                Label(
+                    ProgressText.whileDragging(target: proposed, from: book.currentPage),
+                    systemImage: "checkmark"
+                )
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .background(Color.accentColor, in: Capsule())
+                .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Save page \(proposed)")
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 }
 

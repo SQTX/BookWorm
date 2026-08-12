@@ -11,13 +11,16 @@ import BookWormKit
 struct PageSlider: View {
     let pageCount: Int
     let page: Int
-    let onScrub: (Int) -> Void
-    let onCommit: (Int) -> Void
+    /// The page the control is currently showing, which is only a proposal
+    /// until the user confirms it. Owned by the card so the confirm button and
+    /// the slider cannot disagree about what is pending.
+    @Binding var draftPage: Int?
 
     @State private var scrubber: PageScrubber?
-    @State private var draftPage: Int?
     @State private var trackWidth: Double = 1
-    @State private var nudgeCommit: Task<Void, Never>?
+    /// Nil until this gesture has proved itself horizontal. A flick down the
+    /// list is not an attempt to move a page.
+    @State private var isScrubbing = false
 
     private let trackHeight: Double = 8
     private let thumbSize: Double = 26
@@ -67,18 +70,29 @@ struct PageSlider: View {
             }
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
-            .gesture(dragGesture(width: width))
+            // Simultaneous, not exclusive: the list keeps scrolling under the
+            // finger, and this gesture bows out unless the movement is
+            // horizontal. Taking the gesture outright is what made scrolling
+            // past a card nudge its page.
+            .simultaneousGesture(dragGesture(width: width))
             .onAppear { trackWidth = width }
             .onChange(of: width) { _, new in trackWidth = new }
         }
         .frame(height: 44)
     }
 
+    /// Below this the gesture is still ambiguous, so nothing moves. Above it,
+    /// whichever axis is winning decides who owns the touch.
+    private let axisThreshold: Double = 10
+
     private func dragGesture(width: Double) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: axisThreshold)
             .onChanged { value in
-                if scrubber == nil {
-                    var new = PageScrubber(startPage: page, pageCount: pageCount, trackWidth: width)
+                guard isScrubbing else {
+                    // The list wins a vertical drag. Once it has, this gesture
+                    // stays out until the finger lifts — no mid-scroll grabs.
+                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                    var new = PageScrubber(startPage: shownPage, pageCount: pageCount, trackWidth: width)
                     // A touch that starts away from the thumb jumps there, so a
                     // rough move is one tap rather than a long drag.
                     let thumbX = (width - thumbSize) * fraction + thumbSize / 2
@@ -86,42 +100,32 @@ struct PageSlider: View {
                         new.jump(toX: value.startLocation.x)
                     }
                     scrubber = new
+                    isScrubbing = true
+                    return
                 }
                 let next = scrubber?.drag(
                     translationX: value.translation.width,
                     translationY: value.translation.height
                 )
-                if let next, next != draftPage {
-                    draftPage = next
-                    onScrub(next)
-                }
+                if let next, next != draftPage { draftPage = next }
             }
             .onEnded { _ in
-                // One request per gesture: the write happens here, never while
-                // the finger is moving.
-                let final = scrubber?.currentPage ?? page
+                // Nothing is written here. Releasing leaves a proposal on the
+                // card, and the card's confirm button is what reaches the
+                // server — so a mis-swipe costs a tap on ✕, not a wrong page in
+                // the user's reading history.
+                if isScrubbing, let landed = scrubber?.currentPage { draftPage = landed }
                 scrubber = nil
-                draftPage = nil
-                if final != page { onCommit(final) }
+                isScrubbing = false
             }
     }
 
-    /// Tapping `+` five times is one write, not five: the taps settle first.
-    /// Five requests would also be five reading sessions' worth of pointless
-    /// traffic and a good way to meet the rate limiter.
+    /// Also a proposal. Tapping `+` five times is five page changes and still
+    /// one request, because nothing is sent until it is confirmed.
     private func nudge(_ delta: Int) {
         let next = min(pageCount, max(0, shownPage + delta))
         guard next != shownPage else { return }
         draftPage = next
-        onScrub(next)
-
-        nudgeCommit?.cancel()
-        nudgeCommit = Task {
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled else { return }
-            draftPage = nil
-            if next != page { onCommit(next) }
-        }
     }
 }
 

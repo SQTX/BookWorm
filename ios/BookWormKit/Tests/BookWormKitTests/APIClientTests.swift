@@ -28,6 +28,21 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(http.request(0).value(forHTTPHeaderField: "Authorization"), "Bearer a1")
     }
 
+    func testTheLibraryIsNeverAnsweredFromTheCacheButCoversMayBe() async throws {
+        let (client, http) = makeClient([
+            .json(200, ["books": []]),
+            Stub.image
+        ])
+
+        _ = try await client.readingBooks()
+        _ = try await client.coverData(hash: String(repeating: "a", count: 64))
+
+        XCTAssertEqual(http.request(0).cachePolicy, .reloadIgnoringLocalCacheData,
+                       "a refresh that is answered from the cache is not a refresh")
+        XCTAssertEqual(http.request(1).cachePolicy, .useProtocolCachePolicy,
+                       "a hash always denotes the same bytes; re-fetching them is waste")
+    }
+
     func testNullPageFieldsDecodeAsNilRatherThanZero() async throws {
         let (client, _) = makeClient([
             .json(200, ["books": [Book.fixture(pageCount: nil, currentPage: nil).asJSON]])
