@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKitPackageTests.build/primary.swiftdeps"
+  },
+  "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKitPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKitPackageTests.build/runner.d",
+    "object": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKitPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKitPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKitPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/sqtx/Projects/App/BookWorm/ios/BookWormKit/.build/arm64-apple-macosx/debug/BookWormKitPackageTests.build/runner.dia"
+  }
+}
