@@ -16,8 +16,13 @@ Kept from v1.5.0 onward; earlier releases are described in their
 - **Server backups are configurable without editing systemd.**
   `server/scripts/backup-config.sh` reports the schedule, the retention and what
   is on disk, and changes any of it in one command: `set-interval`, `set-keep`,
-  `set-keep-days`, `run`, `prune`, `list`. Also available as `npm run
-  backup:status` and friends.
+  `set-keep-days`, `at_now`, `prune`, `list`. Also available as `npm run
+  backup:status`, `backup:now` and friends.
+- **`at_now`** takes a backup immediately and **waits for the verdict** —
+  printing the service's result, the tail of its output, the archive it wrote
+  and how many are now kept. A command that returns instantly and leaves you to
+  read a journal is not an answer to "back up now"; the question being asked is
+  whether it worked.
 - **Retention by count.** `KEEP_COUNT` (default 14) is now the primary rule:
   when a new backup is written, the oldest beyond that number is deleted
   together with its cover archive. The old age-based rule survives as an

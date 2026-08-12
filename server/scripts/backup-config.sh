@@ -11,7 +11,7 @@
 #   backup-config.sh set-interval <spec>     hourly | 6h | daily | weekly | …
 #   backup-config.sh set-keep <n>            how many backups to keep
 #   backup-config.sh list                    the archives on disk
-#   backup-config.sh run                     take one now
+#   backup-config.sh at_now                  take a backup now, and wait for it
 #   backup-config.sh prune                   apply retention now
 #
 # Anything that changes configuration needs root, because the timer and the
@@ -35,12 +35,24 @@ die() { echo "error: $*" >&2; exit 1; }
 need_root() { [ "$(id -u)" -eq 0 ] || die "needs root: try sudo $0 $*"; }
 has_systemd() { command -v systemctl > /dev/null 2>&1; }
 
+# Environment beats the config file, which beats the defaults — the same
+# precedence backup-db.sh applies, and it has to be the same or `status` reports
+# one thing while a run does another.
 load() {
+    local from_env_dir="${BACKUP_DIR:-}"
+    local from_env_count="${KEEP_COUNT:-}"
+    local from_env_days="${KEEP_DAYS:-}"
+
     BACKUP_DIR="$DEFAULT_DIR"; KEEP_COUNT="$DEFAULT_KEEP_COUNT"; KEEP_DAYS="$DEFAULT_KEEP_DAYS"
     if [ -f "$CONFIG" ]; then
         # shellcheck disable=SC1090
         . "$CONFIG"
     fi
+
+    [ -n "$from_env_dir" ] && BACKUP_DIR="$from_env_dir"
+    [ -n "$from_env_count" ] && KEEP_COUNT="$from_env_count"
+    [ -n "$from_env_days" ] && KEEP_DAYS="$from_env_days"
+    return 0
 }
 
 write_config() {
@@ -183,12 +195,43 @@ cmd_list() {
     done
 }
 
-cmd_run() {
+# Take a backup right now and say how it went.
+#
+# `systemctl start` on a Type=oneshot unit waits for it to finish, so this is
+# synchronous either way — which is the point. A command that returns instantly
+# and leaves you to go and read a journal is not an answer to "back up now"; the
+# question being asked is whether it worked.
+cmd_at_now() {
+    load
+
     if has_systemd && [ "$(id -u)" -eq 0 ]; then
-        systemctl start "$SERVICE"
-        echo "started $SERVICE; follow it with: journalctl -u $SERVICE -f"
+        echo "running $SERVICE…"
+        # Do not let a failure exit before the diagnosis below is printed: an
+        # unexplained non-zero status is the least useful thing this could do.
+        systemctl start "$SERVICE" || true
+        local result
+        result=$(systemctl show "$SERVICE" -p Result --value)
+        journalctl -u "$SERVICE" -n 12 --no-pager -o cat 2>/dev/null || true
+        if [ "$result" != "success" ]; then
+            die "backup failed ($result) — full output: journalctl -u $SERVICE -n 50"
+        fi
     else
+        # No systemd, or not root: run it directly. DATABASE_URL has to come
+        # from somewhere, and on a server that somewhere is the API's env file.
+        if [ -z "${DATABASE_URL:-}" ] && [ -f /etc/bookworm/api.env ] && [ -r /etc/bookworm/api.env ]; then
+            # shellcheck disable=SC1091
+            . /etc/bookworm/api.env
+            export DATABASE_URL
+        fi
         "$SCRIPT_DIR/backup-db.sh"
+    fi
+
+    local newest
+    newest=$(ls -1t "$BACKUP_DIR"/bookworm_*.dump 2>/dev/null | head -1 || true)
+    if [ -n "$newest" ]; then
+        printf 'newest backup: %s (%s)\n' "$(basename "$newest")" "$(du -h "$newest" | cut -f1)"
+        printf 'kept: %s of %s\n' \
+            "$(ls -1 "$BACKUP_DIR"/bookworm_*.dump 2>/dev/null | wc -l | tr -d ' ')" "$KEEP_COUNT"
     fi
 }
 
@@ -202,7 +245,8 @@ case "${1:-status}" in
     set-keep)       shift; cmd_set_keep "$@" ;;
     set-keep-days)  shift; cmd_set_keep_days "$@" ;;
     list)           shift || true; cmd_list ;;
-    run)            shift || true; cmd_run ;;
+    at_now|at-now|now|run)
+                    shift || true; cmd_at_now ;;
     prune)          shift || true; cmd_prune ;;
     -h|--help|help)
         sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'

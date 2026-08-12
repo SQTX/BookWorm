@@ -325,7 +325,7 @@ BC=/opt/bookworm/server/scripts/backup-config.sh
 sudo $BC set-interval 6h        # hourly | 2h | 4h | 6h | 12h | daily | weekly | monthly
 sudo $BC set-keep 30            # how many backups exist at once
 sudo $BC set-keep-days 90       # optional second rule; 0 turns it off
-sudo $BC run                    # take one now
+sudo $BC at_now                 # take a backup now, and wait for the verdict
 sudo $BC prune                  # apply retention now, without a new backup
      $BC list                   # what is on disk, with sizes
 ```
