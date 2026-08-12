@@ -152,12 +152,55 @@ final class ProgressServiceTests: XCTestCase {
         await queue.enqueue(PendingWrite(bookId: 42, currentPage: 212, editedAt: Date(timeIntervalSince1970: 1)))
 
         let (service, _, _, _) = makeService([
+            // The push fails — writes cannot get out — so the edit is still
+            // genuinely pending when the list arrives.
+            .failure(URLError(.notConnectedToInternet)),
             .json(200, ["books": [Book.fixture(currentPage: 180).asJSON]])
         ], queue: queue)
 
         let books = try? await service.refresh()
 
         XCTAssertEqual(books?.first?.currentPage, 212, "a pending edit must not flick back to the server's page")
+    }
+
+    func testARefreshSendsWhatIsQueuedBeforeItAsksForTheList() async throws {
+        let queue = PendingWriteStore(fileURL: nil)
+        await queue.enqueue(PendingWrite(bookId: 42, currentPage: 212, editedAt: Date(timeIntervalSince1970: 1)))
+
+        let (service, http, _, _) = makeService([
+            .json(200, ["book": Book.fixture(currentPage: 212).asJSON, "pagesRead": 32]),
+            .json(200, ["books": [Book.fixture(currentPage: 212).asJSON]])
+        ], queue: queue)
+
+        let books = try await service.refresh()
+
+        XCTAssertEqual(http.request(0).httpMethod, "POST", "the queued write goes out first")
+        XCTAssertTrue(http.request(1).url!.absoluteString.contains("status=reading"))
+        XCTAssertEqual(books.first?.currentPage, 212)
+        let pending = await queue.all()
+        XCTAssertTrue(pending.isEmpty)
+    }
+
+    func testAWriteTheServerAlreadyHasStopsMaskingEveryLaterRefresh() async throws {
+        // The lost-response case: the server committed page 212 and the reply
+        // never arrived, so the write stayed queued. Until it is cleared, the
+        // overlay pins this book to 212 and an edit made anywhere else is
+        // invisible on the phone — which reads as "sync is broken".
+        let queue = PendingWriteStore(fileURL: nil)
+        await queue.enqueue(PendingWrite(bookId: 42, currentPage: 212, editedAt: Date(timeIntervalSince1970: 1)))
+
+        let (service, _, _, _) = makeService([
+            .json(200, ["book": Book.fixture(currentPage: 212).asJSON, "pagesRead": 0]),
+            .json(200, ["books": [Book.fixture(currentPage: 260).asJSON]]),
+            .json(200, ["books": [Book.fixture(currentPage: 260).asJSON]])
+        ], queue: queue)
+
+        _ = try await service.refresh()
+        let second = try await service.refresh()
+
+        XCTAssertEqual(second.first?.currentPage, 260, "the desktop's later page must win once the queue is empty")
+        let pending = await queue.all()
+        XCTAssertTrue(pending.isEmpty)
     }
 
     func testTheStarIsAPatchCarryingOnlyThatField() async {

@@ -61,14 +61,36 @@ public actor ProgressService {
     /// writes are laid over the result so a book never flicks back to the
     /// server's older page while an edit is still pending.
     public func refresh() async throws -> [Book] {
+        // Push before pulling, the same order the desktop uses. A pull alone
+        // leaves an unsent write in the queue, and the overlay below then hides
+        // the server's value behind it — which looks exactly like "pulling the
+        // list down brings nothing new".
+        _ = await flush()
+
         do {
             let books = try await api.readingBooks()
             await cache.store(books)
             await log.write("Fetched \(books.count) book(s) being read")
+            await reconcile(with: books)
             return await overlayPending(on: books)
         } catch let error as APIError {
             await log.write("Fetch failed: \(error.userFacingText)")
             throw error
+        }
+    }
+
+    /// Drops a queued write the server has already applied.
+    ///
+    /// Without this a write that landed but whose response was lost — a timeout
+    /// after the server committed, a connection dropped mid-reply — stays
+    /// queued forever, and the overlay pins that book to the local number no
+    /// matter what any other device does to it.
+    private func reconcile(with books: [Book]) async {
+        for book in books {
+            guard let pending = await queue.write(for: book.id),
+                  book.currentPage == pending.currentPage else { continue }
+            await queue.discard(bookId: book.id)
+            await log.write("Book \(book.id): the server already has page \(pending.currentPage); queue cleared")
         }
     }
 
