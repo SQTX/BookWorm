@@ -6,6 +6,7 @@
 #include <QSqlRecord>
 #include <QVariantMap>
 #include <QDebug>
+#include <QSettings>
 #include <cmath>
 
 DatabaseManager &DatabaseManager::instance()
@@ -246,6 +247,39 @@ bool DatabaseManager::initializeSchema()
     q.exec("UPDATE books SET updated_at = COALESCE(updated_at, created_at, NOW()) WHERE updated_at IS NULL");
     q.exec("ALTER TABLE books ALTER COLUMN updated_at SET NOT NULL");
 
+    // One-off repair for rows edited before local writes stamped the client
+    // clock.
+    //
+    // `updated_at` moves on every write — a trigger sees to that —
+    // but `client_updated_at` did not, and the push selects on the second.
+    // Every edit made here since sync was switched on is therefore sitting in
+    // this database, invisible to the server and to every other device, with
+    // nothing anywhere reporting a problem. On this machine that was 47 books.
+    //
+    // Copying one to the other is safe: on this machine `updated_at` *is* when
+    // the user made the edit. If the server holds something newer, the merge
+    // rule rejects the row on arrival rather than losing anything. Guarded so
+    // it runs exactly once, because after that the two are written together and
+    // the condition can only be met by rows sync has just applied.
+    {
+        QSettings settings;
+        if (!settings.value(QStringLiteral("sync/clientClockBackfilled"), false).toBool()) {
+            const QStringList tables = { QStringLiteral("books"), QStringLiteral("tags"),
+                                         QStringLiteral("challenges"), QStringLiteral("favorite_quotes"),
+                                         QStringLiteral("highlights"), QStringLiteral("reading_sessions") };
+            int repaired = 0;
+            for (const auto &t : tables) {
+                if (q.exec(QStringLiteral("UPDATE %1 SET client_updated_at = updated_at "
+                                          "WHERE updated_at > client_updated_at").arg(t))) {
+                    repaired += q.numRowsAffected();
+                }
+            }
+            settings.setValue(QStringLiteral("sync/clientClockBackfilled"), true);
+            if (repaired > 0)
+                qInfo() << "Sync clock repaired on" << repaired << "row(s) edited before local writes stamped it";
+        }
+    }
+
     // Outbound deletions, remembered only until sync pushes them.
     //
     // Recorded unconditionally rather than only when sync is enabled: it keeps
@@ -383,7 +417,7 @@ bool DatabaseManager::updateBook(const Book &book)
         "  current_page = :currentPage, "
         "  series = :series, publication_date = :pubDate, "
         "  summary = :summary, review = :review, is_priority = :isPriority, "
-        "  read_count = :readCount, updated_at = NOW() "
+        "  read_count = :readCount, updated_at = NOW(), client_updated_at = NOW() "
         "WHERE id = :id"
     );
 
@@ -521,7 +555,8 @@ bool DatabaseManager::addTagWithColor(const QString &name, const QString &color)
 bool DatabaseManager::updateTag(int id, const QString &name, const QString &color)
 {
     QSqlQuery q(m_db);
-    q.prepare("UPDATE tags SET name = :name, color = :color WHERE id = :id");
+    q.prepare("UPDATE tags SET name = :name, color = :color, client_updated_at = NOW() "
+              "WHERE id = :id");
     q.bindValue(":id", id);
     q.bindValue(":name", name.trimmed());
     q.bindValue(":color", color.isEmpty() ? "#808080" : color);
@@ -871,7 +906,8 @@ bool DatabaseManager::recordSession(int bookId, int pageStart, int pageEnd, cons
         "VALUES (:bookId, CURRENT_DATE, :pageStart, :pageEnd, :source) "
         "ON CONFLICT (book_id, session_date, source) DO UPDATE SET "
         "  page_start = LEAST(reading_sessions.page_start, EXCLUDED.page_start), "
-        "  page_end = GREATEST(reading_sessions.page_end, EXCLUDED.page_end)"
+        "  page_end = GREATEST(reading_sessions.page_end, EXCLUDED.page_end), "
+        "  client_updated_at = NOW()"
     );
     q.bindValue(":bookId",    bookId);
     q.bindValue(":pageStart", pageStart);
@@ -938,7 +974,8 @@ bool DatabaseManager::updateSession(int sessionId, const QDate &newDate, int new
 
     QSqlQuery q(m_db);
     q.prepare(
-        "UPDATE reading_sessions SET session_date = :date, page_end = :pageEnd "
+        "UPDATE reading_sessions SET session_date = :date, page_end = :pageEnd, "
+        "       client_updated_at = NOW() "
         "WHERE id = :id"
     );
     q.bindValue(":date",    newDate);
