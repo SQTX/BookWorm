@@ -288,21 +288,92 @@ and one client can throttle everyone.
 
 ## 9. Backups
 
+Armed by the installer and running daily. Nothing here needs doing by hand — the
+section exists so that changing it later does not require reading the script.
+
 ```bash
-# /etc/systemd/system/bookworm-backup.service  → ExecStart=/opt/bookworm/server/scripts/backup-db.sh
-# /etc/systemd/system/bookworm-backup.timer    → OnCalendar=daily
-systemctl enable --now bookworm-backup.timer
+sudo /opt/bookworm/server/scripts/backup-config.sh status
 ```
 
-`BACKUP_DIR` defaults to `/var/lib/bookworm/backups`, `KEEP_DAYS` to 30. The
-script verifies each dump with `pg_restore --list` before promoting it out of
-`.part`, and rotates **only after** a successful run so a failing backup can
-never delete the last good one.
+```
+Schedule
+  timer      active
+  interval   daily
+  next run   Thu 2026-08-13 03:00:00 CEST
+  last run   Wed 2026-08-12 03:00:04 CEST
+  last exit  success
 
-**Covers are included in the backup.** They are files, not rows: a
-database-only dump restores a library in which every image is missing, and the
-loss is silent because the book rows still carry their hashes. The script
-archives `COVER_DIR` alongside the dump.
+Retention
+  keep       14 backups
+  also drop  (age rule off)
+  directory  /var/lib/bookworm/backups
+  config     /etc/bookworm/backup.env
+
+On disk
+  backups    14
+  oldest     bookworm_2026-07-30_0300.dump
+  newest     bookworm_2026-08-12_0300.dump
+  size       412M
+  free       28G
+```
+
+### Changing the schedule and the retention
+
+```bash
+BC=/opt/bookworm/server/scripts/backup-config.sh
+
+sudo $BC set-interval 6h        # hourly | 2h | 4h | 6h | 12h | daily | weekly | monthly
+sudo $BC set-keep 30            # how many backups exist at once
+sudo $BC set-keep-days 90       # optional second rule; 0 turns it off
+sudo $BC run                    # take one now
+sudo $BC prune                  # apply retention now, without a new backup
+     $BC list                   # what is on disk, with sizes
+```
+
+`set-interval` accepts any `OnCalendar` expression systemd understands, and
+refuses anything it does not — the check is `systemd-analyze calendar`, so a
+typo is caught before it becomes a timer that never fires.
+
+It writes a **drop-in** at
+`/etc/systemd/system/bookworm-backup.timer.d/interval.conf` rather than editing
+the unit, so an upgrade cannot silently reset your schedule. The drop-in clears
+`OnCalendar` before setting it, because `OnCalendar` is a list: assigning
+without clearing *adds* a schedule, and the backup then runs on both — which
+looks exactly like the setting being ignored.
+
+`set-keep` and `set-keep-days` write `/etc/bookworm/backup.env`, which the
+backup service reads. The installer creates that file only if it is absent, so
+re-running the installer never resets your choices.
+
+### How retention decides
+
+**`KEEP_COUNT` (default 14) is the rule that matters:** how many backups exist
+at once. When a new one is written, the oldest beyond that number is deleted
+**together with its cover archive** — a database restored into a library with no
+images is a failure that announces itself only much later, since the book rows
+still carry their hashes.
+
+`KEEP_DAYS` (default 0, off) is an optional second rule by age. It is off by
+default because age interacts badly with the interval: "keep 30 days" of hourly
+backups is 720 archives, which is not what anyone picturing a month of backups
+has in mind. Turn it on only when you want a hard ceiling on age as well as on
+count.
+
+Zero is refused. "Keep no backups" is never what anyone means, and acting on it
+would empty the directory at the next successful run.
+
+Rotation happens **only after a successful backup**, so a failing job can never
+delete the last good one. Eleven tests in `test/backup-retention.test.js` run the
+real script against a real directory — this is the one part of the system whose
+job is to delete files, so it is not left to inspection.
+
+### What is in a backup
+
+`BACKUP_DIR` defaults to `/var/lib/bookworm/backups`. Each run writes a pair:
+
+- `bookworm_<stamp>.dump` — `pg_dump --format=custom`, verified with
+  `pg_restore --list` before it is promoted out of `.part`
+- `covers_<stamp>.tar.zst` — the contents of `COVER_DIR`, verified the same way
 
 **Copy backups off the machine.** A dump on the same disk as the database
 protects against a mistaken `DELETE`, not against losing the machine.

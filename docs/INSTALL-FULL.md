@@ -229,8 +229,21 @@ caused without any error.
   backup before the migration, and confirm `git pull` actually reported new
   commits; a refusal on ownership grounds prints a message and exits, and the
   `npm ci` that follows happily reinstalls what you already had.
-- **Server backups** — a daily systemd timer writes a dump plus the covers to
-  `/var/lib/bookworm/backups`.
+- **Server backups** — a systemd timer writes a dump plus the covers to
+  `/var/lib/bookworm/backups`, daily out of the box, keeping the newest 14.
+  Both are one command to change:
+
+  ```bash
+  BC=/opt/bookworm/server/scripts/backup-config.sh
+  sudo $BC status          # schedule, retention, what is on disk, free space
+  sudo $BC set-interval 6h # hourly | 6h | daily | weekly | any OnCalendar spec
+  sudo $BC set-keep 30     # how many backups exist at once
+  sudo $BC run             # take one now
+  ```
+
+  A backup is deleted together with its cover archive, and rotation happens only
+  after a successful run, so a failing job can never remove the last good one.
+  Detail in [`../server/deploy/RUNBOOK.md`](../server/deploy/RUNBOOK.md).
 - **Desktop backups** — Settings → Backup. Independent of the server, and worth
   keeping even with sync on: the server is a copy, not an archive, and a
   deletion propagates.
