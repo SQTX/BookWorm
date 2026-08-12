@@ -278,6 +278,23 @@ step "Installing services"
 
 cp "$APP_DIR/server/deploy/bookworm-api.service" /etc/systemd/system/
 
+# Backup settings live in their own file so `backup-config.sh` can change the
+# retention without touching api.env, which holds the secrets. Written only if
+# absent: re-running the installer must not reset an operator's choices.
+if [ ! -f /etc/bookworm/backup.env ]; then
+    cat > /etc/bookworm/backup.env <<'EOF'
+# How many backups to keep. When a new one is written, the oldest beyond this
+# number is deleted along with its cover archive. Change it with:
+#   sudo /opt/bookworm/server/scripts/backup-config.sh set-keep 30
+BACKUP_DIR=/var/lib/bookworm/backups
+KEEP_COUNT=14
+# Optional second rule, off by default. Age-based, so it interacts with the
+# interval: hourly backups kept for 30 days is 720 files.
+KEEP_DAYS=0
+EOF
+    chmod 0644 /etc/bookworm/backup.env
+fi
+
 cat > /etc/systemd/system/bookworm-backup.service <<EOF
 [Unit]
 Description=BookWorm backup
@@ -285,24 +302,28 @@ Description=BookWorm backup
 Type=oneshot
 User=$SERVICE_USER
 EnvironmentFile=$ENV_FILE
+EnvironmentFile=-/etc/bookworm/backup.env
 ExecStart=$APP_DIR/server/scripts/backup-db.sh
 EOF
 
 cat > /etc/systemd/system/bookworm-backup.timer <<'EOF'
 [Unit]
-Description=Daily BookWorm backup
+Description=BookWorm backup
 [Timer]
 OnCalendar=daily
 Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+# An operator's chosen interval lives in a drop-in under
+# bookworm-backup.timer.d/, which this file cannot clobber — that is why
+# set-interval writes one rather than editing the unit.
 
 systemctl daemon-reload
 systemctl enable --now bookworm-api > /dev/null 2>&1
 systemctl restart bookworm-api
 systemctl enable --now bookworm-backup.timer > /dev/null 2>&1
-ok "bookworm-api running, daily backup timer armed"
+ok "bookworm-api running, backup timer armed (see: backup-config.sh status)"
 
 for _ in $(seq 1 20); do
     HEALTH=$(curl -fsS --max-time 3 "http://127.0.0.1:$PORT/health" 2>/dev/null || true)

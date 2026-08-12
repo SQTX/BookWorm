@@ -9,6 +9,33 @@ Kept from v1.5.0 onward; earlier releases are described in their
 
 ---
 
+## Unreleased
+
+### Added
+
+- **Server backups are configurable without editing systemd.**
+  `server/scripts/backup-config.sh` reports the schedule, the retention and what
+  is on disk, and changes any of it in one command: `set-interval`, `set-keep`,
+  `set-keep-days`, `run`, `prune`, `list`. Also available as `npm run
+  backup:status` and friends.
+- **Retention by count.** `KEEP_COUNT` (default 14) is now the primary rule:
+  when a new backup is written, the oldest beyond that number is deleted
+  together with its cover archive. The old age-based rule survives as an
+  optional second one, off by default — "30 days" of hourly backups is 720
+  archives, which is not what anyone picturing a month of backups means.
+- Eleven tests covering retention, run against the real script and a real
+  directory. It is the one part of the system whose job is to delete files.
+
+### Changed
+
+- Backup settings live in `/etc/bookworm/backup.env`, separate from the secrets
+  in `api.env`. The installer writes it only when absent, so re-running the
+  installer never resets an operator's choices, and `set-interval` writes a
+  systemd drop-in rather than editing the unit, for the same reason.
+- `RUNBOOK.md` section 9 rewritten around the new commands.
+
+---
+
 ## v1.5.0 — 2026-08-12
 
 The release where the library stopped living on one machine. An iPhone app, and

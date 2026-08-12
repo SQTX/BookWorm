@@ -19,7 +19,11 @@
     "migrate": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate",
     "migrate:up": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate up",
     "migrate:down": "npm run guard && node --env-file-if-exists=.env node_modules/.bin/node-pg-migrate down",
-    "backup": "./scripts/backup-db.sh"
+    "backup": "./scripts/backup-db.sh",
+    "backup:status": "./scripts/backup-config.sh status",
+    "backup:list": "./scripts/backup-config.sh list",
+    "backup:prune": "./scripts/backup-config.sh prune",
+    "backup:config": "./scripts/backup-config.sh"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
