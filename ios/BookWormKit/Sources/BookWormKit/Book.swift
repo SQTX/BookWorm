@@ -89,10 +89,30 @@ public struct Book: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// Starred books first, everything else in the order the server gave.
-    /// `stable` matters: without it two books that are both starred can swap
-    /// places between refreshes, which reads as the list twitching.
     public static func priorityFirst(_ books: [Book]) -> (priority: [Book], rest: [Book]) {
-        (books.filter(\.isPriority), books.filter { !$0.isPriority })
+        (byCompletion(books.filter(\.isPriority)), books.filter { !$0.isPriority })
+    }
+
+    /// Nearest to finished first.
+    ///
+    /// A book with no page count, or none recorded, has no percentage at all —
+    /// it sorts last rather than as zero, because "unknown" and "just started"
+    /// are different things and only one of them is nearly finished. The sort
+    /// is stable, so books that tie keep the server's order instead of swapping
+    /// places on every refresh.
+    public static func byCompletion(_ books: [Book]) -> [Book] {
+        books.enumerated()
+            .sorted { left, right in
+                let a = left.element.progressFraction
+                let b = right.element.progressFraction
+                switch (a, b) {
+                case let (a?, b?) where a != b: return a > b
+                case (nil, .some): return false
+                case (.some, nil): return true
+                default: return left.offset < right.offset
+                }
+            }
+            .map(\.element)
     }
 }
 

@@ -106,15 +106,47 @@ final class BookTests: XCTestCase {
     func testStarredBooksComeFirstAndTheRestKeepTheServersOrder() {
         let books = [
             Book.fixture(id: 1, title: "One"),
-            Book.fixture(id: 2, title: "Two", isPriority: true),
+            Book.fixture(id: 2, title: "Two", pageCount: 100, currentPage: 10, isPriority: true),
             Book.fixture(id: 3, title: "Three"),
-            Book.fixture(id: 4, title: "Four", isPriority: true)
+            Book.fixture(id: 4, title: "Four", pageCount: 100, currentPage: 90, isPriority: true)
         ]
 
         let (priority, rest) = Book.priorityFirst(books)
 
-        XCTAssertEqual(priority.map(\.id), [2, 4])
+        XCTAssertEqual(priority.map(\.id), [4, 2], "the nearly finished one first")
         XCTAssertEqual(rest.map(\.id), [1, 3])
+    }
+
+    func testStarredBooksAreOrderedByHowCloseToFinishedTheyAre() {
+        let books = [
+            Book.fixture(id: 1, pageCount: 200, currentPage: 50),    // 25%
+            Book.fixture(id: 2, pageCount: 200, currentPage: 180),   // 90%
+            Book.fixture(id: 3, pageCount: 200, currentPage: 100)    // 50%
+        ]
+
+        XCTAssertEqual(Book.byCompletion(books).map(\.id), [2, 3, 1])
+    }
+
+    func testABookWithNoPercentageSortsLastRatherThanAsZero() {
+        // "Not recorded" is not "just started": one of them might be nearly
+        // finished and there is no way to know.
+        let books = [
+            Book.fixture(id: 1, pageCount: nil, currentPage: nil),
+            Book.fixture(id: 2, pageCount: 200, currentPage: 20),
+            Book.fixture(id: 3, pageCount: 200, currentPage: nil)
+        ]
+
+        XCTAssertEqual(Book.byCompletion(books).map(\.id), [2, 1, 3])
+    }
+
+    func testBooksThatTieKeepTheOrderTheyCameIn() {
+        let books = [
+            Book.fixture(id: 1, pageCount: 100, currentPage: 50),
+            Book.fixture(id: 2, pageCount: 200, currentPage: 100),
+            Book.fixture(id: 3, pageCount: 400, currentPage: 200)
+        ]
+
+        XCTAssertEqual(Book.byCompletion(books).map(\.id), [1, 2, 3], "no twitching between refreshes")
     }
 
     func testAPriorityFlagSurvivesAnOptimisticPageChange() {

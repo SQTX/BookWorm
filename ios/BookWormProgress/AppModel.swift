@@ -46,8 +46,16 @@ final class AppModel {
     private(set) var listError: String?
     private(set) var planned: PlannedState = .notLoaded
 
-    /// Starred on the desktop, and pinned to the top here.
-    var priorityRows: [BookRow] { rows.filter(\.book.isPriority) }
+    /// Starred, pinned to the top, and ordered by how close to finished they
+    /// are — the one you are about to end is the one you are most likely to be
+    /// reaching for.
+    var priorityRows: [BookRow] {
+        let starred = rows.filter(\.book.isPriority)
+        let order = Book.byCompletion(starred.map(\.book)).map(\.id)
+        return starred.sorted {
+            (order.firstIndex(of: $0.id) ?? 0) < (order.firstIndex(of: $1.id) ?? 0)
+        }
+    }
     var standardRows: [BookRow] { rows.filter { !$0.book.isPriority } }
     private(set) var signInError: String?
     private(set) var isSigningIn = false
