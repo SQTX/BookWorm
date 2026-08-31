@@ -21,7 +21,7 @@ ApplicationWindow {
     Material.theme: Theme.isDark ? Material.Dark : Material.Light
     Material.accent: Theme.primary
 
-    property int currentPage: 0  // 0 = library, 1 = table, 2 = statistics, 3 = challenges
+    property int currentPage: 0  // 0 library, 1 table, 2 statistics, 3 challenges, 4 series, 5 achievements
 
     // Coming back to the window is when a person expects to see what another
     // device did. The manager ignores the call when it has just exchanged, so
@@ -401,6 +401,32 @@ ApplicationWindow {
                     }
                 }
 
+                // Achievements button
+                ToolButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 48; height: 48
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/achievements.svg"
+                    icon.width: 22; icon.height: 22
+                    icon.color: currentPage === 5 ? Theme.primary : Theme.textSecondary
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3; height: 24
+                        radius: 2
+                        color: Theme.primary
+                        visible: currentPage === 5
+                    }
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: Theme.tr("Achievements")
+
+                    onClicked: {
+                        currentPage = 5;
+                        stackView.replace(null, achievementsComponent);
+                    }
+                }
+
                 Item { Layout.fillHeight: true }
 
                 // Separates navigation (above) from utilities (below); without it
@@ -549,6 +575,11 @@ ApplicationWindow {
                 stackView.push(bookDetailsComponent, { bookId: bookId });
             }
         }
+    }
+
+    Component {
+        id: achievementsComponent
+        AchievementsView {}
     }
 
     // ── Settings ──
@@ -1471,6 +1502,28 @@ ApplicationWindow {
                 restoreFailureDialog.message = message;
                 restoreFailureDialog.open();
             }
+        }
+    }
+
+    // ── Achievements ──
+    //
+    // Top-right, above everything, and outside the StackView on purpose: an
+    // achievement can be earned on any page — the library, the table, a book's
+    // own details — and a notification that only appeared on one of them would
+    // miss most of the moments it exists for.
+    AchievementToast {
+        id: achievementToast
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: Theme.pageMargin
+        anchors.rightMargin: Theme.pageMargin
+        z: 1000
+    }
+
+    Connections {
+        target: achievements
+        function onUnlocked(key, title, description, icon) {
+            achievementToast.present(title, description, icon);
         }
     }
 

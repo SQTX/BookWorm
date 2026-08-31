@@ -422,7 +422,103 @@ var _pl = {
 
     // ── About dialog ──
     "Version": "Wersja",
-    "All rights reserved.": "Wszystkie prawa zastrzeżone."
+    "All rights reserved.": "Wszystkie prawa zastrzeżone.",
+
+    // ── Achievements ──
+    //
+    // The titles and descriptions are the same strings the C++ catalogue holds
+    // (src/achievements/achievementcatalog.cpp) — that file is the list, and
+    // this is its Polish half. A title added there without a line here shows in
+    // English rather than breaking, which is the intended failure.
+    "Achievements": "Osiągnięcia",
+    "Achievement unlocked": "Osiągnięcie zdobyte",
+    "unlocked": "zdobytych",
+    "Unlocked": "Zdobyte",
+    "Locked": "Zablokowane",
+    // "All" is already defined above, for the statistics year filter.
+    "Nothing unlocked yet": "Nic jeszcze nie zdobyte",
+    "Everything is unlocked": "Wszystko zdobyte",
+    "Finish a book to earn your first one": "Skończ książkę, by zdobyć pierwsze",
+    "There is nothing left to earn": "Nie ma już czego zdobywać",
+
+    "A Shelf Begins": "Półka się zaczyna",
+    "Ten books in your library": "Dziesięć książek w bibliotece",
+    "Filling Out": "Zapełnia się",
+    "Twenty-five books in your library": "Dwadzieścia pięć książek w bibliotece",
+    "A Proper Collection": "Prawdziwa kolekcja",
+    "Fifty books in your library": "Pięćdziesiąt książek w bibliotece",
+    "Private Library": "Biblioteka domowa",
+    "A hundred books in your library": "Sto książek w bibliotece",
+    "Wall to Wall": "Od ściany do ściany",
+    "Two hundred and fifty books in your library": "Dwieście pięćdziesiąt książek w bibliotece",
+    "You Need Another Room": "Potrzebujesz kolejnego pokoju",
+    "Five hundred books in your library": "Pięćset książek w bibliotece",
+
+    "The First One": "Pierwsza",
+    "Finish your first book": "Skończ pierwszą książkę",
+    "Getting Somewhere": "Coś się dzieje",
+    "Finish five books": "Skończ pięć książek",
+    "Double Figures": "Dwucyfrowo",
+    "Finish ten books": "Skończ dziesięć książek",
+    "Well Read": "Oczytany",
+    "Finish twenty-five books": "Skończ dwadzieścia pięć książek",
+    "Half a Hundred": "Pół setki",
+    "Finish fifty books": "Skończ pięćdziesiąt książek",
+    "Centurion": "Centurion",
+    "Finish a hundred books": "Skończ sto książek",
+    "Bookworm": "Mól książkowy",
+    "Finish two hundred and fifty books": "Skończ dwieście pięćdziesiąt książek",
+
+    "A Book a Month": "Książka na miesiąc",
+    "Finish twelve books in one year": "Skończ dwanaście książek w jednym roku",
+    "Two a Month": "Dwie na miesiąc",
+    "Finish twenty-four books in one year": "Skończ dwadzieścia cztery książki w jednym roku",
+    "A Book a Week": "Książka na tydzień",
+    "Finish fifty-two books in one year": "Skończ pięćdziesiąt dwie książki w jednym roku",
+
+    "A Thousand Pages": "Tysiąc stron",
+    "Read a thousand pages": "Przeczytaj tysiąc stron",
+    "Ten Thousand": "Dziesięć tysięcy",
+    "Read ten thousand pages": "Przeczytaj dziesięć tysięcy stron",
+    "Fifty Thousand": "Pięćdziesiąt tysięcy",
+    "Read fifty thousand pages": "Przeczytaj pięćdziesiąt tysięcy stron",
+    "Six Figures": "Sześciocyfrowo",
+    "Read a hundred thousand pages": "Przeczytaj sto tysięcy stron",
+
+    "Saw It Through": "Do samego końca",
+    "Finish every book in a series": "Skończ wszystkie książki z jednej serii",
+    "Completionist": "Kompletysta",
+    "Finish five series": "Skończ pięć serii",
+    "No Loose Ends": "Żadnych niedokończonych wątków",
+    "Finish ten series": "Skończ dziesięć serii",
+
+    "Broadening Out": "Poszerzanie horyzontów",
+    "Finish books in five genres": "Skończ książki z pięciu gatunków",
+    "Catholic Taste": "Szerokie gusta",
+    "Finish books in ten genres": "Skończ książki z dziesięciu gatunków",
+    "Omnivore": "Wszystkożerny",
+    "Finish books in twenty genres": "Skończ książki z dwudziestu gatunków",
+
+    "Seven Days": "Siedem dni",
+    "Read on seven days in a row": "Czytaj przez siedem dni z rzędu",
+    "A Month Straight": "Miesiąc bez przerwy",
+    "Read on thirty days in a row": "Czytaj przez trzydzieści dni z rzędu",
+    "A Hundred Days": "Sto dni",
+    "Read on a hundred days in a row": "Czytaj przez sto dni z rzędu",
+    "Every Single Day": "Każdego dnia",
+    "Read on three hundred and sixty-five days in a row": "Czytaj przez trzysta sześćdziesiąt pięć dni z rzędu",
+
+    "Worth Another Look": "Warto wrócić",
+    "Read a book for the second time": "Przeczytaj książkę po raz drugi",
+    "Old Friends": "Starzy znajomi",
+    "Reread five times over your library": "Przeczytaj ponownie pięć razy w całej bibliotece",
+
+    "An Opinion on Everything": "Opinia o wszystkim",
+    "Rate twenty-five books you have finished": "Oceń dwadzieścia pięć skończonych książek",
+    "Marginalia": "Notatki na marginesie",
+    "Save ten quotes or highlights": "Zapisz dziesięć cytatów lub fragmentów",
+    "The Commonplace Book": "Sylwa",
+    "Save a hundred quotes or highlights": "Zapisz sto cytatów lub fragmentów"
 };
 
 function translate(key, lang) {

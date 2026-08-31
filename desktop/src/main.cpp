@@ -13,6 +13,7 @@
 #include "database/databasemanager.h"
 #include "controllers/bookcontroller.h"
 #include "statistics/statisticsprovider.h"
+#include "achievements/achievementmanager.h"
 #include "backup/backupmanager.h"
 #include "sync/keychain.h"
 #include "sync/syncmanager.h"
@@ -131,6 +132,7 @@ int main(int argc, char *argv[])
     StatisticsProvider statsProvider;
     BackupManager backupManager;
     SyncManager syncManager;
+    AchievementManager achievementManager;
 
     bookController.loadBooks();
     statsProvider.refresh();
@@ -138,6 +140,13 @@ int main(int argc, char *argv[])
     // Connect: refresh stats when books change
     QObject::connect(&bookController, &BookController::booksChanged,
                      &statsProvider, &StatisticsProvider::refresh);
+
+    // Achievements are measured from the library, so the library changing is
+    // the only thing that can earn one. Including rows that arrived from the
+    // server: pages moved on the phone are pages read, and the desktop is
+    // where the notification for them is worth showing.
+    QObject::connect(&bookController, &BookController::booksChanged,
+                     &achievementManager, &AchievementManager::recheck);
 
     // Rows that arrived from the server are in the database but not in the
     // model: the model was filled before the exchange finished, and nothing
@@ -172,6 +181,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("statsProvider", &statsProvider);
     engine.rootContext()->setContextProperty("backupManager", &backupManager);
     engine.rootContext()->setContextProperty("syncManager", &syncManager);
+    engine.rootContext()->setContextProperty("achievements", &achievementManager);
 
     using namespace Qt::StringLiterals;
     const QUrl url(u"qrc:/qt/qml/BookWorm/qml/Main.qml"_s);
@@ -193,6 +203,16 @@ int main(int argc, char *argv[])
     g_shutdownSync = &syncManager;
 
     syncManager.syncOnStart();
+
+    // Also measured once at launch, after QML exists to hear the answer. The
+    // library can change while this application is closed — pages moved on the
+    // phone, an archive restored, a CSV imported — and an achievement earned in
+    // the meantime should be announced when the window opens rather than wait
+    // for the next unrelated edit. On a first run this finds nothing: the
+    // constructor has already recorded what was earned, silently and on
+    // purpose, so a long-standing library does not open onto thirty
+    // notifications for things done over several years.
+    achievementManager.recheck();
 
     // Closing the last window would otherwise quit immediately, leaving no live
     // event loop for the final exchange.
