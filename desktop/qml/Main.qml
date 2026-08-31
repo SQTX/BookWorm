@@ -21,7 +21,7 @@ ApplicationWindow {
     Material.theme: Theme.isDark ? Material.Dark : Material.Light
     Material.accent: Theme.primary
 
-    property int currentPage: 0  // 0 library, 1 table, 2 statistics, 3 challenges, 4 series, 5 achievements
+    property int currentPage: 0  // 0 library, 1 table, 2 statistics, 3 challenges, 4 series, 5 achievements, 6 lending
 
     // Coming back to the window is when a person expects to see what another
     // device did. The manager ignores the call when it has just exchanged, so
@@ -427,6 +427,53 @@ ApplicationWindow {
                     }
                 }
 
+                // Lending button
+                ToolButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 48; height: 48
+                    icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/lending.svg"
+                    icon.width: 22; icon.height: 22
+                    icon.color: currentPage === 6 ? Theme.primary : Theme.textSecondary
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 3; height: 24
+                        radius: 2
+                        color: Theme.primary
+                        visible: currentPage === 6
+                    }
+
+                    // How many books are out, on the icon itself. The point of
+                    // the feature is remembering without going to look.
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.rightMargin: 4
+                        anchors.topMargin: 4
+                        width: 14; height: 14
+                        radius: 7
+                        color: Theme.primary
+                        visible: loans.lentOutCount + loans.borrowedCount > 0
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: loans.lentOutCount + loans.borrowedCount
+                            color: Theme.textOnPrimary
+                            font.pixelSize: 9
+                            font.bold: true
+                        }
+                    }
+
+                    ToolTip.visible: hovered
+                    ToolTip.text: Theme.tr("Lending")
+
+                    onClicked: {
+                        currentPage = 6;
+                        stackView.replace(null, loansComponent);
+                    }
+                }
+
                 Item { Layout.fillHeight: true }
 
                 // Separates navigation (above) from utilities (below); without it
@@ -580,6 +627,11 @@ ApplicationWindow {
     Component {
         id: achievementsComponent
         AchievementsView {}
+    }
+
+    Component {
+        id: loansComponent
+        LoansView {}
     }
 
     // ── Settings ──

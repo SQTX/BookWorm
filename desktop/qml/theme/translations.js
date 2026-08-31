@@ -424,6 +424,43 @@ var _pl = {
     "Version": "Wersja",
     "All rights reserved.": "Wszystkie prawa zastrzeżone.",
 
+    // ── Lending ──
+    "Lending": "Wypożyczenia",
+    "Lent out": "Wypożyczone",
+    "lent out": "wypożyczonych",
+    "Borrowed": "Pożyczone",
+    "borrowed": "pożyczonych",
+    "Returned": "Zwrócone",
+    "Direction": "Kierunek",
+    "I lent it out": "Pożyczyłem komuś",
+    "I borrowed it": "Pożyczyłem od kogoś",
+    "Who has it": "Kto ma",
+    "Whose is it": "Czyja jest",
+    "Name": "Imię",
+    "Anything worth remembering": "Cokolwiek warto zapamiętać",
+    "optional": "opcjonalne",
+    "Lend or borrow…": "Pożycz…",
+    "Mark as returned": "Oznacz jako zwróconą",
+    "Already on loan": "Już wypożyczona",
+    "This book is already recorded as being with somebody.":
+        "Ta książka jest już zapisana jako będąca u kogoś.",
+    "Books somebody else has right now": "Książki, które ktoś teraz ma",
+    "Books here that belong to somebody else": "Książki u Ciebie, które należą do kogoś innego",
+    "Loans that have come back": "Wypożyczenia, które wróciły",
+    "Nothing is out on loan": "Nic nie jest wypożyczone",
+    "Right-click a book, or open it, to record that it changed hands.":
+        "Kliknij książkę prawym przyciskiem albo otwórz ją, by zapisać, że zmieniła właściciela.",
+    "Nothing here": "Nic tutaj",
+    "Show history": "Pokaż historię",
+    "Hide history": "Ukryj historię",
+    "This book has never left the shelf.": "Ta książka nigdy nie opuściła półki.",
+    "With": "U",
+    "with": "u",
+    "from": "od",
+    "Borrowed from": "Pożyczona od",
+    "since": "od",
+    // "days" is already defined above, for the challenge countdown.
+
     // ── Achievements ──
     //
     // The titles and descriptions are the same strings the C++ catalogue holds

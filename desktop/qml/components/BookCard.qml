@@ -21,6 +21,23 @@ Rectangle {
     required property string tags
     required property int readCount
 
+    /**
+     * Who has this copy, or an empty string.
+     *
+     * Held rather than bound: holderOf() is an invokable, not a property, so a
+     * binding on it would never re-evaluate. Refreshed when a loan changes,
+     * which is the only thing that can alter the answer.
+     */
+    property string holder: ""
+
+    function refreshHolder() { card.holder = loans.holderOf(card.bookId); }
+    Component.onCompleted: card.refreshHolder()
+
+    Connections {
+        target: loans
+        function onChanged() { card.refreshHolder(); }
+    }
+
     signal clicked()
     signal rightClicked(real mouseX, real mouseY)
 
@@ -102,6 +119,28 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
                 layoutDirection: Qt.RightToLeft
+
+                // On loan. Deliberately the loudest thing on the status bar
+                // after the status itself — a book you cannot find is the
+                // problem this whole feature exists to prevent.
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: card.holder !== ""
+                    width: holderLabel.width + 10
+                    height: 15
+                    radius: Theme.radiusPill
+                    color: "#000000"
+                    opacity: 0.72
+
+                    Text {
+                        id: holderLabel
+                        anchors.centerIn: parent
+                        text: card.holder
+                        color: "#FFFFFF"
+                        font.pixelSize: 9
+                        font.bold: true
+                    }
+                }
 
                 // Reread tally — shown only when finished more than once.
                 Text {

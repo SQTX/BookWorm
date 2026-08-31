@@ -52,6 +52,8 @@ qt_add_executable(BookWorm
     src/achievements/achievementcatalog.cpp
     src/achievements/achievementmanager.h
     src/achievements/achievementmanager.cpp
+    src/loans/loanmanager.h
+    src/loans/loanmanager.cpp
 )
 
 qt_add_qml_module(BookWorm
@@ -74,6 +76,8 @@ qt_add_qml_module(BookWorm
         qml/components/SettingsDialog.qml
         qml/components/AchievementToast.qml
         qml/components/AchievementsView.qml
+        qml/components/LoansView.qml
+        qml/components/LoanDialog.qml
         qml/components/common/Panel.qml
         qml/components/common/SectionLabel.qml
         qml/components/common/AppButton.qml
@@ -106,6 +110,7 @@ qt_add_qml_module(BookWorm
         src/img/icons/status-planed.svg
         src/img/icons/status-abondoned.svg
         src/img/icons/achievements.svg
+        src/img/icons/lending.svg
         # Achievement artwork and its sound. A file sitting on disk but missing
         # from this list is not in the qrc, and fails silently at runtime — so
         # every new achievement icon has to be added here as well as dropped in
@@ -141,6 +146,7 @@ target_include_directories(BookWorm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backup
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sync
     ${CMAKE_CURRENT_SOURCE_DIR}/src/achievements
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/loans
 )
 
 if(APPLE)

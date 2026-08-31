@@ -593,6 +593,26 @@ Item {
             height: visible ? implicitHeight : 0
         }
 
+        // ── Lending — all statuses. A lent book is still whatever it was. ──
+        MenuItem {
+            text: loans.isOnLoan(bookListPage.contextBookId)
+                  ? Theme.tr("Mark as returned")
+                  : Theme.tr("Lend or borrow…")
+            icon.source: "qrc:/qt/qml/BookWorm/src/img/icons/lending.svg"
+            icon.color: Theme.primary
+            onTriggered: {
+                if (loans.isOnLoan(bookListPage.contextBookId)) {
+                    var loan = loans.openLoanFor(bookListPage.contextBookId);
+                    loans.endLoan(loan.id, "");
+                } else {
+                    var data = bookController.getBookDetails(bookListPage.contextBookId);
+                    loanDialog.openFor(bookListPage.contextBookId, data["title"], "lent");
+                }
+            }
+        }
+
+        MenuSeparator { }
+
         // ── Priority toggle — all statuses ──
         MenuItem {
             text: bookListPage.contextBookIsPriority
@@ -627,6 +647,27 @@ Item {
             text: Theme.tr("Delete")
             Material.foreground: Theme.error
             onTriggered: deleteConfirmDialog.open()
+        }
+    }
+
+    LoanDialog {
+        id: loanDialog
+        onRefused: loanRefusedPopup.open()
+    }
+
+    // A book can only be in one place, so a second open loan is refused rather
+    // than silently ignored — most often because it was lent from another view
+    // while this menu was open.
+    Dialog {
+        id: loanRefusedPopup
+        modal: true
+        anchors.centerIn: Overlay.overlay
+        title: Theme.tr("Already on loan")
+        standardButtons: Dialog.Ok
+        Text {
+            text: Theme.tr("This book is already recorded as being with somebody.")
+            color: Theme.textOnSurface
+            font.pixelSize: Theme.fontSizeMedium
         }
     }
 

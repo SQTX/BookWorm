@@ -19,11 +19,27 @@ Item {
 
     Component.onCompleted: loadData()
 
+    property var loanHistory: []
+    property var openLoan: ({})
+
     function loadData() {
         bookData = bookController.getBookDetails(bookId);
         quotes = bookController.getQuotesForBook(bookId);
         highlights = bookController.getHighlightsForBook(bookId);
+        loadLoans();
     }
+
+    function loadLoans() {
+        detailsPage.loanHistory = loans.forBook(bookId);
+        detailsPage.openLoan = loans.openLoanFor(bookId);
+    }
+
+    Connections {
+        target: loans
+        function onChanged() { detailsPage.loadLoans(); }
+    }
+
+    LoanDialog { id: loanDialog }
 
     // Per-book Markdown export (quotes, highlights, summary, review, notes).
     FileDialog {
@@ -424,6 +440,102 @@ Item {
                         color: Theme.textOnSurface
                         font.pixelSize: Theme.fontSizeMedium
                         wrapMode: Text.Wrap
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════
+            // Lending section
+            // ═══════════════════════════════════
+            Panel {
+                Layout.fillWidth: true
+                Layout.leftMargin: Theme.pageMargin
+                Layout.rightMargin: Theme.pageMargin
+                Layout.topMargin: Theme.spacingLarge
+                Layout.preferredHeight: loanColumn.implicitHeight + 2 * Theme.cardPadding
+                // Accented while the book is out, so the state is visible before
+                // any of it has been read.
+                border.color: detailsPage.openLoan.id !== undefined
+                              ? Theme.primary : Theme.outline
+
+                ColumnLayout {
+                    id: loanColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.cardPadding
+                    spacing: Theme.spacingSmall
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSmall
+
+                        SectionLabel { text: Theme.tr("Lending") }
+                        Item { Layout.fillWidth: true }
+
+                        AppButton {
+                            visible: detailsPage.openLoan.id === undefined
+                            text: Theme.tr("Lend or borrow…")
+                            variant: "outline"
+                            onClicked: loanDialog.openFor(detailsPage.bookId,
+                                                          detailsPage.bookData.title || "", "lent")
+                        }
+
+                        AppButton {
+                            visible: detailsPage.openLoan.id !== undefined
+                            text: Theme.tr("Mark as returned")
+                            variant: "primary"
+                            onClicked: loans.endLoan(detailsPage.openLoan.id, "")
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: detailsPage.openLoan.id !== undefined
+                        text: {
+                            var l = detailsPage.openLoan;
+                            if (l.id === undefined)
+                                return "";
+                            var lead = l.direction === "lent"
+                                       ? Theme.tr("With") : Theme.tr("Borrowed from");
+                            return lead + " " + l.counterparty + " "
+                                   + Theme.tr("since") + " " + l.loanedOn
+                                   + "  ·  " + l.days + " " + Theme.tr("days");
+                        }
+                        color: Theme.primary
+                        font.pixelSize: Theme.fontSizeMedium
+                        font.bold: true
+                        wrapMode: Text.Wrap
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: detailsPage.openLoan.id === undefined
+                                 && detailsPage.loanHistory.length === 0
+                        text: Theme.tr("This book has never left the shelf.")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSizeSmall
+                    }
+
+                    // Everything this copy has ever done. Short, and the reason
+                    // "I am sure I lent you this" has an answer.
+                    Repeater {
+                        model: detailsPage.loanHistory
+
+                        Text {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            visible: modelData.returnedOn !== ""
+                            text: (modelData.direction === "lent"
+                                   ? Theme.tr("with") : Theme.tr("from")) + " "
+                                  + modelData.counterparty + "   "
+                                  + modelData.loanedOn + " → " + modelData.returnedOn
+                                  + "   (" + modelData.days + " " + Theme.tr("days") + ")"
+                                  + (modelData.note !== "" ? "   — " + modelData.note : "")
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSizeSmall
+                            elide: Text.ElideRight
+                        }
                     }
                 }
             }
