@@ -1,7 +1,7 @@
 # Achievement icon prompts
 
 Ready to paste into an image model, one icon at a time. The **style block is fixed** and
-must go in verbatim with every request — generating 36 icons across separate calls is
+must go in verbatim with every request — generating 39 icons across separate calls is
 where a set falls apart, and repeating the style word for word is the only thing holding
 them together.
 
@@ -24,7 +24,7 @@ catalogue. Icon subjects live in `SUBJECTS` in that script.
 Paste this before every subject line.
 
 ```text
-You are producing one icon from a set of 36 for a desktop reading-tracker application called BookWorm. Every icon in the set must look like it came from the same hand, so the style block below is fixed and must be followed exactly.
+You are producing one icon from a set of 39 for a desktop reading-tracker application called BookWorm. Every icon in the set must look like it came from the same hand, so the style block below is fixed and must be followed exactly.
 
 STYLE — identical for every icon in the set:
 - Flat vector illustration. Bold, solid, filled shapes. No gradients, no photorealism, no 3D rendering, no bevels, no glossy highlights.
@@ -44,7 +44,7 @@ SUBJECT for this icon:
 
 ---
 
-## The 36 subjects
+## The 39 subjects
 
 ### The shelf
 
@@ -146,6 +146,27 @@ A laurel wreath encircling a single closed book, Roman in feel.
 
 ```text
 A bookworm curling through the pages of a tall stack, head emerging at the top.
+```
+
+**`read_500.png`** — Half a Thousand · *Pół tysiąca*  
+<sub>Finish five hundred books</sub>
+
+```text
+A wall of book stacks at varying heights with a medal ribbon draped across the front.
+```
+
+**`read_1000.png`** — A Life in Books · *Życie w książkach*  
+<sub>Finish a thousand books</sub>
+
+```text
+A single reading armchair almost buried by the towers of books surrounding it.
+```
+
+**`read_10000.png`** — Statistically Improbable · *Statystycznie nieprawdopodobne*  
+<sub>Finish ten thousand books</sub>
+
+```text
+A spiral of books receding into the distance like the arm of a galaxy.
 ```
 
 ### Books finished this year

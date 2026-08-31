@@ -71,6 +71,15 @@ const QVector<Definition> &catalog()
         { QStringLiteral("read_250"), Metric::BooksRead, 250,
           QStringLiteral("Bookworm"),
           QStringLiteral("Finish two hundred and fifty books"), QStringLiteral("qrc:/qt/qml/BookWorm/src/img/achievements/read_250.png") },
+        { QStringLiteral("read_500"), Metric::BooksRead, 500,
+          QStringLiteral("Half a Thousand"),
+          QStringLiteral("Finish five hundred books"), QStringLiteral("qrc:/qt/qml/BookWorm/src/img/achievements/read_500.png") },
+        { QStringLiteral("read_1000"), Metric::BooksRead, 1000,
+          QStringLiteral("A Life in Books"),
+          QStringLiteral("Finish a thousand books"), QStringLiteral("qrc:/qt/qml/BookWorm/src/img/achievements/read_1000.png") },
+        { QStringLiteral("read_10000"), Metric::BooksRead, 10000,
+          QStringLiteral("Statistically Improbable"),
+          QStringLiteral("Finish ten thousand books"), QStringLiteral("qrc:/qt/qml/BookWorm/src/img/achievements/read_10000.png") },
 
         // ── Books finished this year ─────────────────────────────────────────
         { QStringLiteral("year_12"), Metric::BooksReadThisYear, 12,

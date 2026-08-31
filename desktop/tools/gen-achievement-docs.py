@@ -40,6 +40,9 @@ SUBJECTS = {
     "read_50": "two book stacks side by side with a hanging medal between them",
     "read_100": "a laurel wreath encircling a single closed book, Roman in feel",
     "read_250": "a bookworm curling through the pages of a tall stack, head emerging at the top",
+    "read_500": "a wall of book stacks at varying heights with a medal ribbon draped across the front",
+    "read_1000": "a single reading armchair almost buried by the towers of books surrounding it",
+    "read_10000": "a spiral of books receding into the distance like the arm of a galaxy",
     "year_12": "a calendar page whose grid squares are tiny book spines, twelve of them marked",
     "year_24": "a calendar page with two book spines filling each row",
     "year_52": "a ring of fifty-two week marks encircling one open book",
@@ -89,9 +92,14 @@ NOTES = {
     "Keeping records": "Using the app's own apparatus — ratings, quotes, highlights.",
 }
 
+# The icon field is either PLACEHOLDER or a qrc path once real artwork lands, so
+# it is matched loosely. An earlier version required PLACEHOLDER and silently
+# stopped seeing every definition that had been given its own picture — the
+# completeness check below is what turned that into a refusal rather than a
+# document with seventeen achievements quietly missing from it.
 ENTRY = re.compile(
     r'\{\s*QStringLiteral\("([a-z0-9_]+)"\),\s*Metric::(\w+),\s*(\d+),\s*'
-    r'QStringLiteral\("([^"]+)"\),\s*QStringLiteral\("([^"]+)"\),\s*PLACEHOLDER\s*\}',
+    r'QStringLiteral\("([^"]+)"\),\s*QStringLiteral\("([^"]+)"\),\s*[^}]+?\s*\}',
     re.S,
 )
 

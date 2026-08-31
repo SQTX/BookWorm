@@ -10,7 +10,7 @@ definitions live in
 and the Polish strings in
 [`desktop/qml/theme/translations.js`](../desktop/qml/theme/translations.js).
 
-36 achievements across 9 families. Artwork prompts for all of them are in
+39 achievements across 9 families. Artwork prompts for all of them are in
 [`achievement-icon-prompts.md`](achievement-icon-prompts.md).
 
 ## Artwork specification
@@ -81,6 +81,9 @@ The spine of the set. Seven steps from one book to two hundred and fifty.
 | `read_50.png` | Half a Hundred | Pół setki | Finish fifty books | Skończ pięćdziesiąt książek | 50 |
 | `read_100.png` | Centurion | Centurion | Finish a hundred books | Skończ sto książek | 100 |
 | `read_250.png` | Bookworm | Mól książkowy | Finish two hundred and fifty books | Skończ dwieście pięćdziesiąt książek | 250 |
+| `read_500.png` | Half a Thousand | Pół tysiąca | Finish five hundred books | Skończ pięćset książek | 500 |
+| `read_1000.png` | A Life in Books | Życie w książkach | Finish a thousand books | Skończ tysiąc książek | 1,000 |
+| `read_10000.png` | Statistically Improbable | Statystycznie nieprawdopodobne | Finish ten thousand books | Skończ dziesięć tysięcy książek | 10,000 |
 
 ## Books finished this year
 

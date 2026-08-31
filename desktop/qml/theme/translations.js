@@ -476,6 +476,12 @@ var _pl = {
     "Finish a hundred books": "Skończ sto książek",
     "Bookworm": "Mól książkowy",
     "Finish two hundred and fifty books": "Skończ dwieście pięćdziesiąt książek",
+    "Half a Thousand": "Pół tysiąca",
+    "Finish five hundred books": "Skończ pięćset książek",
+    "A Life in Books": "Życie w książkach",
+    "Finish a thousand books": "Skończ tysiąc książek",
+    "Statistically Improbable": "Statystycznie nieprawdopodobne",
+    "Finish ten thousand books": "Skończ dziesięć tysięcy książek",
 
     "A Book a Month": "Książka na miesiąc",
     "Finish twelve books in one year": "Skończ dwanaście książek w jednym roku",

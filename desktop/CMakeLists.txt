@@ -125,6 +125,9 @@ qt_add_qml_module(BookWorm
         src/img/achievements/read_50.png
         src/img/achievements/read_100.png
         src/img/achievements/read_250.png
+        src/img/achievements/read_500.png
+        src/img/achievements/read_1000.png
+        src/img/achievements/read_10000.png
         src/sound/achievement-unlocked.mp3
 )
 
