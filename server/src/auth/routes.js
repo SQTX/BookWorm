@@ -110,6 +110,14 @@ export default async function authRoutes(app) {
         return reply.code(401).send({ error: 'Invalid refresh token' });
       }
 
+      if (result.recovered) {
+        // Not an error: a rotation whose reply never reached the client, which
+        // used to cost the user every session. Logged so a burst of them is
+        // visible — that would mean replies are being lost, not that recovery
+        // is working.
+        request.log.info('refresh recovered a rotation whose reply was lost');
+      }
+
       const accessToken = app.jwt.sign(
         { sub: result.userId },
         { expiresIn: ACCESS_TOKEN_TTL_SECONDS },
