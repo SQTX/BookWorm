@@ -68,7 +68,7 @@ Owning, not reading — these fire on acquisition, so they are the first thing a
 
 ## Books finished
 
-The spine of the set. Seven steps from one book to two hundred and fifty.
+The spine of the set. Ten steps from a first book to a number nobody reaches.
 
 - `BooksRead` — Books whose status is `read`.
 

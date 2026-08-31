@@ -82,7 +82,7 @@ RULES = {
 
 NOTES = {
     "The shelf": "Owning, not reading — these fire on acquisition, so they are the first thing a new user meets.",
-    "Books finished": "The spine of the set. Seven steps from one book to two hundred and fifty.",
+    "Books finished": "The spine of the set. Ten steps from a first book to a number nobody reaches.",
     "Books finished this year": "Resets every January. The only family that can become unreachable and come back.",
     "Pages": "Volume rather than count — a long book weighs more here than a short one.",
     "Series": "Completion. A series of one does not count.",
