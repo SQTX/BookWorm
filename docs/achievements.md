@@ -3,13 +3,14 @@
 Every achievement in BookWorm, with the name it shows in both languages, the rule
 that unlocks it, and the filename its artwork has to take.
 
-**Generated from the source, not written by hand.** The definitions live in
+**Generated, not written by hand.** Run
+`python3 desktop/tools/gen-achievement-docs.py` after changing the catalogue. The
+definitions live in
 [`desktop/src/achievements/achievementcatalog.cpp`](../desktop/src/achievements/achievementcatalog.cpp)
 and the Polish strings in
-[`desktop/qml/theme/translations.js`](../desktop/qml/theme/translations.js). If this file and
-those disagree, those are right and this one is stale.
+[`desktop/qml/theme/translations.js`](../desktop/qml/theme/translations.js).
 
-35 achievements across 9 families. Artwork prompts for all of them are in
+36 achievements across 9 families. Artwork prompts for all of them are in
 [`achievement-icon-prompts.md`](achievement-icon-prompts.md).
 
 ## Artwork specification
@@ -17,8 +18,8 @@ those disagree, those are right and this one is stale.
 | | |
 | --- | --- |
 | Format | PNG with transparency |
-| Source size | 256 × 256 |
-| Displayed at | 56 × 56, in both the notification panel and the list |
+| Source size | 256 x 256 |
+| Displayed at | 56 x 56, in both the notification panel and the list |
 | Corners | square — the app rounds and crops |
 | Filename | exactly the `Filename` column below |
 | Location | `desktop/src/img/achievements/` |
@@ -53,7 +54,7 @@ rather than breaking.
 
 Owning, not reading — these fire on acquisition, so they are the first thing a new user meets.
 
-- `LibrarySize` — Books in the library, whatever their status. *Your library: 98.*
+- `LibrarySize` — Books in the library, whatever their status.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -63,12 +64,13 @@ Owning, not reading — these fire on acquisition, so they are the first thing a
 | `library_100.png` | Private Library | Biblioteka domowa | A hundred books in your library | Sto książek w bibliotece | 100 |
 | `library_250.png` | Wall to Wall | Od ściany do ściany | Two hundred and fifty books in your library | Dwieście pięćdziesiąt książek w bibliotece | 250 |
 | `library_500.png` | You Need Another Room | Potrzebujesz kolejnego pokoju | Five hundred books in your library | Pięćset książek w bibliotece | 500 |
+| `library_1000.png` | Load-Bearing | Ściana nośna | A thousand books in your library | Tysiąc książek w bibliotece | 1,000 |
 
 ## Books finished
 
 The spine of the set. Seven steps from one book to two hundred and fifty.
 
-- `BooksRead` — Books whose status is `read`. *Your library: 56.*
+- `BooksRead` — Books whose status is `read`.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -84,7 +86,7 @@ The spine of the set. Seven steps from one book to two hundred and fifty.
 
 Resets every January. The only family that can become unreachable and come back.
 
-- `BooksReadThisYear` — Finished with an end date inside the current calendar year. *Your library: 6.*
+- `BooksReadThisYear` — Finished with an end date inside the current calendar year.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -96,7 +98,7 @@ Resets every January. The only family that can become unreachable and come back.
 
 Volume rather than count — a long book weighs more here than a short one.
 
-- `PagesRead` — Page counts summed over finished books. *Your library: 18,971.*
+- `PagesRead` — Page counts summed over finished books.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -109,7 +111,7 @@ Volume rather than count — a long book weighs more here than a short one.
 
 Completion. A series of one does not count.
 
-- `SeriesCompleted` — Series of more than one book where every part is read. *Your library: 3.*
+- `SeriesCompleted` — Series of more than one book where every part is read.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -121,7 +123,7 @@ Completion. A series of one does not count.
 
 Range instead of depth, counted on distinct genres among finished books.
 
-- `GenresRead` — Distinct genres among finished books. *Your library: 24.*
+- `GenresRead` — Distinct genres among finished books.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -133,7 +135,7 @@ Range instead of depth, counted on distinct genres among finished books.
 
 Consecutive reading days, from a week to a full year.
 
-- `LongestStreak` — Longest run of consecutive days carrying a reading session. *Your library: 4.*
+- `LongestStreak` — Longest run of consecutive days carrying a reading session.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -146,7 +148,7 @@ Consecutive reading days, from a week to a full year.
 
 Rereads. The rarest family in an ordinary library.
 
-- `Rereads` — Every finish past the first, summed across the library. *Your library: 0.*
+- `Rereads` — Every finish past the first, summed across the library.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |
@@ -157,8 +159,8 @@ Rereads. The rarest family in an ordinary library.
 
 Using the app's own apparatus — ratings, quotes, highlights.
 
-- `BooksRated` — Finished books that carry a rating. *Your library: 56.*
-- `NotesTaken` — Favourite quotes and highlights, together. *Your library: 0.*
+- `BooksRated` — Finished books that carry a rating.
+- `NotesTaken` — Favourite quotes and highlights, together.
 
 | Filename | Title | Tytuł | Description | Opis | Target |
 | --- | --- | --- | --- | --- | ---: |

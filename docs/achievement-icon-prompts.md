@@ -1,7 +1,7 @@
 # Achievement icon prompts
 
 Ready to paste into an image model, one icon at a time. The **style block is fixed** and
-must go in verbatim with every request — generating 35 icons across separate calls is
+must go in verbatim with every request — generating 36 icons across separate calls is
 where a set falls apart, and repeating the style word for word is the only thing holding
 them together.
 
@@ -14,6 +14,9 @@ Filenames matter: save each result as the name given above its prompt. See
 [`achievements.md`](achievements.md) for what each achievement means and how to wire the
 file in.
 
+**Generated** — run `python3 desktop/tools/gen-achievement-docs.py` after changing the
+catalogue. Icon subjects live in `SUBJECTS` in that script.
+
 ---
 
 ## The style block
@@ -21,27 +24,27 @@ file in.
 Paste this before every subject line.
 
 ```text
-You are producing one icon from a set of 35 for a desktop reading-tracker application called BookWorm. Every icon in the set must look like it came from the same hand, so the style block below is fixed and must be followed exactly.
+You are producing one icon from a set of 36 for a desktop reading-tracker application called BookWorm. Every icon in the set must look like it came from the same hand, so the style block below is fixed and must be followed exactly.
 
 STYLE — identical for every icon in the set:
 - Flat vector illustration. Bold, solid, filled shapes. No gradients, no photorealism, no 3D rendering, no bevels, no glossy highlights.
 - Fully transparent background. Nothing behind the subject — no circle, no plate, no card, no backdrop.
 - No drop shadow cast onto the background. The icon will be composited over three different app themes and a shadow would only work on one of them.
 - Palette: a violet accent (#7C5CE0) as the lead colour, a warm brass (#C99A3F) for emphasis, a deep ink (#241F33) for structure and weight, and one soft parchment (#EFE9DC) for paper surfaces. Use these four; add at most one further hue if the subject genuinely needs it.
-- Every shape must be legible at 56 × 56 pixels. No line thinner than 6px at 256 × 256. No fine hatching, no small internal detail, no texture.
+- Every shape must be legible at 56 x 56 pixels. No line thinner than 6px at 256 x 256. No fine hatching, no small internal detail, no texture.
 - Strong readable silhouette. The same artwork is shown at 28% opacity when the achievement is locked, so the shape alone has to carry it.
 - Centred, symmetrical weight, with roughly 12% clear margin on all four sides.
 - Absolutely no text, letters, numbers, digits, words or lettering of any kind anywhere in the image. Book spines and covers must be blank.
 - Front-on or very slightly three-quarter view. Consistent across the set.
 
-OUTPUT: a single 256 × 256 PNG with an alpha channel.
+OUTPUT: a single 256 x 256 PNG with an alpha channel.
 
 SUBJECT for this icon:
 ```
 
 ---
 
-## The 35 subjects
+## The 36 subjects
 
 ### The shelf
 
@@ -87,6 +90,13 @@ A wall of bookcases seen head on, running past the edges of the frame.
 A bookcase with a doorway cut through it, books continuing into the room beyond.
 ```
 
+**`library_1000.png`** — Load-Bearing · *Ściana nośna*  
+<sub>A thousand books in your library</sub>
+
+```text
+A column of stacked books standing in for a structural pillar, a ceiling beam resting on top of it.
+```
+
 ### Books finished
 
 **`read_1.png`** — The First One · *Pierwsza*  
@@ -128,7 +138,7 @@ Two book stacks side by side with a hanging medal between them.
 <sub>Finish a hundred books</sub>
 
 ```text
-A laurel wreath encircling a single closed book, roman in feel.
+A laurel wreath encircling a single closed book, Roman in feel.
 ```
 
 **`read_250.png`** — Bookworm · *Mól książkowy*  
@@ -318,7 +328,7 @@ in the order worth trying:
 2. **Name the reference explicitly.** Append to the style block: *"Match the flat fill
    weight, palette and line thickness of the attached image exactly."* and attach an icon
    you are happy with.
-3. **Ask for a family in one image.** A 2×3 or 1×4 sheet generated in a single call is far
+3. **Ask for a family in one image.** A 2x3 or 1x4 sheet generated in a single call is far
    more internally consistent than the same icons generated separately — then cut it up.
    Say *"a grid of N icons on one transparent background, evenly spaced, no labels"*.
 

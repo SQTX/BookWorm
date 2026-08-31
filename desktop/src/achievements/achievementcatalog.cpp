@@ -45,6 +45,9 @@ const QVector<Definition> &catalog()
         { QStringLiteral("library_500"), Metric::LibrarySize, 500,
           QStringLiteral("You Need Another Room"),
           QStringLiteral("Five hundred books in your library"), PLACEHOLDER },
+        { QStringLiteral("library_1000"), Metric::LibrarySize, 1000,
+          QStringLiteral("Load-Bearing"),
+          QStringLiteral("A thousand books in your library"), PLACEHOLDER },
 
         // ── Books finished ───────────────────────────────────────────────────
         { QStringLiteral("read_1"), Metric::BooksRead, 1,

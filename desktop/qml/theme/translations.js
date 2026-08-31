@@ -459,6 +459,8 @@ var _pl = {
     "Two hundred and fifty books in your library": "Dwieście pięćdziesiąt książek w bibliotece",
     "You Need Another Room": "Potrzebujesz kolejnego pokoju",
     "Five hundred books in your library": "Pięćset książek w bibliotece",
+    "Load-Bearing": "Ściana nośna",
+    "A thousand books in your library": "Tysiąc książek w bibliotece",
 
     "The First One": "Pierwsza",
     "Finish your first book": "Skończ pierwszą książkę",
