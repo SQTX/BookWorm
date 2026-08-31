@@ -15,7 +15,12 @@ import pg from 'pg';
 
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
-import { hashRefreshToken, pruneExpiredTokens, rotateRefreshToken } from '../src/auth/tokens.js';
+import {
+  REFRESH_REUSE_GRACE_SECONDS,
+  hashRefreshToken,
+  pruneExpiredTokens,
+  rotateRefreshToken,
+} from '../src/auth/tokens.js';
 
 const DATABASE_URL = process.env.TEST_DATABASE_URL;
 
@@ -124,23 +129,33 @@ describe('auth', { skip: DATABASE_URL ? false : 'TEST_DATABASE_URL not set' }, (
     assert.equal(plaintext.length, 0, 'the token itself must not appear in the table');
   });
 
+  const refresh = (refreshToken) =>
+    app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { refreshToken } });
+
+  /** Move a token's revocation out of the grace window without waiting for it. */
+  const ageRevocation = (refreshToken) =>
+    pool.query(
+      `UPDATE refresh_tokens
+          SET revoked_at = NOW() - ($2 || ' seconds')::interval
+        WHERE token_hash = $1`,
+      [hashRefreshToken(refreshToken), REFRESH_REUSE_GRACE_SECONDS + 5],
+    );
+
   test('refresh rotates: the old token stops working', async () => {
     const first = (await login()).json();
 
-    const refreshed = await app.inject({
-      method: 'POST',
-      url: '/v1/auth/refresh',
-      payload: { refreshToken: first.refreshToken },
-    });
+    const refreshed = await refresh(first.refreshToken);
     assert.equal(refreshed.statusCode, 200);
     const second = refreshed.json();
     assert.notEqual(second.refreshToken, first.refreshToken);
 
-    const replay = await app.inject({
-      method: 'POST',
-      url: '/v1/auth/refresh',
-      payload: { refreshToken: first.refreshToken },
-    });
+    // Aged past the grace window first. Inside it the old token is treated as a
+    // client retrying a rotation whose reply was lost, which is the whole point
+    // of the window; what this test is about is that rotation is single-use
+    // once that possibility has passed.
+    await ageRevocation(first.refreshToken);
+
+    const replay = await refresh(first.refreshToken);
     assert.equal(replay.statusCode, 401);
   });
 
@@ -148,18 +163,92 @@ describe('auth', { skip: DATABASE_URL ? false : 'TEST_DATABASE_URL not set' }, (
     const a = (await login()).json();
     const b = (await login()).json();
 
-    // Rotate a, then replay it. b belongs to a different device and was never
-    // touched — it must still die, because from here a replay is
-    // indistinguishable from theft.
-    await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { refreshToken: a.refreshToken } });
-    await app.inject({ method: 'POST', url: '/v1/auth/refresh', payload: { refreshToken: a.refreshToken } });
+    // Rotate a, use the successor, then replay a. Using the successor is what
+    // makes this a replay rather than a lost reply: the live client has
+    // demonstrably moved on, so whoever still holds the old token is not it.
+    const rotated = (await refresh(a.refreshToken)).json();
+    await refresh(rotated.refreshToken);
 
-    const other = await app.inject({
-      method: 'POST',
-      url: '/v1/auth/refresh',
-      payload: { refreshToken: b.refreshToken },
-    });
+    const replay = await refresh(a.refreshToken);
+    assert.equal(replay.statusCode, 401);
+
+    // b belongs to a different device and was never touched — it must still
+    // die, because from here a replay is indistinguishable from theft.
+    const other = await refresh(b.refreshToken);
     assert.equal(other.statusCode, 401, 'the untouched session must also be revoked');
+  });
+
+  describe('a rotation whose reply never arrived', () => {
+    test('retrying with the old token returns a working pair instead of logging out', async () => {
+      const first = (await login()).json();
+
+      // The rotation happens on the server; the client never sees the reply.
+      const lost = await refresh(first.refreshToken);
+      assert.equal(lost.statusCode, 200);
+
+      // Next launch, the client still holds the only token it ever received.
+      // This is the case that used to cost the user every session and a
+      // retyped password.
+      const retry = await refresh(first.refreshToken);
+      assert.equal(retry.statusCode, 200, 'a lost reply is not a theft');
+
+      const recovered = retry.json();
+      const me = await app.inject({
+        method: 'GET',
+        url: '/v1/',
+        headers: { authorization: `Bearer ${recovered.accessToken}` },
+      });
+      assert.equal(me.statusCode, 200, 'the recovered access token must work');
+
+      // And the recovery is itself a rotation: the pair it handed back is
+      // usable, once.
+      assert.equal((await refresh(recovered.refreshToken)).statusCode, 200);
+    });
+
+    test('a session on another device survives the recovery', async () => {
+      const a = (await login()).json();
+      const b = (await login()).json();
+
+      await refresh(a.refreshToken);
+      assert.equal((await refresh(a.refreshToken)).statusCode, 200);
+
+      assert.equal(
+        (await refresh(b.refreshToken)).statusCode,
+        200,
+        'recovery must not revoke anything',
+      );
+    });
+
+    test('the stillborn token is retired, so it cannot be used later', async () => {
+      const first = (await login()).json();
+
+      const lost = (await refresh(first.refreshToken)).json();
+      await refresh(first.refreshToken);
+
+      // Whoever eventually reads that lost response — a proxy log, a retry that
+      // arrives late — must find it worthless.
+      await ageRevocation(lost.refreshToken);
+      assert.equal((await refresh(lost.refreshToken)).statusCode, 401);
+    });
+
+    test('outside the window the same retry is treated as theft', async () => {
+      const first = (await login()).json();
+
+      await refresh(first.refreshToken);
+      await ageRevocation(first.refreshToken);
+
+      assert.equal((await refresh(first.refreshToken)).statusCode, 401);
+    });
+
+    test('a logged-out token is never recoverable', async () => {
+      const { refreshToken } = (await login()).json();
+
+      await app.inject({ method: 'POST', url: '/v1/auth/logout', payload: { refreshToken } });
+
+      // Logout revokes without replacing, so there is no successor to vouch for
+      // a lost reply. Signing out has to be final even a second later.
+      assert.equal((await refresh(refreshToken)).statusCode, 401);
+    });
   });
 
   test('logout revokes, and repeats stay 204 so tokens cannot be probed', async () => {

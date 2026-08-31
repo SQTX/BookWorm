@@ -4,6 +4,12 @@
 
 #include <Security/Security.h>
 
+#include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
+
 namespace {
 
 /**
@@ -39,42 +45,83 @@ CFDictionaryRef makeQuery(const QByteArray &account)
 }
 
 /**
- * Suppresses the Keychain's permission panel for as long as it is in scope.
+ * The serialised worker that every blocking Keychain call is meant to run on.
  *
- * A stored item may normally be read without ceremony only by the binary that
- * wrote it; anyone else gets a system panel asking the user to allow it. That
- * default assumes a stable code signature, and this application has none — it
- * is built locally and unsigned, so every rebuild is a new identity and the
- * item written by the previous build is read by a stranger. The panel then
- * appears unbidden during launch or shutdown, and — worse — the read does not
- * return until somebody answers it. A stack trace caught exactly that: the
- * whole application parked inside SecItemCopyMatching.
- *
- * With interaction refused the read fails immediately instead, and the caller
- * treats it as "no stored session". The user signs in once more, the item is
- * rewritten by the current binary, and later launches are silent again. That is
- * a far better failure than an application that will not start.
- *
- * The setting is process-wide, hence the scope guard: it must not leak into the
- * next read.
+ * A permission panel does not return until it is answered, and answering it may
+ * take minutes or never happen at all. That is survivable on a thread nobody is
+ * waiting on, and fatal on the main one. One thread rather than a pool, because
+ * writes must land in the order they were issued: a rotation stores a token
+ * while the previous store may still be blocked, and the older value landing
+ * second leaves the item holding a token the server has already retired.
  */
-class NoInteraction
+class Worker
 {
 public:
-    // Deprecated since 10.10, and still the right call. Its replacement,
-    // kSecUseAuthenticationUI, only governs the data-protection keychain, which
-    // needs a signed application with a keychain-access-group entitlement. This
-    // one is unsigned and uses the file keychain, where this is the only switch
-    // there is. Warning suppressed here rather than project-wide so the day a
-    // real alternative exists, removing these two lines surfaces it.
-    QT_WARNING_PUSH
-    QT_WARNING_DISABLE_DEPRECATED
-    NoInteraction() { SecKeychainSetUserInteractionAllowed(false); }
-    ~NoInteraction() { SecKeychainSetUserInteractionAllowed(true); }
-    QT_WARNING_POP
+    static Worker &instance()
+    {
+        static Worker worker;
+        return worker;
+    }
 
-    NoInteraction(const NoInteraction &) = delete;
-    NoInteraction &operator=(const NoInteraction &) = delete;
+    void submit(std::function<void()> job)
+    {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_queue.push_back(std::move(job));
+            start();
+        }
+        m_wake.notify_one();
+    }
+
+    /** @returns false when @p timeoutMs elapsed with work still outstanding. */
+    bool drain(int timeoutMs)
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        return m_idle.wait_for(lock, std::chrono::milliseconds(timeoutMs),
+                               [this]() { return m_queue.empty() && !m_running; });
+    }
+
+private:
+    Worker() = default;
+
+    /** Started on first use and never joined: it outlives every caller, and at
+     *  shutdown it may be parked inside a panel that cannot be cancelled. */
+    void start()
+    {
+        if (m_started)
+            return;
+        m_started = true;
+        std::thread([this]() { loop(); }).detach();
+    }
+
+    void loop()
+    {
+        for (;;) {
+            std::function<void()> job;
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_wake.wait(lock, [this]() { return !m_queue.empty(); });
+                job = std::move(m_queue.front());
+                m_queue.pop_front();
+                m_running = true;
+            }
+
+            job();
+
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_running = false;
+            }
+            m_idle.notify_all();
+        }
+    }
+
+    std::mutex m_mutex;
+    std::condition_variable m_wake;
+    std::condition_variable m_idle;
+    std::deque<std::function<void()>> m_queue;
+    bool m_started = false;
+    bool m_running = false;
 };
 
 } // namespace
@@ -140,17 +187,27 @@ bool store(const QString &account, const QString &key, const QString &secret)
     CFRelease(service);
 
     if (status != errSecSuccess) {
-        // The secret itself is never logged, only that storing it failed.
+        // The secret itself is never logged, only that storing it failed. This
+        // is the quiet catastrophe: the session works for the rest of the run
+        // and is gone by the next launch, so it must not pass in silence.
         qWarning() << "Keychain store failed for" << key << "status" << status;
         return false;
     }
     return true;
 }
 
+void runSerial(std::function<void()> job)
+{
+    Worker::instance().submit(std::move(job));
+}
+
+bool flush(int timeoutMs)
+{
+    return Worker::instance().drain(timeoutMs);
+}
+
 QString retrieve(const QString &account, const QString &key)
 {
-    const NoInteraction guard;
-
     const QByteArray acct = accountKey(account, key);
 
     CFStringRef service = CFStringCreateWithCString(nullptr, SERVICE, kCFStringEncodingUTF8);
@@ -177,6 +234,10 @@ QString retrieve(const QString &account, const QString &key)
     if (status != errSecSuccess || result == nullptr) {
         // errSecItemNotFound is the ordinary "not configured" case, not a fault,
         // so it is not logged.
+        // errSecItemNotFound is the ordinary "not configured" case. Anything
+        // else means the item is there and this build was not allowed to read
+        // it — -25293 (errSecAuthFailed) and -25308 (errSecInteractionNotAllowed)
+        // both present to the user as being signed out for no reason.
         if (status != errSecItemNotFound)
             qWarning() << "Keychain read failed for" << key << "status" << status;
         return QString();
