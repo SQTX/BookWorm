@@ -14,6 +14,7 @@
 #include "controllers/bookcontroller.h"
 #include "statistics/statisticsprovider.h"
 #include "backup/backupmanager.h"
+#include "sync/keychain.h"
 #include "sync/syncmanager.h"
 
 #include <QSocketNotifier>
@@ -50,10 +51,30 @@ void onTerminationSignal(int)
  * Not from aboutToQuit: that signal fires while the event loop is already
  * unwinding, and the exchange needs a live loop to receive its reply.
  */
+/**
+ * How long shutdown waits for the Keychain queue to drain.
+ *
+ * A token rotation is durable only once its new refresh token has been written,
+ * and that write happens on a worker thread which may be waiting on a system
+ * permission panel. Exiting with the queue non-empty is how a session goes
+ * missing: the server has retired the old token and this machine never recorded
+ * the new one.
+ *
+ * Bounded, and short. A panel nobody is there to answer must not hold the
+ * application open, and the server tolerates a rotation whose reply was lost.
+ */
+constexpr int KEYCHAIN_FLUSH_TIMEOUT_MS = 2000;
+
 void syncThenQuit()
 {
     if (g_shutdownSync)
         g_shutdownSync->syncOnQuit();
+
+    // After the exchange, because the exchange is what may have rotated the
+    // tokens that are still queued to be written.
+    if (!BookWorm::Keychain::flush(KEYCHAIN_FLUSH_TIMEOUT_MS))
+        qWarning() << "Exiting with a Keychain write outstanding";
+
     if (g_app)
         g_app->quit();
 }

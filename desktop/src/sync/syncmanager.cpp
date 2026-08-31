@@ -7,7 +7,6 @@
 #include <memory>
 #include <QDir>
 #include <QThread>
-#include <thread>
 #include <QEventLoop>
 #include <QFile>
 #include <QJsonArray>
@@ -32,6 +31,22 @@ QString g_pendingServerTime;
  * short enough that nobody wonders why the window will not close.
  */
 constexpr int SHUTDOWN_SYNC_TIMEOUT_MS = 6000;
+
+/**
+ * How much longer shutdown will wait when a token rotation is still in flight.
+ *
+ * Abandoning an ordinary exchange costs nothing — the cursor has not moved and
+ * the next launch sends it again. Abandoning a *rotation* is different: the
+ * server has already retired the old refresh token, and if this process exits
+ * before the reply is stored, the only copy left on disk is the retired one.
+ * The next launch presents it, and until the server learned to tell a lost
+ * reply from a replay that meant every session revoked and a password to
+ * retype. The server no longer punishes it, and this side no longer causes it.
+ *
+ * Bounded, and short: a window that will not close is worse than a sync that
+ * did not finish.
+ */
+constexpr int SHUTDOWN_ROTATION_GRACE_MS = 4000;
 
 /**
  * How often the application exchanges with the server on its own.
@@ -98,6 +113,11 @@ SyncManager::SyncManager(QObject *parent)
     m_repo = new SyncRepository(DatabaseManager::instance().database());
 
     QObject::connect(&m_api, &ApiClient::sessionExpired, this, [this]() {
+        // Only ever a real rejection now — an unreachable server no longer
+        // reaches this. Logged, because "I had to sign in again" is the report
+        // that arrives, and until this line existed there was nothing to say
+        // when it had happened.
+        logSync(QStringLiteral("session rejected by the server; sign-in required"));
         setStatus(tr("Signed out — sign in again"));
     });
 
@@ -326,9 +346,12 @@ void SyncManager::withSession(std::function<void(bool)> then)
     m_api.setBaseUrl(m_serverUrl);
     const QString email = m_email;
 
-    // Detached: nothing waits on it, and the result comes back by hopping to
-    // the main thread, where the ApiClient lives.
-    std::thread([this, email, then]() {
+    // The shared Keychain worker rather than a thread of its own: it is the one
+    // place a permission panel may be raised, and two of them at once — a read
+    // here while a token rotation is being written — would stack panels on the
+    // user. Nothing waits on it, and the result comes back by hopping to the
+    // main thread, where the ApiClient lives.
+    BookWorm::Keychain::runSerial([this, email, then]() {
         const QString access = BookWorm::Keychain::retrieve(email, QStringLiteral("accessToken"));
         const QString refresh = BookWorm::Keychain::retrieve(email, QStringLiteral("refreshToken"));
 
@@ -347,7 +370,7 @@ void SyncManager::withSession(std::function<void(bool)> then)
             for (const auto &waiter : waiters)
                 waiter(ok);
         }, Qt::QueuedConnection);
-    }).detach();
+    });
 }
 
 void SyncManager::syncOnStart()
@@ -356,6 +379,19 @@ void SyncManager::syncOnStart()
         logSync(QStringLiteral("start: sync is off"));
         return;
     }
+    // Claimed before the Keychain read, which runs on a worker thread and takes
+    // long enough for the window to finish appearing. Activating the window
+    // calls syncIfStale(), and without this the launch produced two exchanges
+    // in the same second — both with an expired access token, both demanding a
+    // rotation. The log recorded exactly that, followed by the sign-out it
+    // caused:
+    //
+    //     14:22:36  activation: exchanging
+    //     14:22:36  start: exchanging with https://…
+    //     14:22:37  push failed: Unauthorized
+    //     14:22:37  push failed: Invalid refresh token
+    m_lastExchange = QDateTime::currentDateTime();
+
     withSession([this](bool ok) {
         if (!ok) {
             logSync(QStringLiteral("start: no session could be restored"));
@@ -386,7 +422,18 @@ void SyncManager::syncOnQuit()
     deadline.setSingleShot(true);
 
     QObject::connect(this, &SyncManager::syncFinished, &loop, &QEventLoop::quit);
-    QObject::connect(&deadline, &QTimer::timeout, &loop, [&loop]() {
+
+    bool extended = false;
+    QObject::connect(&deadline, &QTimer::timeout, &loop, [&]() {
+        // One extension, only for a rotation. Everything else the next launch
+        // repeats for free; a half-finished rotation is the one thing it
+        // cannot, because the token it would repeat with is already retired.
+        if (m_api.isRefreshing() && !extended) {
+            extended = true;
+            logSync(QStringLiteral("quit: waiting for a token rotation to finish"));
+            deadline.start(SHUTDOWN_ROTATION_GRACE_MS);
+            return;
+        }
         logSync(QStringLiteral("quit: timed out; resumes next launch"));
         loop.quit();
     });
@@ -434,6 +481,11 @@ void SyncManager::afterLocalEdit()
 void SyncManager::syncIfStale()
 {
     if (!m_enabled || m_busy)
+        return;
+    // A session read in progress means launch is already arranging an exchange;
+    // m_busy does not cover it, because the read happens before the exchange
+    // starts.
+    if (m_sessionReading)
         return;
     if (m_lastExchange.isValid()
         && m_lastExchange.secsTo(QDateTime::currentDateTime()) < ACTIVATION_QUIET_PERIOD_S) {

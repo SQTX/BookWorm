@@ -144,4 +144,25 @@ if(APPLE)
         MACOSX_BUNDLE_BUNDLE_NAME BookWorm
         MACOSX_BUNDLE_ICON_FILE BookWorm.icns
     )
+
+    # Re-sign the finished bundle, ad-hoc.
+    #
+    # The linker already emits a signature, but a minimal one: `codesign -dv`
+    # reports it as "linker-signed", with the Info.plist not bound, no sealed
+    # resources and no internal requirements. macOS uses a program's identity to
+    # decide whether it may reuse a Keychain item it created earlier, and an
+    # identity that thin gives it nothing durable to record — so the permission
+    # panel returns on its own schedule, and with it the "Sign in required" that
+    # sent the user back to Settings to retype a server password.
+    #
+    # `codesign --force --sign -` binds the identifier and seals the bundle,
+    # which is the most a locally built application can offer without a real
+    # signing certificate. It does not survive a rebuild — an ad-hoc identity is
+    # a hash of the binary — so a rebuild still costs one re-authorisation.
+    add_custom_command(TARGET BookWorm POST_BUILD
+        COMMAND codesign --force --sign - --identifier com.sqtx.bookworm
+                "$<TARGET_BUNDLE_DIR:BookWorm>"
+        COMMENT "Signing the bundle ad-hoc so the Keychain can recognise it again"
+        VERBATIM
+    )
 endif()
