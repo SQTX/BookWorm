@@ -60,6 +60,21 @@ public:
      */
     Q_INVOKABLE void recheck();
 
+    /**
+     * Fire a notification for an achievement that does not exist.
+     *
+     * Scaffolding, and the only way to see the panel on demand: every real
+     * achievement announces itself once and then never again, which is correct
+     * and also means there is no way to look at the thing twice. This writes
+     * nothing, is not in the catalogue, and does not appear in the browse view —
+     * it only pushes one entry through the same notification path the real ones
+     * use, so what you are looking at is the real panel.
+     *
+     * TEMPORARY. Two lines to remove: this method, and the Component.onCompleted
+     * in AchievementsView.qml that calls it.
+     */
+    Q_INVOKABLE void demoUnlock();
+
 signals:
     /** Show this one. Emitted once per achievement, ever. */
     void unlocked(const QString &key, const QString &title,

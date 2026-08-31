@@ -216,6 +216,17 @@ void AchievementManager::recheck()
     }
 }
 
+void AchievementManager::demoUnlock()
+{
+    // Deliberately not persisted and deliberately not in the catalogue: it must
+    // be repeatable to be useful, and anything that both repeats and is recorded
+    // would be a second unlock rule to reason about.
+    emit unlocked(QStringLiteral("__demo__"),
+                  QStringLiteral("Test Achievement"),
+                  QStringLiteral("Fires every time this page opens — for testing the panel"),
+                  QStringLiteral("qrc:/qt/qml/BookWorm/src/img/achievements/placeholder.jpg"));
+}
+
 QVariantList AchievementManager::entries() const
 {
     const QHash<Metric, int> values = measure();
