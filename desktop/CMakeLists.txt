@@ -15,6 +15,8 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
     Charts
     ChartsQml
+    # The achievement notification has a sound, and a sound needs a decoder.
+    Multimedia
 )
 
 qt_standard_project_setup(REQUIRES 6.5)
@@ -46,6 +48,12 @@ qt_add_executable(BookWorm
     src/sync/apiclient.cpp
     src/backup/backupmanager.h
     src/backup/backupmanager.cpp
+    src/achievements/achievementcatalog.h
+    src/achievements/achievementcatalog.cpp
+    src/achievements/achievementmanager.h
+    src/achievements/achievementmanager.cpp
+    src/loans/loanmanager.h
+    src/loans/loanmanager.cpp
 )
 
 qt_add_qml_module(BookWorm
@@ -66,6 +74,10 @@ qt_add_qml_module(BookWorm
         qml/components/ChallengesView.qml
         qml/components/SeriesView.qml
         qml/components/SettingsDialog.qml
+        qml/components/AchievementToast.qml
+        qml/components/AchievementsView.qml
+        qml/components/LoansView.qml
+        qml/components/LoanDialog.qml
         qml/components/common/Panel.qml
         qml/components/common/SectionLabel.qml
         qml/components/common/AppButton.qml
@@ -97,6 +109,31 @@ qt_add_qml_module(BookWorm
         src/img/icons/status-read.svg
         src/img/icons/status-planed.svg
         src/img/icons/status-abondoned.svg
+        src/img/icons/achievements.svg
+        src/img/icons/lending.svg
+        # Achievement artwork and its sound. A file sitting on disk but missing
+        # from this list is not in the qrc, and fails silently at runtime — so
+        # every new achievement icon has to be added here as well as dropped in
+        # the folder.
+        src/img/achievements/placeholder.jpg
+        src/img/achievements/library_10.png
+        src/img/achievements/library_25.png
+        src/img/achievements/library_50.png
+        src/img/achievements/library_100.png
+        src/img/achievements/library_250.png
+        src/img/achievements/library_500.png
+        src/img/achievements/library_1000.png
+        src/img/achievements/read_1.png
+        src/img/achievements/read_5.png
+        src/img/achievements/read_10.png
+        src/img/achievements/read_25.png
+        src/img/achievements/read_50.png
+        src/img/achievements/read_100.png
+        src/img/achievements/read_250.png
+        src/img/achievements/read_500.png
+        src/img/achievements/read_1000.png
+        src/img/achievements/read_10000.png
+        src/sound/achievement-unlocked.mp3
 )
 
 # Include directories so QML type registration can find headers
@@ -108,6 +145,8 @@ target_include_directories(BookWorm PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backup
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sync
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/achievements
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/loans
 )
 
 if(APPLE)
@@ -127,6 +166,7 @@ target_link_libraries(BookWorm PRIVATE
     Qt6::Widgets
     Qt6::Charts
     Qt6::ChartsQml
+    Qt6::Multimedia
     $<$<BOOL:${APPLE}>:${SECURITY_FRAMEWORK}>
     $<$<BOOL:${APPLE}>:${COREFOUNDATION_FRAMEWORK}>
 )
