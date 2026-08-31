@@ -238,6 +238,13 @@ One row per book per day per source, merged by the server with
 `LEAST`/`GREATEST` on the page range. Sending the same day twice is safe and
 order-independent; a client never needs to check for an existing row first.
 
+A session may also be **moved**: resend it with the same `uuid` and a different
+`sessionDate`, and the row follows rather than being duplicated. Because that
+session's earlier page range belonged to the day it left, a move replaces the
+range instead of widening it — the widening rule applies to a day being reported
+again, not to an edit. If the destination day already holds a session, the two
+fold into one and the vacated day keeps nothing, so no page is counted twice.
+
 ---
 
 ## Errors

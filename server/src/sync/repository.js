@@ -365,6 +365,17 @@ async function pushHighlights(client, userId, rows) {
  * The conflict target is (book_id, session_date, source), not uuid: two devices
  * independently recording the same reading day generate different UUIDs for
  * what is the same session.
+ *
+ * The uuid is nonetheless unique, and that second constraint is not something
+ * ON CONFLICT can be told about — a statement names one target. A session whose
+ * date the user corrected arrives with a uuid the server already holds on the
+ * old day, misses the day-based target, and aborts the transaction on
+ * reading_sessions_uuid_key. Nothing recovers from that on its own: the client
+ * resends the same batch every two minutes, so every later push fails too and
+ * synchronisation stops entirely until somebody reads the log. It did.
+ *
+ * So a row already known by its uuid is moved rather than inserted, and the
+ * three ways that can land are handled explicitly below.
  */
 async function pushSessions(client, userId, rows) {
   for (const row of rows) {
@@ -373,13 +384,84 @@ async function pushSessions(client, userId, rows) {
     const bookId = await bookIdOf(client, userId, row.bookUuid);
     if (bookId === null) continue;
 
+    const source = row.source ?? 'manual';
+
+    const { rows: known } = await client.query(
+      `SELECT id, book_id, source, to_char(session_date, 'YYYY-MM-DD') AS day
+         FROM reading_sessions WHERE user_id = $1 AND uuid = $2`,
+      [userId, row.uuid],
+    );
+
+    if (known.length === 0) {
+      // Never seen this session. The day is the only thing that can collide,
+      // and LEAST/GREATEST widening keeps two devices recording the same day
+      // convergent whatever order they arrive in.
+      await client.query(
+        `INSERT INTO reading_sessions (user_id, uuid, book_id, session_date, page_start, page_end, source, client_updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (book_id, session_date, source) DO UPDATE
+            SET page_start = LEAST(reading_sessions.page_start, EXCLUDED.page_start),
+                page_end   = GREATEST(reading_sessions.page_end, EXCLUDED.page_end)`,
+        [userId, row.uuid, bookId, row.sessionDate, row.pageStart, row.pageEnd, source, row.updatedAt],
+      );
+      continue;
+    }
+
+    const existing = known[0];
+
+    // Whether the row is staying put decides the rule. A session that has not
+    // moved is the same reading day being reported again, and pages read on a
+    // day cannot be un-read — hence the widening. A session that HAS moved is
+    // an edit by the one device that owns that uuid, and its old range belongs
+    // to the day it left, so the incoming range replaces it rather than
+    // merging with a range for a different date.
+    const sameSlot =
+      existing.book_id === bookId &&
+      existing.source === source &&
+      existing.day === String(row.sessionDate).slice(0, 10);
+
+    if (sameSlot) {
+      await client.query(
+        `UPDATE reading_sessions
+            SET page_start = LEAST(page_start, $2),
+                page_end   = GREATEST(page_end, $3),
+                client_updated_at = $4
+          WHERE id = $1`,
+        [existing.id, row.pageStart, row.pageEnd, row.updatedAt],
+      );
+      continue;
+    }
+
+    // Moving. The destination day may already hold a session — from the other
+    // device, or from an earlier edit — and moving onto it would breach the day
+    // constraint just as surely as the uuid one. Fold into the occupant and
+    // drop the row that moved, so the vacated day keeps nothing and the pages
+    // are counted once.
+    const { rows: occupant } = await client.query(
+      `SELECT id FROM reading_sessions
+        WHERE user_id = $1 AND book_id = $2 AND session_date = $3 AND source = $4 AND id <> $5`,
+      [userId, bookId, row.sessionDate, source, existing.id],
+    );
+
+    if (occupant.length > 0) {
+      await client.query(
+        `UPDATE reading_sessions
+            SET page_start = LEAST(page_start, $2),
+                page_end   = GREATEST(page_end, $3),
+                client_updated_at = $4
+          WHERE id = $1`,
+        [occupant[0].id, row.pageStart, row.pageEnd, row.updatedAt],
+      );
+      await client.query('DELETE FROM reading_sessions WHERE id = $1', [existing.id]);
+      continue;
+    }
+
     await client.query(
-      `INSERT INTO reading_sessions (user_id, uuid, book_id, session_date, page_start, page_end, source, client_updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (book_id, session_date, source) DO UPDATE
-          SET page_start = LEAST(reading_sessions.page_start, EXCLUDED.page_start),
-              page_end   = GREATEST(reading_sessions.page_end, EXCLUDED.page_end)`,
-      [userId, row.uuid, bookId, row.sessionDate, row.pageStart, row.pageEnd, row.source ?? 'manual', row.updatedAt],
+      `UPDATE reading_sessions
+          SET book_id = $2, session_date = $3, page_start = $4, page_end = $5,
+              source = $6, client_updated_at = $7
+        WHERE id = $1`,
+      [existing.id, bookId, row.sessionDate, row.pageStart, row.pageEnd, source, row.updatedAt],
     );
   }
 }
