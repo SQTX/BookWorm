@@ -111,6 +111,20 @@ qt_add_qml_module(BookWorm
         # every new achievement icon has to be added here as well as dropped in
         # the folder.
         src/img/achievements/placeholder.jpg
+        src/img/achievements/library_10.png
+        src/img/achievements/library_25.png
+        src/img/achievements/library_50.png
+        src/img/achievements/library_100.png
+        src/img/achievements/library_250.png
+        src/img/achievements/library_500.png
+        src/img/achievements/library_1000.png
+        src/img/achievements/read_1.png
+        src/img/achievements/read_5.png
+        src/img/achievements/read_10.png
+        src/img/achievements/read_25.png
+        src/img/achievements/read_50.png
+        src/img/achievements/read_100.png
+        src/img/achievements/read_250.png
         src/sound/achievement-unlocked.mp3
 )
 
