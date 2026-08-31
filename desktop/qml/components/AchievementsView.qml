@@ -25,6 +25,13 @@ Item {
         root.allEntries = achievements.entries();
     }
 
+    /** ISO timestamp to "YYYY-MM-DD HH:MM". Seconds are noise at this size. */
+    function stamp(iso) {
+        if (!iso)
+            return "";
+        return iso.substring(0, 16).replace("T", " ");
+    }
+
     function visibleEntries() {
         if (root.filter === "unlocked")
             return root.allEntries.filter(function(e) { return e.unlocked; });
@@ -243,16 +250,54 @@ Item {
                                 }
                             }
 
-                            Text {
+                            // Earned when, and whether the notification for it
+                            // has actually run. The two are not the same
+                            // question: a book finished on the phone is earned
+                            // while this application is closed, so an unlock can
+                            // sit here waiting to be announced.
+                            RowLayout {
                                 Layout.fillWidth: true
                                 visible: modelData.unlocked
-                                text: modelData.unlockedAt !== ""
-                                      ? Theme.tr("Unlocked") + " "
-                                        + modelData.unlockedAt.substring(0, 10)
-                                      : Theme.tr("Unlocked")
-                                color: Theme.primary
-                                font.pixelSize: Theme.fontSizeSection
-                                elide: Text.ElideRight
+                                spacing: Theme.spacingSmall
+
+                                Text {
+                                    text: modelData.unlockedAt !== ""
+                                          ? Theme.tr("Unlocked") + " "
+                                            + root.stamp(modelData.unlockedAt)
+                                          : Theme.tr("Unlocked")
+                                    color: Theme.primary
+                                    font.pixelSize: Theme.fontSizeSection
+                                    elide: Text.ElideRight
+                                }
+
+                                Rectangle {
+                                    visible: modelData.pending
+                                    Layout.preferredWidth: newLabel.width + 10
+                                    Layout.preferredHeight: 15
+                                    radius: Theme.radiusPill
+                                    color: Theme.primary
+
+                                    Text {
+                                        id: newLabel
+                                        anchors.centerIn: parent
+                                        text: Theme.tr("NEW")
+                                        color: Theme.textOnPrimary
+                                        font.pixelSize: 9
+                                        font.bold: true
+                                        font.letterSpacing: 0.5
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: !modelData.pending && modelData.shownAt !== ""
+                                    text: Theme.tr("shown") + " " + root.stamp(modelData.shownAt)
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Theme.fontSizeSection
+                                    elide: Text.ElideRight
+                                }
+
+                                Item { Layout.fillWidth: modelData.pending }
                             }
                         }
                     }

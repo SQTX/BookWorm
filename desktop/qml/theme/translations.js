@@ -439,6 +439,8 @@ var _pl = {
     "unlocked": "zdobytych",
     "Unlocked": "Zdobyte",
     "Locked": "Zablokowane",
+    "NEW": "NOWE",
+    "shown": "pokazane",
     // "All" is already defined above, for the statistics year filter.
     "Nothing unlocked yet": "Nic jeszcze nie zdobyte",
     "Everything is unlocked": "Wszystko zdobyte",

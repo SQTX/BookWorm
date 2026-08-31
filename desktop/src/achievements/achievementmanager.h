@@ -15,6 +15,18 @@
  * the unlock is a row in the database, written the first time the threshold is
  * met and never written again. Everything else here follows from that.
  *
+ * Earning and announcing are separate, and the row records both times. Being
+ * earned is a fact about the library; being announced is a fact about this
+ * screen, and the two come apart constantly — a book finished on the phone is
+ * earned while the desktop is closed, and there is nobody here to tell. So an
+ * unlock is written with no shown time, and everything still unannounced is
+ * presented at the next opportunity, oldest first. Three things fall out of
+ * that, all of them wanted: a backlog earned elsewhere arrives in the order it
+ * was earned rather than all at once in catalogue order; an application killed
+ * mid-notification has not consumed it, so it appears next launch instead of
+ * being lost; and "has the user actually seen this" becomes a question the
+ * database can answer.
+ *
  * Nothing is ever taken away. Deleting a book can drop the library count back
  * below a threshold, and the achievement stays: it was earned, and quietly
  * retracting it would be a worse answer than a count that no longer matches.
@@ -51,12 +63,13 @@ public:
     Q_INVOKABLE QVariantList entries() const;
 
     /**
-     * Re-measure, and announce anything newly earned.
+     * Re-measure, record anything newly earned, then announce the backlog.
      *
      * Cheap enough to call on every change to the library — it is a handful of
      * aggregate queries — and that is how it is wired, because an achievement
      * that arrives on the next launch instead of at the moment it was earned
-     * has missed its only job.
+     * has missed its only job. Also called once at startup, which is what
+     * collects whatever was earned while this machine was not running.
      */
     Q_INVOKABLE void recheck();
 
@@ -86,6 +99,24 @@ private:
     void ensureSchema();
     void loadUnlocked();
 
+    /**
+     * Emit every unlock that has not been shown yet, oldest first, and mark
+     * them shown.
+     *
+     * Ordered by when it was earned, then by catalogue order to break a tie —
+     * several achievements detected in one pass share a timestamp, and within
+     * a family the catalogue is already in ascending order, so ten books
+     * announces after five rather than beside it.
+     *
+     * The honest limit: `unlocked_at` is when *this machine first noticed*, not
+     * when the reading happened. Achievements are computed from the library's
+     * current state, and a state does not remember the order it was reached in,
+     * so a backlog earned on the phone across a week arrives stamped with the
+     * moment the desktop caught up. The order within it is the best the data
+     * supports.
+     */
+    void announcePending();
+
     /** Current value of every metric, from one pass of aggregate queries. */
     QHash<BookWorm::Achievements::Metric, int> measure() const;
 
@@ -101,9 +132,18 @@ private:
      */
     void seedSilently();
 
-    /** Record an unlock. @returns false when it was already recorded. */
-    bool persist(const QString &key);
+    /**
+     * Record an unlock. @returns false when it was already recorded.
+     *
+     * @param alreadySeen stamps the shown time too, which suppresses the
+     *   notification. Only seeding wants that.
+     */
+    bool persist(const QString &key, bool alreadySeen = false);
 
-    /** key → when it was unlocked. */
-    QHash<QString, QString> m_unlocked;
+    struct Record {
+        QString unlockedAt;   ///< ISO 8601. When this machine first saw it earned.
+        QString shownAt;      ///< ISO 8601, empty while it is still waiting to be shown.
+    };
+
+    QHash<QString, Record> m_unlocked;
 };

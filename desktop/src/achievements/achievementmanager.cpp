@@ -56,6 +56,38 @@ void AchievementManager::ensureSchema()
             ")"))) {
         qWarning() << "achievements: cannot create table:" << q.lastError().text();
     }
+
+    // NULL means earned but not yet put in front of the user.
+    //
+    // Whether the column already exists is asked explicitly rather than handled
+    // with ADD COLUMN IF NOT EXISTS, because the backfill below must run once —
+    // at the moment of the upgrade — and never again. An earlier attempt used a
+    // time window instead ("anything older than an hour was surely already
+    // shown"), which is wrong in the one case this feature exists for: an
+    // achievement earned on the phone yesterday is a genuine backlog, and the
+    // window silently ate it. A test caught it doing exactly that.
+    const bool hasShownAt = q.exec(QStringLiteral(
+            "SELECT 1 FROM information_schema.columns "
+            " WHERE table_name = 'achievements_unlocked' AND column_name = 'shown_at'"))
+        && q.next();
+
+    if (hasShownAt)
+        return;
+
+    if (!q.exec(QStringLiteral(
+            "ALTER TABLE achievements_unlocked "
+            "  ADD COLUMN shown_at TIMESTAMP WITH TIME ZONE"))) {
+        qWarning() << "achievements: cannot add shown_at:" << q.lastError().text();
+        return;
+    }
+
+    // Every row that existed before this column did was announced under the old
+    // rule, which showed it and recorded nothing. Marking them seen is the only
+    // reading that does not replay years of history at the next launch.
+    if (!q.exec(QStringLiteral(
+            "UPDATE achievements_unlocked SET shown_at = unlocked_at WHERE shown_at IS NULL"))) {
+        qWarning() << "achievements: cannot backfill shown_at:" << q.lastError().text();
+    }
 }
 
 void AchievementManager::loadUnlocked()
@@ -63,13 +95,20 @@ void AchievementManager::loadUnlocked()
     m_unlocked.clear();
 
     QSqlQuery q(DatabaseManager::instance().database());
-    if (!q.exec(QStringLiteral("SELECT key, unlocked_at FROM achievements_unlocked"))) {
+    if (!q.exec(QStringLiteral("SELECT key, unlocked_at, shown_at FROM achievements_unlocked"))) {
         qWarning() << "achievements: cannot read unlocks:" << q.lastError().text();
         return;
     }
 
-    while (q.next())
-        m_unlocked.insert(q.value(0).toString(), q.value(1).toDateTime().toString(Qt::ISODate));
+    while (q.next()) {
+        Record record;
+        record.unlockedAt = q.value(1).toDateTime().toString(Qt::ISODate);
+        // Null stays an empty string rather than becoming an epoch date, so
+        // "never shown" is distinguishable from "shown in 1970".
+        if (!q.value(2).isNull())
+            record.shownAt = q.value(2).toDateTime().toString(Qt::ISODate);
+        m_unlocked.insert(q.value(0).toString(), record);
+    }
 }
 
 QHash<Metric, int> AchievementManager::measure() const
@@ -145,12 +184,16 @@ QHash<Metric, int> AchievementManager::measure() const
     return values;
 }
 
-bool AchievementManager::persist(const QString &key)
+bool AchievementManager::persist(const QString &key, bool alreadySeen)
 {
     QSqlQuery q(DatabaseManager::instance().database());
-    q.prepare(QStringLiteral(
-        "INSERT INTO achievements_unlocked (key) VALUES (:key) "
-        "ON CONFLICT (key) DO NOTHING"));
+    q.prepare(alreadySeen
+        ? QStringLiteral(
+              "INSERT INTO achievements_unlocked (key, shown_at) VALUES (:key, NOW()) "
+              "ON CONFLICT (key) DO NOTHING")
+        : QStringLiteral(
+              "INSERT INTO achievements_unlocked (key) VALUES (:key) "
+              "ON CONFLICT (key) DO NOTHING"));
     q.bindValue(QStringLiteral(":key"), key);
 
     if (!q.exec()) {
@@ -172,11 +215,13 @@ void AchievementManager::seedSilently()
     for (const Definition &def : BookWorm::Achievements::catalog()) {
         if (values.value(def.metric) < def.threshold)
             continue;
-        if (persist(def.key))
+        // Stamped as shown: these are history, not events, and announcing them
+        // is the thing this whole function exists to avoid.
+        if (persist(def.key, /*alreadySeen=*/true))
             ++seeded;
     }
 
-    persist(SEED_MARKER);
+    persist(SEED_MARKER, /*alreadySeen=*/true);
     loadUnlocked();
 
     if (seeded > 0)
@@ -189,7 +234,7 @@ void AchievementManager::recheck()
 {
     const QHash<Metric, int> values = measure();
 
-    QVector<const Definition *> fresh;
+    int fresh = 0;
     for (const Definition &def : BookWorm::Achievements::catalog()) {
         if (m_unlocked.contains(def.key))
             continue;
@@ -198,20 +243,76 @@ void AchievementManager::recheck()
         // persist() decides, not the in-memory set: it is the write that says
         // this is the first time, and it says so atomically.
         if (persist(def.key))
-            fresh.append(&def);
+            ++fresh;
     }
 
-    if (fresh.isEmpty())
+    if (fresh > 0) {
+        loadUnlocked();
+        emit changed();
+    }
+
+    // Unconditionally, even when nothing new was found. What is waiting to be
+    // shown is not the same question as what was just earned: a backlog from
+    // the phone was recorded by an earlier pass, and a notification interrupted
+    // by a crash was never consumed. Both are still owed to the user.
+    announcePending();
+}
+
+void AchievementManager::announcePending()
+{
+    QSqlQuery q(DatabaseManager::instance().database());
+    if (!q.exec(QStringLiteral(
+            "SELECT key FROM achievements_unlocked "
+            " WHERE shown_at IS NULL ORDER BY unlocked_at, key"))) {
+        qWarning() << "achievements: cannot read the backlog:" << q.lastError().text();
         return;
+    }
+
+    QStringList pending;
+    while (q.next())
+        pending.append(q.value(0).toString());
+
+    if (pending.isEmpty())
+        return;
+
+    // Catalogue order breaks a tie, and the ties are the common case: several
+    // achievements detected in one pass share a timestamp to the microsecond.
+    // Within a family the catalogue ascends, so ten books follows five instead
+    // of landing beside it in whatever order the key sorted.
+    const QVector<Definition> &all = BookWorm::Achievements::catalog();
+    QVector<const Definition *> ordered;
+    for (const QString &key : pending) {
+        for (const Definition &def : all) {
+            if (def.key == key) {
+                ordered.append(&def);
+                break;
+            }
+        }
+        // A key with no definition is the seed marker, or an achievement
+        // retired from a later build. Skipped, and still marked shown below, so
+        // it cannot sit in the backlog for ever.
+    }
+
+    QSqlQuery mark(DatabaseManager::instance().database());
+    mark.prepare(QStringLiteral(
+        "UPDATE achievements_unlocked SET shown_at = NOW() WHERE shown_at IS NULL"));
+    if (!mark.exec()) {
+        // Not shown at all rather than shown and forgotten. Emitting first and
+        // failing to record it would replay the same notifications at every
+        // launch, which is worse than showing them one launch late.
+        qWarning() << "achievements: cannot mark as shown, holding them back:"
+                   << mark.lastError().text();
+        return;
+    }
 
     loadUnlocked();
     emit changed();
 
-    for (const Definition *def : fresh) {
+    for (const Definition *def : ordered) {
         // Logged as well as shown. A notification is gone in four seconds, so
-        // when somebody asks whether one actually fired, the panel is not
+        // when somebody asks whether one actually fired, the panel is no longer
         // available to be asked.
-        qInfo() << "achievements: unlocked" << def->key;
+        qInfo() << "achievements: showing" << def->key;
         emit unlocked(def->key, def->title, def->description, def->icon);
     }
 }
@@ -237,6 +338,7 @@ QVariantList AchievementManager::entries() const
     for (const Definition &def : BookWorm::Achievements::catalog()) {
         const int current = values.value(def.metric);
         const bool isUnlocked = m_unlocked.contains(def.key);
+        const Record record = m_unlocked.value(def.key);
 
         QVariantMap row;
         row[QStringLiteral("key")] = def.key;
@@ -244,7 +346,11 @@ QVariantList AchievementManager::entries() const
         row[QStringLiteral("description")] = def.description;
         row[QStringLiteral("icon")] = def.icon;
         row[QStringLiteral("unlocked")] = isUnlocked;
-        row[QStringLiteral("unlockedAt")] = m_unlocked.value(def.key);
+        row[QStringLiteral("unlockedAt")] = record.unlockedAt;
+        row[QStringLiteral("shownAt")] = record.shownAt;
+        // Earned, but the notification for it has not run yet — the state a
+        // backlog from another device sits in until this application opens.
+        row[QStringLiteral("pending")] = isUnlocked && record.shownAt.isEmpty();
         // Clamped, and reported as earned once it is earned: a book deleted
         // after the fact must not show a completed achievement at 80%.
         row[QStringLiteral("current")] = isUnlocked ? qMax(current, def.threshold) : current;
