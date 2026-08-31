@@ -431,10 +431,6 @@ var _pl = {
     // this is its Polish half. A title added there without a line here shows in
     // English rather than breaking, which is the intended failure.
     "Achievements": "Osiągnięcia",
-    // Scaffolding — removed together with AchievementManager::demoUnlock().
-    "Test Achievement": "Osiągnięcie testowe",
-    "Fires every time this page opens — for testing the panel":
-        "Uruchamia się przy każdym otwarciu tej strony — do testów panelu",
     "Achievement unlocked": "Osiągnięcie zdobyte",
     "unlocked": "zdobytych",
     "Unlocked": "Zdobyte",

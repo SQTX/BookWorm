@@ -40,12 +40,7 @@ Item {
         return root.allEntries;
     }
 
-    Component.onCompleted: {
-        root.reload();
-        // TEMPORARY — see AchievementManager::demoUnlock(). Delete this line and
-        // that method to stop the test notification.
-        achievements.demoUnlock();
-    }
+    Component.onCompleted: root.reload()
 
     // Finishing a book unlocks things; so does adding one. The list has to
     // agree with the notification that just appeared over it.
