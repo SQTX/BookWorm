@@ -30,9 +30,21 @@ HTTP layer so no call site has to.
 
 **Refresh tokens rotate.** Every refresh returns a new one and invalidates the
 old. Presenting a refresh token that has already been used is treated as theft,
-not as a mistake: every session for that account is revoked. A client that
-retries a failed refresh with the same token will therefore log itself out — the
-retry must use whatever the last successful call returned, or nothing.
+not as a mistake: every session for that account is revoked.
+
+**With one exception, because a rotation is not complete until the client has
+the reply.** For 60 seconds after a rotation, presenting the previous token
+again succeeds and returns a fresh pair — provided the successor has never been
+presented by anyone. That is the signature of a reply that was lost rather than
+a token that was stolen: nothing can be holding a token nobody has ever used. If
+the successor *has* been used, the live client has demonstrably moved on and the
+old token is a replay, so every session goes. A logged-out token is never
+recoverable: logout revokes without replacing, and there is no successor to
+vouch for it.
+
+So a retry is safe within the window and fatal outside it. A client should still
+prefer whatever the last successful call returned — but losing a reply at
+shutdown no longer costs the user their session.
 
 `GET /` returns `{api, version, userId}` and is a cheap way to confirm a token
 still works.
@@ -237,6 +249,13 @@ that situation must ask the user which side wins rather than guess.
 One row per book per day per source, merged by the server with
 `LEAST`/`GREATEST` on the page range. Sending the same day twice is safe and
 order-independent; a client never needs to check for an existing row first.
+
+A session may also be **moved**: resend it with the same `uuid` and a different
+`sessionDate`, and the row follows rather than being duplicated. Because that
+session's earlier page range belonged to the day it left, a move replaces the
+range instead of widening it — the widening rule applies to a day being reported
+again, not to an edit. If the destination day already holds a session, the two
+fold into one and the vacated day keeps nothing, so no page is counted twice.
 
 ---
 
