@@ -57,3 +57,7 @@ ios/**/.build/
 
 # SwiftPM writes here; `build/` above does not match a dotted directory.
 ios/**/.build/
+
+# Claude Code keeps per-session git worktrees here; the directory is an accident of
+# tooling, not part of the project, and `git add -A` must not sweep it in.
+.claude/worktrees/
