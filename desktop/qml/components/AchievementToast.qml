@@ -122,15 +122,27 @@ Item {
         ScriptAction { script: root.next() }
     }
 
-    Rectangle {
+    /**
+     * Two rounded rectangles, not a rectangle with a border and a bar on top.
+     *
+     * The accent plate is the full panel; the surface sits on it inset by one
+     * pixel on three sides and by the rail's width on the left. What shows
+     * around the edge is therefore a hairline accent that thickens into a rail
+     * — one shape, so the rounding can only ever agree with itself.
+     *
+     * The obvious construction is a bordered panel with a narrow Rectangle
+     * anchored down the left, and it is wrong: a Rectangle clamps its radius to
+     * half its shorter side, so a four-pixel rail cannot round to the panel's
+     * twelve and its square corners jut out past them. Setting `radius: 12` on
+     * the rail does not fix it — it silently becomes 2.
+     */
+    readonly property int railWidth: 4
+
+    Item {
         id: panel
         x: root.slideOffset
         width: root.panelWidth
         height: root.panelHeight
-        radius: Theme.radiusCard
-        color: Theme.surface
-        border.width: 1
-        border.color: Theme.primary
         opacity: 0
 
         layer.enabled: true
@@ -141,26 +153,28 @@ Item {
             shadowVerticalOffset: 6
         }
 
-        // The accent edge. Reads as "this is a reward" at a glance, before any
-        // of the text has been read.
+        // The accent, read as "this is a reward" before any of the text is.
         Rectangle {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 4
+            anchors.fill: parent
+            radius: Theme.radiusCard
             color: Theme.primary
-            // Square on the inside, round on the outside, matching the panel.
-            Rectangle {
-                anchors.right: parent.right
-                width: parent.width / 2
-                height: parent.height
-                color: Theme.primary
-            }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.leftMargin: root.railWidth
+            anchors.topMargin: 1
+            anchors.rightMargin: 1
+            anchors.bottomMargin: 1
+            // One less than the plate's, so the two curves stay concentric
+            // rather than the inner one bulging through the outer.
+            radius: Theme.radiusCard - 1
+            color: Theme.surface
         }
 
         Row {
             anchors.fill: parent
-            anchors.leftMargin: Theme.cardPadding + 4
+            anchors.leftMargin: Theme.cardPadding + root.railWidth
             anchors.rightMargin: Theme.cardPadding
             anchors.topMargin: Theme.cardPadding
             anchors.bottomMargin: Theme.cardPadding

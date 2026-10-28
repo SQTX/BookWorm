@@ -424,6 +424,43 @@ var _pl = {
     "Version": "Wersja",
     "All rights reserved.": "Wszystkie prawa zastrzeżone.",
 
+    // ── Lending ──
+    "Lending": "Wypożyczenia",
+    "Lent out": "Wypożyczone",
+    "lent out": "wypożyczonych",
+    "Borrowed": "Pożyczone",
+    "borrowed": "pożyczonych",
+    "Returned": "Zwrócone",
+    "Direction": "Kierunek",
+    "I lent it out": "Pożyczyłem komuś",
+    "I borrowed it": "Pożyczyłem od kogoś",
+    "Who has it": "Kto ma",
+    "Whose is it": "Czyja jest",
+    "Name": "Imię",
+    "Anything worth remembering": "Cokolwiek warto zapamiętać",
+    "optional": "opcjonalne",
+    "Lend or borrow…": "Pożycz…",
+    "Mark as returned": "Oznacz jako zwróconą",
+    "Already on loan": "Już wypożyczona",
+    "This book is already recorded as being with somebody.":
+        "Ta książka jest już zapisana jako będąca u kogoś.",
+    "Books somebody else has right now": "Książki, które ktoś teraz ma",
+    "Books here that belong to somebody else": "Książki u Ciebie, które należą do kogoś innego",
+    "Loans that have come back": "Wypożyczenia, które wróciły",
+    "Nothing is out on loan": "Nic nie jest wypożyczone",
+    "Right-click a book, or open it, to record that it changed hands.":
+        "Kliknij książkę prawym przyciskiem albo otwórz ją, by zapisać, że zmieniła właściciela.",
+    "Nothing here": "Nic tutaj",
+    "Show history": "Pokaż historię",
+    "Hide history": "Ukryj historię",
+    "This book has never left the shelf.": "Ta książka nigdy nie opuściła półki.",
+    "With": "U",
+    "with": "u",
+    "from": "od",
+    "Borrowed from": "Pożyczona od",
+    "since": "od",
+    // "days" is already defined above, for the challenge countdown.
+
     // ── Achievements ──
     //
     // The titles and descriptions are the same strings the C++ catalogue holds
@@ -435,6 +472,8 @@ var _pl = {
     "unlocked": "zdobytych",
     "Unlocked": "Zdobyte",
     "Locked": "Zablokowane",
+    "NEW": "NOWE",
+    "shown": "pokazane",
     // "All" is already defined above, for the statistics year filter.
     "Nothing unlocked yet": "Nic jeszcze nie zdobyte",
     "Everything is unlocked": "Wszystko zdobyte",
@@ -453,6 +492,8 @@ var _pl = {
     "Two hundred and fifty books in your library": "Dwieście pięćdziesiąt książek w bibliotece",
     "You Need Another Room": "Potrzebujesz kolejnego pokoju",
     "Five hundred books in your library": "Pięćset książek w bibliotece",
+    "Load-Bearing": "Ściana nośna",
+    "A thousand books in your library": "Tysiąc książek w bibliotece",
 
     "The First One": "Pierwsza",
     "Finish your first book": "Skończ pierwszą książkę",
@@ -468,6 +509,12 @@ var _pl = {
     "Finish a hundred books": "Skończ sto książek",
     "Bookworm": "Mól książkowy",
     "Finish two hundred and fifty books": "Skończ dwieście pięćdziesiąt książek",
+    "Half a Thousand": "Pół tysiąca",
+    "Finish five hundred books": "Skończ pięćset książek",
+    "A Life in Books": "Życie w książkach",
+    "Finish a thousand books": "Skończ tysiąc książek",
+    "Statistically Improbable": "Statystycznie nieprawdopodobne",
+    "Finish ten thousand books": "Skończ dziesięć tysięcy książek",
 
     "A Book a Month": "Książka na miesiąc",
     "Finish twelve books in one year": "Skończ dwanaście książek w jednym roku",

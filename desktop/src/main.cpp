@@ -18,6 +18,7 @@
 #include "controllers/bookcontroller.h"
 #include "statistics/statisticsprovider.h"
 #include "achievements/achievementmanager.h"
+#include "loans/loanmanager.h"
 #include "backup/backupmanager.h"
 #include "sync/keychain.h"
 #include "sync/syncmanager.h"
@@ -181,6 +182,7 @@ int main(int argc, char *argv[])
     BackupManager backupManager;
     SyncManager syncManager;
     AchievementManager achievementManager;
+    LoanManager loanManager;
 
     bookController.loadBooks();
     statsProvider.refresh();
@@ -230,6 +232,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("backupManager", &backupManager);
     engine.rootContext()->setContextProperty("syncManager", &syncManager);
     engine.rootContext()->setContextProperty("achievements", &achievementManager);
+    engine.rootContext()->setContextProperty("loans", &loanManager);
 
     using namespace Qt::StringLiterals;
     const QUrl url(u"qrc:/qt/qml/BookWorm/qml/Main.qml"_s);
