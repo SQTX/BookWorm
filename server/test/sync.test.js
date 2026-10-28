@@ -261,6 +261,87 @@ describe('sync', { skip: DATABASE_URL ? false : 'TEST_DATABASE_URL not set' }, (
       );
       assert.equal(rows[0].count, '1');
     });
+
+    test('moving a session to another day does not collide with its own uuid', async () => {
+      const book = bookRow({ title: 'Rescheduled' });
+      await push({ books: [book] });
+
+      const uuid = randomUUID();
+      const session = (sessionDate) => ({
+        uuid,
+        bookUuid: book.uuid,
+        sessionDate,
+        pageStart: 0,
+        pageEnd: 30,
+        source: 'manual',
+        updatedAt: new Date().toISOString(),
+      });
+
+      await push({ readingSessions: [session('2026-08-03')] });
+
+      // The user corrected the date on the desktop. The row keeps its uuid, so
+      // the day-based conflict target does not fire — but the uuid is unique
+      // too, and an INSERT that ignores that aborts the whole transaction. That
+      // failure is not recoverable by retrying: the client resends the same
+      // batch every two minutes and every push after it fails as well, which is
+      // exactly what happened in the field.
+      const moved = await push({ readingSessions: [session('2026-08-04')] });
+      assert.equal(moved.statusCode, 200, moved.body);
+
+      const { rows } = await pool.query(
+        `SELECT to_char(s.session_date, 'YYYY-MM-DD') AS day
+           FROM reading_sessions s JOIN books b ON b.id = s.book_id
+          WHERE b.uuid = $1`,
+        [book.uuid],
+      );
+      assert.equal(rows.length, 1, 'the session moved rather than being duplicated');
+      assert.equal(rows[0].day, '2026-08-04');
+    });
+
+    test('a moved session still merges with a day that already has one', async () => {
+      const book = bookRow({ title: 'Merged on arrival' });
+      await push({ books: [book] });
+
+      const stay = randomUUID();
+      const move = randomUUID();
+      const at = new Date().toISOString();
+
+      await push({
+        readingSessions: [
+          { uuid: stay, bookUuid: book.uuid, sessionDate: '2026-08-05', pageStart: 10, pageEnd: 40, source: 'manual', updatedAt: at },
+          { uuid: move, bookUuid: book.uuid, sessionDate: '2026-08-06', pageStart: 60, pageEnd: 90, source: 'manual', updatedAt: at },
+        ],
+      });
+
+      // Both constraints are in play at once: the uuid already exists on
+      // another day, and the day it is moving to already holds a session. The
+      // pages must survive the collision rather than one row overwriting the
+      // other.
+      const moved = await push({
+        readingSessions: [
+          { uuid: move, bookUuid: book.uuid, sessionDate: '2026-08-05', pageStart: 60, pageEnd: 90, source: 'manual', updatedAt: at },
+        ],
+      });
+      assert.equal(moved.statusCode, 200, moved.body);
+
+      const { rows } = await pool.query(
+        `SELECT page_start, page_end FROM reading_sessions s JOIN books b ON b.id = s.book_id
+          WHERE b.uuid = $1 AND s.session_date = $2`,
+        [book.uuid, '2026-08-05'],
+      );
+      assert.equal(rows.length, 1, 'one session per book per day per source');
+      assert.equal(rows[0].page_start, 10);
+      assert.equal(rows[0].page_end, 90);
+
+      // The day it left must not keep a copy. Merging into the target while
+      // leaving the original behind would double the pages the statistics
+      // count, which is worse than the error it replaced.
+      const all = await pool.query(
+        `SELECT count(*) FROM reading_sessions s JOIN books b ON b.id = s.book_id WHERE b.uuid = $1`,
+        [book.uuid],
+      );
+      assert.equal(all.rows[0].count, '1', 'the vacated day is not left behind');
+    });
   });
 
   test('books and their tags in one batch do not collide', async () => {

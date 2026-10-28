@@ -46,6 +46,7 @@ guide begins from exactly that state.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the three parts fit together, and the eight rules that keep them honest |
 | [docs/API.md](docs/API.md) | The HTTP contract, written so a client can be built without reading the server |
 | [docs/INSTALL-DESKTOP.md](docs/INSTALL-DESKTOP.md) | Desktop install, and the Qt PostgreSQL driver step that is easy to miss |
+| [docs/achievements.md](docs/achievements.md) | Every achievement, its rule and its target — generated from the catalogue, so it cannot drift |
 | [docs/INSTALL-FULL.md](docs/INSTALL-FULL.md) | Server, sync and the iPhone app |
 | [server/deploy/RUNBOOK.md](server/deploy/RUNBOOK.md) | Provisioning, upgrading and operating the VPS |
 | [ios/README.md](ios/README.md) | Building and signing the iPhone app from a clean checkout |
@@ -54,7 +55,7 @@ guide begins from exactly that state.
 
 **Library**
 
-- **Five views**: Library (card grid), Table (spreadsheet), Statistics, Challenges, Series.
+- **Seven views**: Library (card grid), Table (spreadsheet), Statistics, Challenges, Series, Achievements, Lending.
 - **Book CRUD** with cover images, ratings, genres, tags, series, ISBN, publisher.
 - **Item types**: book, article, newspaper, magazine, comic, manga, thesis, workbook, other.
 - **Reading progress** with a per-book progress bar, and a priority flag that pins a book to the top.
@@ -64,6 +65,8 @@ guide begins from exactly that state.
 - **Reading challenges** by books, pages, or pages per day, over a period or to a date.
 - **Statistics**: totals, averages, genre distribution, year-on-year charts, streaks, a pages-per-day chart, weekday distribution, completion projections and an activity heatmap.
 - **Reading sessions**, recorded automatically whenever progress moves — this is what the streaks and the heatmap are built from.
+- **Achievements**: 39 across ten metrics — library size, books and pages read, series completed, genres, streaks, rereads, ratings, notes. A panel slides in when one is earned; a page lists them all, the locked ones with a progress bar. Earned on this machine, never taken away, never synced — both clients read the same library and reach the same result.
+- **Lending**: who has your books, and whose you have. A name, a date and a note; a book that is out wears its holder's name on its card, and the Lending tab lists everything out, longest first.
 - **Undo delete**, **CSV import/export**, **three themes**, **English/Polish** with system detection.
 
 **Backup**

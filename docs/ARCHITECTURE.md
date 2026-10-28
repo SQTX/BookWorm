@@ -72,6 +72,18 @@ User → QML signal → BookController (Q_INVOKABLE) → DatabaseManager → Pos
 - **SyncManager** — everything network. Off unless configured.
 - **BackupManager** — `pg_dump` + covers + manifest, zipped and verified before
   it reaches the destination.
+- **AchievementManager** — 39 definitions as data, each a metric and a target,
+  re-measured whenever the library changes. Earning and announcing are
+  separate columns, because they come apart: a book finished on the phone is
+  earned while the desktop is closed, and announced oldest-first at the next
+  launch. Local and never synced — both clients read the same library and
+  reach the same result, so there is nothing to carry.
+- **LoanManager** — who has which book, in either direction. A loan is a row
+  with two dates; one book cannot be in two places, enforced by a partial
+  unique index rather than by C++. Not a book status: a lent book is still
+  read, or still being read. Local, and for a different reason than
+  achievements — a loan is primary data that exists nowhere else, and the ZIP
+  backup is what makes keeping it on one machine safe.
 
 ### Sync on the desktop, in order
 
@@ -233,8 +245,14 @@ shows an Activity list in Settings.
 books ──┬── book_tags ── tags
         ├── favorite_quotes
         ├── highlights
-        └── reading_sessions        challenges (independent)
+        ├── reading_sessions        challenges (independent)
+        └── book_loans              achievements_unlocked (desktop only)
 ```
+
+`book_loans` and `achievements_unlocked` exist only in the desktop database and
+never cross the wire: the first because the phone has nowhere to show it, the
+second because it is recomputable from the library and each client does so on
+its own.
 
 Book fields: `title`, `author`, `genre`, `pageCount`, `startDate`, `endDate`,
 `rating` (1–6), `status` (`reading` | `read` | `planned` | `abandoned`),

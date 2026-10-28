@@ -1,11 +1,13 @@
 #pragma once
 
+#include <QDateTime>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QString>
 
 #include <functional>
+#include <vector>
 
 /**
  * HTTP client for the BookWorm API.
@@ -55,20 +57,40 @@ public:
     /** Forget the tokens locally and tell the server to revoke the session. */
     void logOut(Callback done = nullptr);
 
-    /** Load tokens saved by a previous run. @returns false when there are none. */
-    bool restoreSession(const QString &email);
-
     /** Take tokens read elsewhere — the Keychain is read off the main thread. */
     void adoptTokens(const QString &access, const QString &refresh);
 
-    bool hasSession() const { return !m_accessToken.isEmpty(); }
+    /**
+     * A session exists while a refresh token does.
+     *
+     * Not "while an access token does": that one lives fifteen minutes and is
+     * therefore expired on nearly every launch, so asking about it answers a
+     * different question than the callers mean. What decides whether this
+     * machine can still reach the server without the user's password is the
+     * refresh token.
+     */
+    bool hasSession() const { return !m_refreshToken.isEmpty() || !m_accessToken.isEmpty(); }
     QString account() const { return m_email; }
 
     /**
-     * Authenticated request. On a 401 the access token is refreshed once and
-     * the request retried, because a fifteen-minute token expiring mid-sync is
-     * routine rather than exceptional — surfacing it to the caller would make
-     * every call site handle it.
+     * True while a token rotation is in flight.
+     *
+     * Shutdown asks, because abandoning a rotation is the one thing that can
+     * cost the user their session: the server has issued a new refresh token
+     * and this process is about to exit without having stored it.
+     */
+    bool isRefreshing() const { return m_refreshing; }
+
+    /**
+     * Authenticated request.
+     *
+     * The access token is refreshed *before* the request when it is about to
+     * expire, rather than only after a 401. Waiting for the rejection worked,
+     * but it meant every launch after a break began with a burst of failures,
+     * and each of those failures is a rotation — the operation most likely to
+     * lose a session if its reply goes missing. A 401 is still handled, for the
+     * cases prediction cannot cover: a clock that disagrees, or a token revoked
+     * on the server.
      */
     void get(const QString &path, Callback done);
     void post(const QString &path, const QJsonObject &body, Callback done);
@@ -96,21 +118,53 @@ public:
 signals:
     /** The refresh token was rejected. The user has to log in again — which
      *  also happens when the server detects a replayed token and revokes every
-     *  session, so it is not necessarily an error on this machine. */
+     *  session, so it is not necessarily an error on this machine.
+     *
+     *  Emitted only when the server actually said no. An unreachable server is
+     *  not a rejection, and treating it as one signed the user out for being
+     *  offline. */
     void sessionExpired();
 
 private:
     void send(const QByteArray &verb, const QString &path, const QJsonObject &body,
               Callback done, bool allowRetry);
-    void refreshThenRetry(const QByteArray &verb, const QString &path,
-                          const QJsonObject &body, Callback done);
+    /** Issue the request as it stands, with whatever token is currently held. */
+    void dispatch(const QByteArray &verb, const QString &path, const QJsonObject &body,
+                  Callback done, bool allowRetry);
+
+    /** True when the held access token is missing, or close enough to expiry
+     *  that a request sent now might be rejected on arrival. */
+    bool tokenNeedsRefresh() const;
+
+    /**
+     * Rotate the tokens, then run @p then with whether it worked.
+     *
+     * Every caller goes through here, and a rotation already in flight collects
+     * the later ones rather than starting its own. That matters more than it
+     * looks: two requests failing at once used to mean one refreshed and the
+     * other simply failed, and — worse — a second rotation racing the first
+     * would present a token the server had just retired, which it reads as
+     * theft and answers by revoking every session on the account.
+     */
+    void withFreshToken(std::function<void(bool)> then);
+
     void storeTokens(const QJsonObject &tokens);
     void clearTokens();
+
+    /** Forget the session here and in the Keychain.
+     *
+     *  Both, always: clearing only memory left a token the server had already
+     *  rejected sitting on disk, and every later launch presented it again. */
+    void forgetSession();
 
     QNetworkAccessManager m_network;
     QString m_baseUrl;
     QString m_email;
     QString m_accessToken;
     QString m_refreshToken;
+    /** When the held access token stops being accepted, read from its own `exp`
+     *  claim. Invalid when unknown, which falls back to the 401 path. */
+    QDateTime m_accessExpiry;
     bool m_refreshing = false;
+    std::vector<std::function<void(bool)>> m_refreshWaiters;
 };
