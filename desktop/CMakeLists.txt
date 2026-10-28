@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(BookWorm VERSION 1.0 LANGUAGES CXX)
+project(BookWorm VERSION 1.7.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -183,6 +183,8 @@ if(APPLE)
         MACOSX_BUNDLE_GUI_IDENTIFIER com.sqtx.bookworm
         MACOSX_BUNDLE_BUNDLE_NAME BookWorm
         MACOSX_BUNDLE_ICON_FILE BookWorm.icns
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     )
 
     # Re-sign the finished bundle, ad-hoc.

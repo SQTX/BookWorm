@@ -9,6 +9,122 @@ Kept from v1.5.0 onward; earlier releases are described in their
 
 ---
 
+## v1.7.0 — 2026-10-28
+
+Things to earn and books to get back — and the month in which the desktop
+refused to open three times, which is now the last such month.
+
+### Added
+
+- **🏆 Achievements.** Thirty-nine across ten metrics: library size, books read,
+  books read this year, pages, series completed, genres, longest streak,
+  rereads, ratings, notes taken. A panel slides in at the top right with
+  artwork, a title, one line and a chime; several earned by one action queue
+  and play in turn rather than stacking. A sidebar page lists all of them —
+  earned ones accented and dated, locked ones dimmed with a progress bar and an
+  `n / target` counter, because an achievement whose shape nobody can see is
+  not a goal, it is a surprise (#67).
+  - The first run seeds silently. A library of years satisfies a dozen of the
+    catalogue at once, and fifteen notifications for things done long ago is
+    not a welcome. Everything after that is a real event and is announced.
+  - Nothing is ever taken away. Deleting a book can drop a count back under a
+    threshold; the achievement stays.
+  - Earning and announcing are separate facts. A book finished on the phone
+    while the desktop is closed is earned then and announced at the next
+    launch, oldest first; an application killed mid-notification has not
+    consumed it.
+  - Local to the machine and deliberately not synced: both clients read the
+    same library and reach the same result on their own.
+  - Artwork for the shelf and books-finished families, three tiers past a
+    thousand, and a reference (`docs/achievements.md`) generated from the
+    catalogue by `desktop/tools/gen-achievement-docs.py` — which refuses on a
+    half-described entry rather than emitting a document with holes.
+- **📚 Lending.** Record a book going to somebody, or coming from somebody,
+  with a name, a date and a note — from the card's right-click menu or the
+  book's own page. A book that is out wears its holder's name on its card. The
+  Lending tab lists what is out, what is borrowed and, behind a toggle,
+  everything returned, longest-out first: with no due dates, age is the only
+  signal for "this one has probably been forgotten" (#67).
+  - One book cannot be in two places. Enforced by a partial unique index in
+    the database rather than a check in C++, so two windows cannot both slip
+    between a read and a write.
+  - Not a fifth status. A lent book is still read, or still being read, and
+    a status would have made every filter and statistic decide what lending
+    meant.
+  - Local, like achievements, but for the opposite reason: a loan is primary
+    data that exists nowhere else. The ZIP backup is what makes that safe.
+- **The application says why it did not open.** A missing PostgreSQL driver,
+  or a database that does not answer, now puts up a dialog naming the cause
+  and the one command that fixes it, in Polish or English by system locale.
+  Both used to log a line to the console and exit — from the Dock, the same
+  as not opening at all (#68).
+- `desktop/tools/build-qpsql-driver.sh` builds the Qt PostgreSQL driver in one
+  command, against whatever `qtbase` Homebrew has installed (#68).
+
+### Fixed
+
+- **🔴 The desktop stopped opening after every Homebrew Qt upgrade.** Homebrew
+  ships no PostgreSQL driver for Qt, so it is built by hand — and it was
+  stored in Qt's own plugin tree inside the Cellar, which every `brew upgrade`
+  of `qtbase` deletes. A version bump does it, and so does a bare revision bump
+  (`6.11.2` → `6.11.2_1`) with no Qt change at all: three dead launches in one
+  month. The driver now lives in the application's own data directory, which
+  nothing else touches. It links through `/opt/homebrew/opt/*` symlinks, and a
+  plugin built against Qt 6.N loads under any later 6.x, so one build lasts
+  until Qt 7 (#68).
+- **🔴 The desktop asked for the server password after a day away.** Not the
+  tokens: macOS wanted to ask whether this build may read the stored session,
+  and the application refused the question on the user's behalf, which failed
+  the read and demanded the password. The panel is allowed through — one
+  "Always Allow" settles it — every Keychain call runs on one serialised
+  worker, never the main thread, and the bundle is re-signed ad-hoc after each
+  build so there is an identity for the grant to attach to. Three token faults
+  found alongside, each able to end a session on its own: a refresh that
+  failed because the server was *unreachable* signed the user out; a rejected
+  token stayed in the Keychain and was replayed at every launch; and launch
+  fired two exchanges in the same second with the same expired token. Tokens
+  now refresh before they expire, read from the JWT's own `exp`, and a
+  rotation in flight collects further requests rather than starting a second
+  one (#66).
+- **🔴 Server: a rotation whose reply was lost was read as theft.** Refresh
+  tokens are single-use and a replay revokes every session — right, except
+  when the response carrying the new pair never arrived, which the desktop
+  hits at shutdown on a six-second deadline. `refresh_tokens.replaced_by` now
+  tells the two apart: a revoked token whose successor was never presented,
+  within sixty seconds, gets a fresh pair; one whose successor has been used
+  is a replay and everything goes. **Needs a migration** (`npm run
+  migrate:up`) (#66).
+- **🔴 Server: correcting a reading session's date wedged sync forever.** The
+  push matched on (book, day, source), but `uuid` carries its own unique
+  constraint and a statement can name only one target. A moved session hit
+  the uuid key, the transaction aborted, and the client resent the same batch
+  every two minutes — twenty minutes of it in one log. A row already known by
+  its uuid is now moved rather than inserted, its pages folded into whichever
+  day it lands on, so nothing is counted twice and the vacated day keeps
+  nothing (#65).
+- The notification's accent rail had square corners standing proud of the
+  panel's curve. A narrow `Rectangle` cannot round past half its own width,
+  whatever radius it is given; the accent is now a full-size plate with the
+  surface inset on top, one shape whose curves cannot disagree (#67).
+
+### Changed
+
+- Build paths use `/opt/homebrew/opt/*` rather than versioned Cellar
+  directories, so a Qt bump needs no edit to the build command.
+  `docs/INSTALL-DESKTOP.md` §3 is one command now, and §4 no longer asks for
+  the Qt version.
+- `docs/ARCHITECTURE.md` describes the two desktop-only tables and why neither
+  crosses the wire.
+- The macOS bundle reports the real version. `project()` had said 1.0 since
+  the first commit, so Finder's Get Info showed 1.0 for every release; it now
+  follows the project version, as the About dialog always did.
+
+### Housekeeping
+
+- `.claude/worktrees/` is ignored (#69).
+
+---
+
 ## v1.6.0 — 2026-08-12
 
 Backups you can configure with a command, and the iOS refresh that was written

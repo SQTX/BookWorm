@@ -57,55 +57,49 @@ open its database without it. The symptom is unmistakable:
 QSqlDatabase: can not load requested driver 'QPSQL', available drivers: QSQLITE
 ```
 
-Build the driver against your installed Qt:
+The repository carries a script that builds it against whatever Qt Homebrew
+has installed, so clone first:
 
 ```bash
-V=$(brew list --versions qtbase | awk '{print $2}')
-curl -fLO "https://download.qt.io/official_releases/qt/${V%.*}/$V/submodules/qtbase-everywhere-src-$V.tar.xz"
-tar xf qtbase-everywhere-src-$V.tar.xz
-/opt/homebrew/opt/qtbase/bin/qt-cmake -S qtbase-everywhere-src-$V/src/plugins/sqldrivers -B sqldrivers-build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DPostgreSQL_INCLUDE_DIR=/opt/homebrew/opt/libpq/include \
-  -DPostgreSQL_LIBRARY=/opt/homebrew/opt/libpq/lib/libpq.dylib
-cmake --build sqldrivers-build -j$(sysctl -n hw.ncpu)
-cp sqldrivers-build/share/qt/plugins/sqldrivers/libqsqlpsql.dylib \
-   /opt/homebrew/Cellar/qtbase/$V/share/qt/plugins/sqldrivers/
+git clone https://github.com/SQTX/BookWorm.git
+cd BookWorm
+desktop/tools/build-qpsql-driver.sh
 ```
 
-Before building, confirm PostgreSQL support was actually detected:
+About a minute. It downloads the matching Qt source, builds only the
+PostgreSQL plugin, refuses unless configure reports `PostgreSQL ... yes`, and
+installs the result to `~/Library/Application Support/sqtx/BookWorm/plugins/`
+— the application's own directory, which it searches at launch.
 
-```bash
-grep -i postgre sqldrivers-build/config.summary   # must say: yes
-```
-
-> **This has to be repeated after every `brew upgrade` of Qt.** An upgrade
-> removes the old Cellar directory and the hand-built driver with it, and the
-> application stops opening its database with the message above. It is not a
-> corrupted install; it is a missing file.
+> **Why there and not in Qt's plugin tree:** every `brew upgrade` of `qtbase`
+> deletes the old Cellar directory, and anything stored inside it. A version
+> bump does it, and so does a bare revision bump (`6.11.2` → `6.11.2_1`) with
+> no Qt change at all. A driver kept in Qt's tree therefore died on every
+> upgrade. In the application's own directory it survives them: it links
+> through `/opt/homebrew/opt/*` symlinks, and a plugin built against Qt 6.N
+> loads under any later 6.x. Run the script again only on a Qt major bump, or
+> if the application tells you to — a missing driver now opens a dialog
+> naming this script, instead of the app silently not opening.
 
 ---
 
 ## 4. Build
 
-```bash
-git clone https://github.com/SQTX/BookWorm.git
-cd BookWorm
-```
-
-The CMake invocation needs your Qt version in several places, so take it from
-Homebrew rather than typing it:
+The CMake invocation refers to Qt through Homebrew's `/opt/homebrew/opt/*`
+symlinks, which always point at the installed version, so there is nothing to
+substitute:
 
 ```bash
-V=$(brew list --versions qtbase | awk '{print $2}')
 mkdir -p desktop/build && cd desktop/build
 
 cmake .. \
-  -DCMAKE_PREFIX_PATH="/opt/homebrew/Cellar/qtbase/$V;/opt/homebrew/Cellar/qtdeclarative/$V;/opt/homebrew/Cellar/qtcharts/$V;/opt/homebrew/Cellar/qtshadertools/$V" \
-  -DQt6Qml_DIR="/opt/homebrew/Cellar/qtdeclarative/$V/lib/cmake/Qt6Qml" \
-  -DQt6Quick_DIR="/opt/homebrew/Cellar/qtdeclarative/$V/lib/cmake/Qt6Quick" \
-  -DQt6QuickControls2_DIR="/opt/homebrew/Cellar/qtdeclarative/$V/lib/cmake/Qt6QuickControls2" \
-  -DQt6Charts_DIR="/opt/homebrew/Cellar/qtcharts/$V/lib/cmake/Qt6Charts" \
-  -DQt6ChartsQml_DIR="/opt/homebrew/Cellar/qtcharts/$V/lib/cmake/Qt6ChartsQml" \
+  -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qtbase;/opt/homebrew/opt/qtdeclarative;/opt/homebrew/opt/qtcharts;/opt/homebrew/opt/qtshadertools;/opt/homebrew/opt/qtmultimedia" \
+  -DQt6Qml_DIR="/opt/homebrew/opt/qtdeclarative/lib/cmake/Qt6Qml" \
+  -DQt6Quick_DIR="/opt/homebrew/opt/qtdeclarative/lib/cmake/Qt6Quick" \
+  -DQt6QuickControls2_DIR="/opt/homebrew/opt/qtdeclarative/lib/cmake/Qt6QuickControls2" \
+  -DQt6Charts_DIR="/opt/homebrew/opt/qtcharts/lib/cmake/Qt6Charts" \
+  -DQt6ChartsQml_DIR="/opt/homebrew/opt/qtcharts/lib/cmake/Qt6ChartsQml" \
+  -DQt6Multimedia_DIR="/opt/homebrew/opt/qtmultimedia/lib/cmake/Qt6Multimedia" \
   -DCMAKE_BUILD_TYPE=Release -Wno-dev
 
 cmake --build . -j$(sysctl -n hw.ncpu)
@@ -182,7 +176,7 @@ Both backup and restore need PostgreSQL's own tools (`pg_dump`, `psql`,
 
 | Symptom | Cause |
 | --- | --- |
-| `can not load requested driver 'QPSQL'` | Section 3, usually after a `brew upgrade` |
+| `can not load requested driver 'QPSQL'` (the app shows this in a dialog) | Section 3 — run `desktop/tools/build-qpsql-driver.sh` |
 | CMake cannot find `Qt6ChartsQml` | `-DQt6ChartsQml_DIR` missing, or a stale build directory |
 | An icon is missing in the UI | The SVG is not listed in `qt_add_qml_module(RESOURCES …)`; a file on disk that is not listed there does not exist at runtime |
 | Odd behaviour after renaming the project directory | The CMake cache holds absolute paths — delete `desktop/build` entirely and reconfigure |
