@@ -8,6 +8,7 @@
 #include <QTextStream>
 #include <QDir>
 #include <QLibraryInfo>
+#include <QStandardPaths>
 
 #include "constants.h"
 #include "database/databasemanager.h"
@@ -91,6 +92,16 @@ int main(int argc, char *argv[])
     app.setApplicationName(BookWorm::Config::APP_NAME);
     app.setApplicationVersion(BookWorm::Config::APP_VERSION);
     app.setOrganizationName(BookWorm::Config::APP_ORG);
+
+    // The PostgreSQL driver is not shipped by Homebrew and has to be built by hand. Kept
+    // inside Qt's own plugin tree it dies with every `brew upgrade`, because the Cellar
+    // directory it lives in is deleted — three launches failed that way in one month. So
+    // the app also looks in its own data directory, which nothing but the app manages.
+    // Populated by desktop/tools/build-qpsql-driver.sh. Added after the names are set,
+    // because AppDataLocation is derived from them.
+    QCoreApplication::addLibraryPath(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+        + QStringLiteral("/plugins"));
     app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/BookWorm/src/img/png/main_icon_radius.png")));
 
     QQuickStyle::setStyle("Material");
