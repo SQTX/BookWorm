@@ -8,6 +8,10 @@
 #include <QTextStream>
 #include <QDir>
 #include <QLibraryInfo>
+#include <QStandardPaths>
+#include <QMessageBox>
+#include <QSqlDatabase>
+#include <QLocale>
 
 #include "constants.h"
 #include "database/databasemanager.h"
@@ -113,16 +117,60 @@ int main(int argc, char *argv[])
     app.setApplicationName(BookWorm::Config::APP_NAME);
     app.setApplicationVersion(BookWorm::Config::APP_VERSION);
     app.setOrganizationName(BookWorm::Config::APP_ORG);
+
+    // The PostgreSQL driver is not shipped by Homebrew and has to be built by hand. Kept
+    // inside Qt's own plugin tree it dies with every `brew upgrade`, because the Cellar
+    // directory it lives in is deleted — three launches failed that way in one month. So
+    // the app also looks in its own data directory, which nothing but the app manages.
+    // Populated by desktop/tools/build-qpsql-driver.sh. Added after the names are set,
+    // because AppDataLocation is derived from them.
+    QCoreApplication::addLibraryPath(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+        + QStringLiteral("/plugins"));
     app.setWindowIcon(QIcon(QStringLiteral(":/qt/qml/BookWorm/src/img/png/main_icon_radius.png")));
 
     QQuickStyle::setStyle("Material");
     qputenv("QT_QUICK_CONTROLS_MATERIAL_THEME", "Dark");
     qputenv("QT_QUICK_CONTROLS_MATERIAL_ACCENT", "#BB86FC");
 
+    // A failure here used to go to the console only, so from the Dock the app simply
+    // "did not open". Say what happened and what to do; the person at the keyboard is
+    // the one who has to act, and the console is not where they are looking.
+    const bool polish = QLocale::system().name().startsWith(QStringLiteral("pl"));
+    if (!QSqlDatabase::isDriverAvailable(QStringLiteral("QPSQL"))) {
+        const QString drivers = QSqlDatabase::drivers().join(QStringLiteral(", "));
+        qCritical() << "QPSQL driver not available; drivers:" << drivers;
+        QMessageBox::critical(nullptr, BookWorm::Config::APP_NAME, polish
+            ? QStringLiteral("Brak sterownika PostgreSQL (QPSQL). Qt widzi tylko: %1.\n\n"
+                             "Najczęstsza przyczyna: Homebrew zaktualizował Qt i usunął katalog, "
+                             "w którym leżał sterownik.\n\n"
+                             "Napraw w terminalu (około minuty):\n"
+                             "    desktop/tools/build-qpsql-driver.sh\n\n"
+                             "Potem uruchom aplikację ponownie.").arg(drivers)
+            : QStringLiteral("The PostgreSQL driver (QPSQL) is missing. Qt only sees: %1.\n\n"
+                             "Most likely cause: Homebrew upgraded Qt and deleted the directory "
+                             "the driver lived in.\n\n"
+                             "Fix from a terminal (about a minute):\n"
+                             "    desktop/tools/build-qpsql-driver.sh\n\n"
+                             "Then launch the app again.").arg(drivers));
+        return 1;
+    }
+
     // Database connection
     auto &db = DatabaseManager::instance();
     if (!db.connect()) {
         qCritical() << "Failed to connect to PostgreSQL database" << BookWorm::Config::dbName();
+        QMessageBox::critical(nullptr, BookWorm::Config::APP_NAME, polish
+            ? QStringLiteral("Nie udało się połączyć z bazą PostgreSQL \"%1\" na %2:%3.\n\n"
+                             "Sprawdź, czy serwer działa:\n"
+                             "    brew services start postgresql@16")
+                  .arg(BookWorm::Config::dbName(), BookWorm::Config::dbHost())
+                  .arg(BookWorm::Config::dbPort())
+            : QStringLiteral("Could not connect to the PostgreSQL database \"%1\" on %2:%3.\n\n"
+                             "Check that the server is running:\n"
+                             "    brew services start postgresql@16")
+                  .arg(BookWorm::Config::dbName(), BookWorm::Config::dbHost())
+                  .arg(BookWorm::Config::dbPort()));
         return 1;
     }
     db.initializeSchema();
